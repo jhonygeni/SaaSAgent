@@ -53,6 +53,20 @@ export const whatsappService = {
       if (!response.ok) {
         const errorData = await response.text();
         console.error(`Instance creation failed with status ${response.status}:`, errorData);
+        
+        // If instance already exists, don't treat it as an error
+        if (response.status === 409) {
+          console.log("Instance already exists, proceeding to connect");
+          return {
+            status: "success",
+            message: "Instance already exists (will connect to existing)",
+            instance: {
+              instanceName,
+              status: "exists"
+            }
+          };
+        }
+        
         throw new Error(`API responded with status ${response.status}: ${errorData}`);
       }
       
@@ -142,11 +156,22 @@ export const whatsappService = {
       }
       
       const data = await response.json();
-      console.log("QR Code retrieved successfully:", data);
+      console.log("QR Code retrieved successfully (data length):", JSON.stringify(data).length);
       
       // Check if the response contains the QR code
       if (!data.qrcode && !data.base64) {
-        console.warn("QR code response doesn't contain expected QR data:", data);
+        console.warn("QR code response doesn't contain expected QR data fields");
+        console.log("Available fields in response:", Object.keys(data));
+        
+        // Try to identify any field that might contain the QR code
+        const possibleQRFields = Object.keys(data).filter(key => 
+          typeof data[key] === 'string' && data[key].length > 100
+        );
+        
+        if (possibleQRFields.length > 0) {
+          console.log("Possible QR code fields found:", possibleQRFields);
+          data.qrcode = data[possibleQRFields[0]]; // Use the first candidate
+        }
       }
       
       return data;

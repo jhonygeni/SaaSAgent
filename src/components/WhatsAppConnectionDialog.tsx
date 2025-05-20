@@ -60,7 +60,7 @@ export function WhatsAppConnectionDialog({
         setHasInitiatedConnection(true);
         try {
           const result = await startConnection();
-          console.log("Connection started, result:", result);
+          console.log("Connection started, result:", result ? "QR code received" : "Failed to get QR code");
         } catch (error) {
           console.error("Failed to start connection:", error);
         }
@@ -100,7 +100,7 @@ export function WhatsAppConnectionDialog({
     setHasInitiatedConnection(true);
     try {
       const result = await startConnection();
-      console.log("Connection retry initiated, result:", result);
+      console.log("Connection retry initiated, result:", result ? "QR code received" : "Failed to get QR code");
     } catch (error) {
       console.error("Failed to retry connection:", error);
       toast({
@@ -176,7 +176,7 @@ export function WhatsAppConnectionDialog({
             <div className="flex flex-col items-center space-y-4 py-8">
               <Loader2 className="h-10 w-10 animate-spin text-primary" />
               <p className="text-center text-sm text-muted-foreground">
-                Initializing WhatsApp connection...
+                {connectionStatus === "waiting" ? "Creating WhatsApp instance..." : "Initializing WhatsApp connection..."}
               </p>
               {attemptCount > 0 && (
                 <p className="text-xs text-muted-foreground">Attempt {attemptCount}</p>
@@ -187,10 +187,9 @@ export function WhatsAppConnectionDialog({
           {!isLoading && connectionStatus === "waiting" && qrCodeData && (
             <div className="flex flex-col items-center space-y-4">
               <div className="bg-white p-4 rounded-lg shadow-sm">
-                <img 
-                  src={`data:image/png;base64,${qrCodeData}`}
-                  alt="WhatsApp QR Code"
-                  className="w-[200px] h-[200px]"
+                <QrCodeDisplay 
+                  value={qrCodeData}
+                  size={200}
                 />
               </div>
               <div className="flex flex-col items-center space-y-2 max-w-xs text-center">
@@ -306,7 +305,7 @@ export function WhatsAppConnectionDialog({
               <div className="text-center">
                 <p className="font-medium">Connection failed</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {connectionError || "Could not connect to WhatsApp. Please try again."}
+                  {connectionError || "Could not connect to WhatsApp API. Please try again."}
                 </p>
                 {USE_MOCK_DATA && (
                   <div className="mt-2 p-2 bg-amber-50 border border-amber-100 rounded text-xs text-amber-700">
