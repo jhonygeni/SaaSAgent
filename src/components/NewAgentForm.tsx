@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import {
   Form,
@@ -8,7 +9,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/button-extensions";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -18,7 +19,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AREAS_DE_ATUACAO, EXAMPLE_AGENT, validateAgent } from "@/lib/utils";
-import { sendAgentToWebhookWithRetry, generatePromptWithAI } from "@/lib/webhook-utils";
 import { useAgent } from "@/context/AgentContext";
 import { FAQ } from "@/types";
 import { useConnection } from "@/context/ConnectionContext";
@@ -36,8 +36,13 @@ import { AlertCircle, Plus, Trash, Info, Sparkles } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Switch } from "@/components/ui/switch";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
+import { useAgentWebhook, usePromptWebhook } from "@/hooks/use-webhook";
 
-export function NewAgentForm() {
+interface NewAgentFormProps {
+  onAgentCreated?: () => void;
+}
+
+export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
   const { currentAgent, updateAgent, addFAQ, updateFAQ, removeFAQ, resetAgent, addAgent } = useAgent();
   const { startConnection } = useConnection();
   const { toast } = useToast();
@@ -45,9 +50,22 @@ export function NewAgentForm() {
   const navigate = useNavigate();
   const { theme } = useTheme();
   const [errors, setErrors] = useState<string[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
+  
+  // Use our custom webhook hooks
+  const { 
+    sendData: sendAgentData, 
+    isLoading: isSubmitting, 
+    error: agentError,
+    retryCount: agentRetryCount
+  } = useAgentWebhook();
+  
+  const { 
+    sendData: generatePrompt, 
+    isLoading: isGeneratingPrompt, 
+    error: promptError,
+    retryCount: promptRetryCount
+  } = usePromptWebhook();
+  
   const maxRetries = 3;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -60,16 +78,8 @@ export function NewAgentForm() {
       return;
     }
     
-    setIsSubmitting(true);
-    setRetryCount(0);
-    
     try {
-      const result = await sendAgentToWebhookWithRetry(
-        currentAgent,
-        (attempt, max) => {
-          setRetryCount(attempt);
-        }
-      );
+      const result = await sendAgentData(currentAgent);
       
       if (result.success) {
         // Add agent to context
@@ -85,8 +95,10 @@ export function NewAgentForm() {
           variant: "default",
         });
         
-        // Navigate to connection page
-        navigate("/conectar");
+        // Trigger the callback to open connection dialog
+        if (onAgentCreated) {
+          onAgentCreated();
+        }
       } else {
         toast({
           title: "Erro ao criar agente",
@@ -101,9 +113,6 @@ export function NewAgentForm() {
         description: `Ocorreu um erro inesperado: ${error.message || "Detalhes indisponíveis"}`,
         variant: "destructive",
       });
-    } finally {
-      setIsSubmitting(false);
-      setRetryCount(0);
     }
   };
   
@@ -121,19 +130,20 @@ export function NewAgentForm() {
       return;
     }
     
-    setIsGeneratingPrompt(true);
-    setRetryCount(0);
+    // Extract the data needed for prompt generation
+    const promptData = {
+      areaDeAtuacao: currentAgent.areaDeAtuacao,
+      informacoes: currentAgent.informacoes,
+      nome: currentAgent.nome,
+      site: currentAgent.site,
+      faqs: currentAgent.faqs
+    };
     
     try {
-      const result = await generatePromptWithAI(
-        currentAgent,
-        (attempt, max) => {
-          setRetryCount(attempt);
-        }
-      );
+      const result = await generatePrompt(promptData);
       
-      if (result.success && result.data?.prompt) {
-        updateAgent({ prompt: result.data.prompt });
+      if (result.success && result.data?.output) {
+        updateAgent({ prompt: result.data.output });
         toast({
           title: "Prompt gerado com sucesso!",
           description: "O prompt foi aprimorado pela IA com base nas informações da sua empresa.",
@@ -153,9 +163,6 @@ export function NewAgentForm() {
         description: `Não foi possível se conectar ao servidor de IA: ${error.message || "Erro desconhecido"}`,
         variant: "destructive",
       });
-    } finally {
-      setIsGeneratingPrompt(false);
-      setRetryCount(0);
     }
   };
 
@@ -192,12 +199,27 @@ export function NewAgentForm() {
         </Card>
       )}
       
-      {retryCount > 0 && (
+      {agentError && (
+        <Card className="mb-6 p-4 border-destructive/50 bg-destructive/10">
+          <div className="flex gap-2 items-center mb-2">
+            <AlertCircle className="h-5 w-5 text-destructive" />
+            <h3 className="font-medium text-destructive">Erro de conexão:</h3>
+          </div>
+          <p className="text-sm text-destructive">{agentError}</p>
+          <div className="mt-2">
+            <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+              Recarregar página
+            </Button>
+          </div>
+        </Card>
+      )}
+      
+      {(agentRetryCount > 0 || promptRetryCount > 0) && (
         <Card className="mb-6 p-4 border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700">
           <div className="flex gap-2 items-center">
             <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
             <p className="text-sm text-amber-800 dark:text-amber-300">
-              Tentando novamente... ({retryCount}/{maxRetries})
+              Tentando novamente... ({isSubmitting ? agentRetryCount : promptRetryCount}/{maxRetries})
             </p>
           </div>
         </Card>
