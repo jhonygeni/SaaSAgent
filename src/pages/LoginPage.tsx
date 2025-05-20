@@ -1,16 +1,16 @@
 
-import { LandingPage } from "@/components/LandingPage";
+import { Login } from "@/components/Login";
 import { Header } from "@/components/Header";
 
-const Index = () => {
+const LoginPage = () => {
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
       <main className="flex-grow">
-        <LandingPage />
+        <Login />
       </main>
     </div>
   );
 };
 
-export default Index;
+export default LoginPage;

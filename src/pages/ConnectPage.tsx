@@ -1,16 +1,16 @@
 
-import { LandingPage } from "@/components/LandingPage";
+import { WhatsAppConnection } from "@/components/WhatsAppConnection";
 import { Header } from "@/components/Header";
 
-const Index = () => {
+const ConnectPage = () => {
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
       <main className="flex-grow">
-        <LandingPage />
+        <WhatsAppConnection />
       </main>
     </div>
   );
 };
 
-export default Index;
+export default ConnectPage;

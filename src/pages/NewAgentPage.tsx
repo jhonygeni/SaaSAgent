@@ -1,16 +1,16 @@
 
-import { LandingPage } from "@/components/LandingPage";
+import { NewAgentForm } from "@/components/NewAgentForm";
 import { Header } from "@/components/Header";
 
-const Index = () => {
+const NewAgentPage = () => {
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
       <main className="flex-grow">
-        <LandingPage />
+        <NewAgentForm />
       </main>
     </div>
   );
 };
 
-export default Index;
+export default NewAgentPage;

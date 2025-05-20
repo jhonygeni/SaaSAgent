@@ -1,16 +1,16 @@
 
-import { LandingPage } from "@/components/LandingPage";
+import { PricingPlans } from "@/components/PricingPlans";
 import { Header } from "@/components/Header";
 
-const Index = () => {
+const PlansPage = () => {
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
       <main className="flex-grow">
-        <LandingPage />
+        <PricingPlans />
       </main>
     </div>
   );
 };
 
-export default Index;
+export default PlansPage;

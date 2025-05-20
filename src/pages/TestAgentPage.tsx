@@ -1,16 +1,16 @@
 
-import { LandingPage } from "@/components/LandingPage";
+import { AgentChat } from "@/components/AgentChat";
 import { Header } from "@/components/Header";
 
-const Index = () => {
+const TestAgentPage = () => {
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
       <main className="flex-grow">
-        <LandingPage />
+        <AgentChat />
       </main>
     </div>
   );
 };
 
-export default Index;
+export default TestAgentPage;
