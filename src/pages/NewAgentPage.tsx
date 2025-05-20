@@ -6,6 +6,8 @@ import { useConnection } from "@/context/ConnectionContext";
 
 const NewAgentPage = () => {
   const [showConnectionDialog, setShowConnectionDialog] = useState(false);
+  // We're using useConnection here which requires ConnectionProvider
+  // This works because App.tsx wraps the Routes with ConnectionProvider
   const { connectionStatus } = useConnection();
 
   const handleAgentCreated = () => {

@@ -8,6 +8,16 @@ import { useUser } from "./UserContext";
 const EVOLUTION_API_URL = "https://cloudsaas.geni.chat";
 const EVOLUTION_API_KEY = "a01d49df66f0b9d8f368d3788a32aea8";
 
+// Correct API endpoints
+const ENDPOINTS = {
+  // These are example endpoints - replace with actual endpoints from your documentation
+  connect: "/instance/create", // Example: Create a new WhatsApp instance/session
+  qrCode: "/instance/qr", // Example: Generate QR code
+  status: "/instance/status", // Example: Check connection status
+  info: "/instance/info", // Example: Get connected phone info
+  logout: "/instance/logout" // Example: Disconnect WhatsApp
+};
+
 interface ConnectionContextType {
   connectionStatus: ConnectionStatus;
   startConnection: () => void;
@@ -45,83 +55,113 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
     setConnectionError(null);
     
     try {
-      // Call Evolution API to start connection and get QR code
-      // Note: Based on the 404 errors, we need to confirm the exact endpoint
-      // For now, trying a different endpoint path based on Evolution API 2.2.3 convention
-      console.log("Attempting to connect with Evolution API at:", `${EVOLUTION_API_URL}/instance/connect`);
+      // Generate instance name based on user ID or use a default
+      const instanceName = user?.id || "default_instance";
+      console.log(`Starting WhatsApp connection for instance: ${instanceName}`);
       
-      const response = await fetch(`${EVOLUTION_API_URL}/instance/connect`, {
+      // Step 1: Create/Connect to WhatsApp instance
+      console.log(`Calling Evolution API at: ${EVOLUTION_API_URL}${ENDPOINTS.connect}`);
+      
+      // Log exact request for debugging
+      const requestBody = {
+        instanceName,
+        token: EVOLUTION_API_KEY,
+        qrQuality: 1 // QR quality (1-100)
+      };
+      console.log("Request payload:", JSON.stringify(requestBody));
+      
+      const response = await fetch(`${EVOLUTION_API_URL}${ENDPOINTS.connect}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${EVOLUTION_API_KEY}`
         },
-        body: JSON.stringify({
-          instanceName: user?.id || "default_instance", // Use user ID as instance name or default
-          token: EVOLUTION_API_KEY,
-          qrQuality: 1, // QR quality (1-100)
-          waitForLogin: true
-        })
+        body: JSON.stringify(requestBody)
       });
       
+      console.log("Response status:", response.status);
+      
       if (!response.ok) {
-        console.error("Evolution API Error:", response.status, response.statusText);
-        throw new Error(`API responded with status ${response.status}`);
+        const errorText = await response.text();
+        console.error("Evolution API Error:", response.status, errorText);
+        throw new Error(`API responded with status ${response.status}: ${errorText}`);
       }
       
       const data = await response.json();
       console.log("Evolution API response:", data);
       
-      if (data.qrcode) {
-        setQrCodeData(data.qrcode);
+      // Step 2: Get QR code if successful
+      if (data.success || data.status === "created" || data.status === "pending") {
+        // Get the QR code 
+        const qrResponse = await fetch(`${EVOLUTION_API_URL}${ENDPOINTS.qrCode}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${EVOLUTION_API_KEY}`,
+            'instanceName': instanceName
+          }
+        });
         
-        // Start polling for connection status
-        const interval = setInterval(async () => {
-          try {
-            // Note: Confirming the correct status endpoint
-            const statusResponse = await fetch(`${EVOLUTION_API_URL}/instance/status`, {
-              method: 'GET',
-              headers: {
-                'Authorization': `Bearer ${EVOLUTION_API_KEY}`,
-                'instanceName': user?.id || "default_instance"
-              }
-            });
-            
-            if (statusResponse.ok) {
-              const statusData = await statusResponse.json();
-              console.log("Status response:", statusData);
+        if (!qrResponse.ok) {
+          throw new Error(`Failed to get QR code: ${qrResponse.status}`);
+        }
+        
+        const qrData = await qrResponse.json();
+        console.log("QR code response:", qrData);
+        
+        if (qrData.qrcode) {
+          setQrCodeData(qrData.qrcode);
+          
+          // Step 3: Start polling for connection status
+          const interval = setInterval(async () => {
+            try {
+              const statusResponse = await fetch(`${EVOLUTION_API_URL}${ENDPOINTS.status}`, {
+                method: 'GET',
+                headers: {
+                  'Authorization': `Bearer ${EVOLUTION_API_KEY}`,
+                  'instanceName': instanceName
+                }
+              });
               
-              if (statusData.status === "connected") {
-                setConnectionStatus("connected");
-                clearInterval(interval);
-                setPollingInterval(null);
+              if (statusResponse.ok) {
+                const statusData = await statusResponse.json();
+                console.log("Status response:", statusData);
                 
-                // Get phone number info
-                const phoneInfoResponse = await fetch(`${EVOLUTION_API_URL}/instance/info`, {
-                  headers: {
-                    'Authorization': `Bearer ${EVOLUTION_API_KEY}`,
-                    'instanceName': user?.id || "default_instance"
-                  }
-                });
-                
-                if (phoneInfoResponse.ok) {
-                  const phoneData = await phoneInfoResponse.json();
-                  if (phoneData.phone) {
-                    completeConnection(phoneData.phone);
-                  } else {
-                    completeConnection();
+                if (statusData.status === "connected") {
+                  setConnectionStatus("connected");
+                  clearInterval(interval);
+                  setPollingInterval(null);
+                  
+                  // Get phone number info
+                  const phoneInfoResponse = await fetch(`${EVOLUTION_API_URL}${ENDPOINTS.info}`, {
+                    method: 'GET',
+                    headers: {
+                      'Authorization': `Bearer ${EVOLUTION_API_KEY}`,
+                      'instanceName': instanceName
+                    }
+                  });
+                  
+                  if (phoneInfoResponse.ok) {
+                    const phoneData = await phoneInfoResponse.json();
+                    console.log("Phone info response:", phoneData);
+                    if (phoneData.phone) {
+                      completeConnection(phoneData.phone);
+                    } else {
+                      completeConnection();
+                    }
                   }
                 }
               }
+            } catch (error) {
+              console.error("Error polling connection status:", error);
             }
-          } catch (error) {
-            console.error("Error polling connection status:", error);
-          }
-        }, 3000);
-        
-        setPollingInterval(interval);
+          }, 3000);
+          
+          setPollingInterval(interval);
+        } else {
+          throw new Error("No QR code received from API");
+        }
       } else {
-        throw new Error("No QR code received from API");
+        throw new Error("Failed to create WhatsApp instance");
       }
     } catch (error) {
       console.error("Error connecting to WhatsApp:", error);
@@ -145,14 +185,16 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
     }
     
     try {
-      await fetch(`${EVOLUTION_API_URL}/instance/logout`, {
+      const instanceName = user?.id || "default_instance";
+      
+      await fetch(`${EVOLUTION_API_URL}${ENDPOINTS.logout}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${EVOLUTION_API_KEY}`
         },
         body: JSON.stringify({
-          instanceName: user?.id || "default_instance"
+          instanceName
         })
       });
     } catch (error) {

@@ -35,6 +35,7 @@ export function WhatsAppConnectionDialog({
   // Start connection process when dialog opens
   useEffect(() => {
     if (open && connectionStatus === "waiting" && !qrCodeData && !isLoading) {
+      console.log("Starting WhatsApp connection process automatically");
       startConnection();
     }
   }, [open, connectionStatus, qrCodeData, isLoading, startConnection]);
@@ -42,6 +43,7 @@ export function WhatsAppConnectionDialog({
   // Handle dialog close
   const handleDialogClose = (isOpen: boolean) => {
     if (!isOpen && connectionStatus !== "connected") {
+      console.log("Dialog closed, canceling connection");
       cancelConnection();
     }
     onOpenChange(isOpen);
@@ -50,6 +52,7 @@ export function WhatsAppConnectionDialog({
   // Handle completion
   useEffect(() => {
     if (connectionStatus === "connected" && onComplete) {
+      console.log("Connection complete, calling onComplete callback");
       onComplete();
     }
   }, [connectionStatus, onComplete]);
@@ -129,7 +132,7 @@ export function WhatsAppConnectionDialog({
             <Button 
               variant="outline" 
               onClick={() => handleDialogClose(false)}
-              className="w-full sm:w-auto"
+              className="w-full sm:w-auto mb-3 sm:mb-0"
             >
               Cancelar
             </Button>
@@ -139,7 +142,7 @@ export function WhatsAppConnectionDialog({
             <Button 
               onClick={() => startConnection()} 
               disabled={isLoading}
-              className="w-full sm:w-auto mt-3 sm:mt-0"
+              className="w-full sm:w-auto"
             >
               {isLoading ? "Aguardando..." : "Gerar novo código"}
             </Button>
@@ -148,7 +151,7 @@ export function WhatsAppConnectionDialog({
           {connectionStatus === "failed" && (
             <Button 
               onClick={() => startConnection()}
-              className="w-full sm:w-auto mt-3 sm:mt-0"
+              className="w-full sm:w-auto"
             >
               Tentar novamente
             </Button>
