@@ -1,6 +1,5 @@
 
 import { useEffect } from "react";
-import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -78,10 +77,11 @@ export function WhatsAppConnectionDialog({
           {!isLoading && connectionStatus === "waiting" && qrCodeData && (
             <div className="flex flex-col items-center space-y-4">
               <div className="bg-white p-4 rounded-lg">
-                <QRCodeSVG 
-                  value={qrCodeData} 
-                  size={200} 
-                  level="H"
+                {/* Render the QR code as an image using the base64 data */}
+                <img 
+                  src={`data:image/png;base64,${qrCodeData}`}
+                  alt="WhatsApp QR Code"
+                  className="w-[200px] h-[200px]"
                 />
               </div>
               <div className="flex flex-col items-center space-y-2 max-w-xs text-center">

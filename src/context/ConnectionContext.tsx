@@ -1,7 +1,7 @@
 
 import { createContext, useState, useContext, ReactNode, useCallback, useEffect } from "react";
 import { ConnectionStatus } from "../types";
-import { toast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { useUser } from "./UserContext";
 
 // Evolution API constants
@@ -22,6 +22,7 @@ const ConnectionContext = createContext<ConnectionContextType | undefined>(undef
 
 export function ConnectionProvider({ children }: { children: ReactNode }) {
   const { user } = useUser();
+  const { toast } = useToast();
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("waiting");
   const [isLoading, setIsLoading] = useState(false);
   const [qrCodeData, setQrCodeData] = useState<string | null>(null);
@@ -45,7 +46,11 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
     
     try {
       // Call Evolution API to start connection and get QR code
-      const response = await fetch(`${EVOLUTION_API_URL}/api/instance/qr`, {
+      // Note: Based on the 404 errors, we need to confirm the exact endpoint
+      // For now, trying a different endpoint path based on Evolution API 2.2.3 convention
+      console.log("Attempting to connect with Evolution API at:", `${EVOLUTION_API_URL}/instance/connect`);
+      
+      const response = await fetch(`${EVOLUTION_API_URL}/instance/connect`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -53,16 +58,19 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
         },
         body: JSON.stringify({
           instanceName: user?.id || "default_instance", // Use user ID as instance name or default
+          token: EVOLUTION_API_KEY,
           qrQuality: 1, // QR quality (1-100)
           waitForLogin: true
         })
       });
       
       if (!response.ok) {
+        console.error("Evolution API Error:", response.status, response.statusText);
         throw new Error(`API responded with status ${response.status}`);
       }
       
       const data = await response.json();
+      console.log("Evolution API response:", data);
       
       if (data.qrcode) {
         setQrCodeData(data.qrcode);
@@ -70,7 +78,8 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
         // Start polling for connection status
         const interval = setInterval(async () => {
           try {
-            const statusResponse = await fetch(`${EVOLUTION_API_URL}/api/instance/status`, {
+            // Note: Confirming the correct status endpoint
+            const statusResponse = await fetch(`${EVOLUTION_API_URL}/instance/status`, {
               method: 'GET',
               headers: {
                 'Authorization': `Bearer ${EVOLUTION_API_KEY}`,
@@ -80,6 +89,7 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
             
             if (statusResponse.ok) {
               const statusData = await statusResponse.json();
+              console.log("Status response:", statusData);
               
               if (statusData.status === "connected") {
                 setConnectionStatus("connected");
@@ -87,7 +97,7 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
                 setPollingInterval(null);
                 
                 // Get phone number info
-                const phoneInfoResponse = await fetch(`${EVOLUTION_API_URL}/api/instance/info`, {
+                const phoneInfoResponse = await fetch(`${EVOLUTION_API_URL}/instance/info`, {
                   headers: {
                     'Authorization': `Bearer ${EVOLUTION_API_KEY}`,
                     'instanceName': user?.id || "default_instance"
@@ -125,7 +135,7 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user, toast]);
 
   // Call Evolution API to cancel the connection process
   const cancelConnection = useCallback(async () => {
@@ -135,7 +145,7 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
     }
     
     try {
-      await fetch(`${EVOLUTION_API_URL}/api/instance/logout`, {
+      await fetch(`${EVOLUTION_API_URL}/instance/logout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -156,11 +166,10 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
       description: "A conexão com o WhatsApp foi cancelada.",
       variant: "destructive",
     });
-  }, [pollingInterval, user]);
+  }, [pollingInterval, user, toast]);
 
   // Update connection status to connected
   const completeConnection = useCallback((phoneNumber?: string) => {
-    // This function is called after we've verified the connection is established
     setConnectionStatus("connected");
     setQrCodeData(null);
     toast({
@@ -170,7 +179,7 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
         : "WhatsApp conectado com sucesso.",
       variant: "default",
     });
-  }, []);
+  }, [toast]);
 
   return (
     <ConnectionContext.Provider

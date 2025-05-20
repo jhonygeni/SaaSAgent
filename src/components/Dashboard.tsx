@@ -57,7 +57,7 @@ export function Dashboard() {
           </div>
         </div>
         
-        {/* Interested Clients Section */}
+        {/* Interested Clients Section - Ensure it's responsive */}
         <div className="pt-2 md:pt-4">
           <InterestedClients />
         </div>

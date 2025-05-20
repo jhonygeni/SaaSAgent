@@ -38,11 +38,10 @@ const DashboardPage = () => {
   const handleEditComplete = () => {
     setEditDialogOpen(false);
     toast({
-      title: "Agent updated successfully!",
-      description: "All changes have been saved.",
+      title: "Agente atualizado com sucesso!",
+      description: "Todas as alterações foram salvas.",
     });
-    // Optionally show the connect dialog after edit if agent isn't connected yet
-    // Check if the agent needs WhatsApp connection
+    // Check if the agent needs WhatsApp connection after edit
     const needsConnection = false; // This would be determined by agent state
     if (needsConnection) {
       setConnectDialogOpen(true);
