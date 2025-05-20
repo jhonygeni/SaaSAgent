@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button-extensions";
 import { CheckCircle, XCircle, Loader } from "lucide-react";
 import { useConnection } from "@/context/ConnectionContext";
 import { useToast } from "@/hooks/use-toast";
-import { QRCode } from "qrcode.react";
+import QRCodeReact from "qrcode.react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -105,7 +105,7 @@ export function WhatsAppConnectionDialog({
             ) : connectionStatus === "waiting" ? (
               <div className="flex flex-col items-center space-y-6">
                 <div className="bg-white p-4 rounded-lg">
-                  <QRCode value={qrCode} size={200} />
+                  <QRCodeReact value={qrCode} size={200} />
                 </div>
                 <div className="text-center space-y-2 max-w-xs">
                   <p className="text-sm font-medium">Como conectar:</p>
