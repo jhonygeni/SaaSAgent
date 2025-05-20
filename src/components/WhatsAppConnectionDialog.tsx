@@ -9,7 +9,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, Smartphone, CheckCircle, AlertCircle, QrCode, Copy } from "lucide-react";
+import { 
+  Loader2, 
+  Smartphone, 
+  CheckCircle, 
+  AlertCircle, 
+  QrCode, 
+  Copy, 
+  RefreshCw,
+  Info 
+} from "lucide-react";
 import { useConnection } from "@/context/ConnectionContext";
 import { toast } from "@/hooks/use-toast";
 import { QrCodeDisplay } from "@/components/QrCodeDisplay";
@@ -34,7 +43,9 @@ export function WhatsAppConnectionDialog({
     connectionError,
     getConnectionInfo
   } = useConnection();
+  
   const [hasInitiatedConnection, setHasInitiatedConnection] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<string | null>(null);
 
   // Start connection process when dialog opens
   useEffect(() => {
@@ -81,34 +92,51 @@ export function WhatsAppConnectionDialog({
 
   // Copy instance info to clipboard
   const copyInstanceInfo = () => {
-    const { instanceName, token } = getConnectionInfo();
-    const infoText = `Instance Name: ${instanceName}\nAccess Token: ${token || "Not available"}`;
+    const { instanceName, instanceData } = getConnectionInfo();
+    const infoText = `Instance Name: ${instanceName}\nInstance Data: ${JSON.stringify(instanceData || {}, null, 2)}`;
     
     navigator.clipboard.writeText(infoText)
       .then(() => {
         toast({
-          title: "Copiado!",
-          description: "Informações da instância copiadas para a área de transferência.",
+          title: "Copied!",
+          description: "Instance information copied to clipboard.",
           variant: "default",
         });
       })
       .catch((err) => {
         console.error("Failed to copy instance info:", err);
         toast({
-          title: "Erro ao copiar",
-          description: "Não foi possível copiar as informações para a área de transferência.",
+          title: "Copy Error",
+          description: "Could not copy information to clipboard.",
           variant: "destructive",
         });
       });
+  };
+  
+  // Toggle debug information
+  const toggleDebugInfo = () => {
+    if (debugInfo) {
+      setDebugInfo(null);
+      return;
+    }
+    
+    const { instanceName, instanceData } = getConnectionInfo();
+    setDebugInfo(JSON.stringify({
+      instanceName,
+      instanceData,
+      connectionStatus,
+      qrCodeData: qrCodeData ? "[QR DATA AVAILABLE]" : null,
+      error: connectionError
+    }, null, 2));
   };
 
   return (
     <Dialog open={open} onOpenChange={handleDialogClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Conectar WhatsApp</DialogTitle>
+          <DialogTitle>Connect WhatsApp</DialogTitle>
           <DialogDescription>
-            Conecte seu WhatsApp para que o agente possa enviar e receber mensagens.
+            Connect your WhatsApp so the agent can send and receive messages.
           </DialogDescription>
         </DialogHeader>
 
@@ -117,15 +145,14 @@ export function WhatsAppConnectionDialog({
             <div className="flex flex-col items-center space-y-4 py-8">
               <Loader2 className="h-10 w-10 animate-spin text-primary" />
               <p className="text-center text-sm text-muted-foreground">
-                Iniciando conexão com o WhatsApp...
+                Initializing WhatsApp connection...
               </p>
             </div>
           )}
 
           {!isLoading && connectionStatus === "waiting" && qrCodeData && (
             <div className="flex flex-col items-center space-y-4">
-              <div className="bg-white p-4 rounded-lg">
-                {/* Render the QR code as an image using the base64 data */}
+              <div className="bg-white p-4 rounded-lg shadow-sm">
                 <img 
                   src={`data:image/png;base64,${qrCodeData}`}
                   alt="WhatsApp QR Code"
@@ -134,25 +161,38 @@ export function WhatsAppConnectionDialog({
               </div>
               <div className="flex flex-col items-center space-y-2 max-w-xs text-center">
                 <Smartphone className="h-6 w-6 text-primary" />
-                <p className="text-sm font-medium">Escaneie o código QR</p>
+                <p className="text-sm font-medium">Scan the QR code</p>
                 <p className="text-xs text-muted-foreground">
-                  Abra o WhatsApp no seu celular, acesse Configurações &gt; Aparelhos Conectados,
-                  e escaneie o código QR acima.
+                  Open WhatsApp on your phone, go to Settings &gt; Linked Devices,
+                  and scan the QR code above.
                 </p>
               </div>
               
-              {/* Connection details for debugging */}
               <div className="w-full border rounded-md p-3 bg-muted/50 mt-4">
                 <div className="flex justify-between items-center mb-1">
-                  <p className="text-sm font-medium">Detalhes da conexão</p>
-                  <Button variant="ghost" size="sm" onClick={copyInstanceInfo}>
-                    <Copy className="h-4 w-4 mr-1" />
-                    <span className="text-xs">Copiar</span>
-                  </Button>
+                  <p className="text-sm font-medium">Connection details</p>
+                  <div className="flex space-x-1">
+                    <Button variant="ghost" size="sm" onClick={toggleDebugInfo}>
+                      <Info className="h-4 w-4" />
+                      <span className="sr-only">Debug info</span>
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={copyInstanceInfo}>
+                      <Copy className="h-4 w-4" />
+                      <span className="sr-only">Copy</span>
+                    </Button>
+                  </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Instance Name: {getConnectionInfo().instanceName}
+                  Instance: {getConnectionInfo().instanceName}
                 </p>
+                
+                {debugInfo && (
+                  <div className="mt-2 p-2 bg-muted rounded-sm">
+                    <pre className="text-[10px] overflow-x-auto max-h-40 overflow-y-auto whitespace-pre-wrap break-all">
+                      {debugInfo}
+                    </pre>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -163,24 +203,37 @@ export function WhatsAppConnectionDialog({
                 <CheckCircle className="h-10 w-10 text-green-600" />
               </div>
               <div className="text-center">
-                <p className="font-medium">WhatsApp conectado com sucesso!</p>
+                <p className="font-medium">WhatsApp connected successfully!</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Seu agente já pode enviar e receber mensagens.
+                  Your agent can now send and receive messages.
                 </p>
               </div>
               
-              {/* Connection details */}
               <div className="w-full border rounded-md p-3 bg-green-50 mt-2">
                 <div className="flex justify-between items-center mb-1">
-                  <p className="text-sm font-medium">Detalhes da conexão</p>
-                  <Button variant="ghost" size="sm" onClick={copyInstanceInfo}>
-                    <Copy className="h-4 w-4 mr-1" />
-                    <span className="text-xs">Copiar</span>
-                  </Button>
+                  <p className="text-sm font-medium">Connection details</p>
+                  <div className="flex space-x-1">
+                    <Button variant="ghost" size="sm" onClick={toggleDebugInfo}>
+                      <Info className="h-4 w-4" />
+                      <span className="sr-only">Debug info</span>
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={copyInstanceInfo}>
+                      <Copy className="h-4 w-4" />
+                      <span className="sr-only">Copy</span>
+                    </Button>
+                  </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Instance Name: {getConnectionInfo().instanceName}
+                  Instance: {getConnectionInfo().instanceName}
                 </p>
+                
+                {debugInfo && (
+                  <div className="mt-2 p-2 bg-muted rounded-sm">
+                    <pre className="text-[10px] overflow-x-auto max-h-40 overflow-y-auto whitespace-pre-wrap break-all">
+                      {debugInfo}
+                    </pre>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -191,10 +244,30 @@ export function WhatsAppConnectionDialog({
                 <AlertCircle className="h-10 w-10 text-red-600" />
               </div>
               <div className="text-center">
-                <p className="font-medium">Falha na conexão</p>
+                <p className="font-medium">Connection failed</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {connectionError || "Não foi possível conectar ao WhatsApp. Tente novamente."}
+                  {connectionError || "Could not connect to WhatsApp. Please try again."}
                 </p>
+              </div>
+              
+              <div className="w-full border rounded-md p-3 bg-red-50/50 mt-2">
+                <div className="flex justify-between items-center mb-1">
+                  <p className="text-sm font-medium">Error details</p>
+                  <div className="flex space-x-1">
+                    <Button variant="ghost" size="sm" onClick={toggleDebugInfo}>
+                      <Info className="h-4 w-4" />
+                      <span className="sr-only">Debug info</span>
+                    </Button>
+                  </div>
+                </div>
+                
+                {debugInfo && (
+                  <div className="mt-2 p-2 bg-muted rounded-sm">
+                    <pre className="text-[10px] overflow-x-auto max-h-40 overflow-y-auto whitespace-pre-wrap break-all">
+                      {debugInfo}
+                    </pre>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -207,7 +280,7 @@ export function WhatsAppConnectionDialog({
               onClick={() => handleDialogClose(false)}
               className="w-full sm:w-auto mb-3 sm:mb-0"
             >
-              Cancelar
+              Cancel
             </Button>
           )}
           
@@ -217,8 +290,8 @@ export function WhatsAppConnectionDialog({
               disabled={isLoading}
               className="w-full sm:w-auto"
             >
-              <QrCode className="h-4 w-4 mr-2" />
-              {isLoading ? "Aguardando..." : "Gerar novo código"}
+              <RefreshCw className="h-4 w-4 mr-2" />
+              {isLoading ? "Loading..." : "Generate new code"}
             </Button>
           )}
           
@@ -227,7 +300,7 @@ export function WhatsAppConnectionDialog({
               onClick={handleRetry}
               className="w-full sm:w-auto"
             >
-              Tentar novamente
+              Try again
             </Button>
           )}
           
@@ -236,7 +309,7 @@ export function WhatsAppConnectionDialog({
               onClick={() => handleDialogClose(false)}
               className="w-full"
             >
-              Concluir
+              Complete
             </Button>
           )}
         </DialogFooter>

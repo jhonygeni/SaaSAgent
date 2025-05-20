@@ -4,28 +4,32 @@ import { EVOLUTION_API_URL, EVOLUTION_API_KEY, ENDPOINTS } from '../constants/ap
 interface WhatsAppInstanceRequest {
   instanceName: string;
   token?: string;
+  webhook?: string | null;
+  webhookByEvents?: boolean;
   qrQuality?: number;
 }
 
 // WhatsApp connection service
 export const whatsappService = {
-  // Create or connect to a WhatsApp instance
+  // Create a WhatsApp instance
   createInstance: async (instanceName: string): Promise<any> => {
-    console.log(`Starting WhatsApp connection for instance: ${instanceName}`);
+    console.log(`Creating WhatsApp instance: ${instanceName}`);
     
     try {
       const requestBody: WhatsAppInstanceRequest = {
         instanceName,
-        qrQuality: 2 // Increased QR quality (1-100)
+        qrQuality: 2, // Medium quality QR code
+        webhook: null, // No webhook for now
+        webhookByEvents: false
       };
       
       console.log("Request payload for instance creation:", JSON.stringify(requestBody));
       
-      const response = await fetch(`${EVOLUTION_API_URL}${ENDPOINTS.connect}`, {
+      const response = await fetch(`${EVOLUTION_API_URL}${ENDPOINTS.instanceCreate}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'apikey': EVOLUTION_API_KEY // Using apikey header instead of authorization
+          'apikey': EVOLUTION_API_KEY
         },
         body: JSON.stringify(requestBody)
       });
@@ -33,16 +37,49 @@ export const whatsappService = {
       console.log("Instance creation response status:", response.status);
       
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Evolution API Error:", response.status, errorText);
-        throw new Error(`API responded with status ${response.status}: ${errorText}`);
+        const errorData = await response.text();
+        console.error(`Instance creation failed with status ${response.status}:`, errorData);
+        throw new Error(`API responded with status ${response.status}: ${errorData}`);
       }
       
       const data = await response.json();
-      console.log("Instance created successfully:", data);
-      return { ...data, token: EVOLUTION_API_KEY };
+      console.log("Instance creation successful:", data);
+      return data;
     } catch (error) {
       console.error("Error creating WhatsApp instance:", error);
+      throw error;
+    }
+  },
+  
+  // Connect to existing instance
+  connectToInstance: async (instanceName: string): Promise<any> => {
+    console.log(`Connecting to WhatsApp instance: ${instanceName}`);
+    
+    try {
+      const requestBody = { instanceName };
+      
+      const response = await fetch(`${EVOLUTION_API_URL}${ENDPOINTS.instanceConnect}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': EVOLUTION_API_KEY
+        },
+        body: JSON.stringify(requestBody)
+      });
+      
+      console.log("Instance connection response status:", response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error(`Instance connection failed with status ${response.status}:`, errorData);
+        throw new Error(`API responded with status ${response.status}: ${errorData}`);
+      }
+      
+      const data = await response.json();
+      console.log("Instance connection successful:", data);
+      return data;
+    } catch (error) {
+      console.error("Error connecting to WhatsApp instance:", error);
       throw error;
     }
   },
@@ -52,23 +89,29 @@ export const whatsappService = {
     try {
       console.log(`Fetching QR code for instance: ${instanceName}`);
       
-      const response = await fetch(`${EVOLUTION_API_URL}/instance/qr?key=${instanceName}`, {
+      const response = await fetch(`${EVOLUTION_API_URL}${ENDPOINTS.qrCode}?key=${instanceName}`, {
         method: 'GET',
         headers: {
-          'apikey': EVOLUTION_API_KEY // Using apikey header
+          'apikey': EVOLUTION_API_KEY
         }
       });
       
       console.log("QR code response status:", response.status);
       
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Error getting QR code:", response.status, errorText);
-        throw new Error(`Failed to get QR code: ${response.status} - ${errorText}`);
+        const errorData = await response.text();
+        console.error(`QR code retrieval failed with status ${response.status}:`, errorData);
+        throw new Error(`API responded with status ${response.status}: ${errorData}`);
       }
       
       const data = await response.json();
-      console.log("QR Code retrieved successfully");
+      console.log("QR Code retrieved successfully:", data);
+      
+      // Check if the response contains the QR code
+      if (!data.qrcode && !data.base64) {
+        console.warn("QR code response doesn't contain expected QR data:", data);
+      }
+      
       return data;
     } catch (error) {
       console.error("Error getting QR code:", error);
@@ -77,51 +120,88 @@ export const whatsappService = {
   },
   
   // Check connection status
-  getStatus: async (instanceName: string): Promise<any> => {
+  getConnectionState: async (instanceName: string): Promise<any> => {
     try {
-      console.log(`Checking connection status for instance: ${instanceName}`);
+      console.log(`Checking connection state for instance: ${instanceName}`);
       
-      const response = await fetch(`${EVOLUTION_API_URL}/instance/connectionState?key=${instanceName}`, {
+      const response = await fetch(`${EVOLUTION_API_URL}${ENDPOINTS.connectionState}?key=${instanceName}`, {
         method: 'GET',
         headers: {
-          'apikey': EVOLUTION_API_KEY // Using apikey header
+          'apikey': EVOLUTION_API_KEY
         }
       });
       
-      console.log("Status response status:", response.status);
+      console.log("Connection state response status:", response.status);
       
       if (!response.ok) {
-        throw new Error(`Failed to get status: ${response.status}`);
+        const errorData = await response.text();
+        console.error(`Connection state check failed with status ${response.status}:`, errorData);
+        throw new Error(`API responded with status ${response.status}: ${errorData}`);
       }
       
-      return response.json();
+      const data = await response.json();
+      console.log("Connection state retrieved:", data);
+      return data;
     } catch (error) {
-      console.error("Error checking status:", error);
+      console.error("Error checking connection state:", error);
       throw error;
     }
   },
   
-  // Get phone information
-  getPhoneInfo: async (instanceName: string): Promise<any> => {
+  // Get instance information
+  getInstanceInfo: async (instanceName: string): Promise<any> => {
     try {
-      console.log(`Getting phone info for instance: ${instanceName}`);
+      console.log(`Getting info for instance: ${instanceName}`);
       
-      const response = await fetch(`${EVOLUTION_API_URL}/instance/info?key=${instanceName}`, {
+      const response = await fetch(`${EVOLUTION_API_URL}${ENDPOINTS.instanceInfo}?key=${instanceName}`, {
         method: 'GET',
         headers: {
-          'apikey': EVOLUTION_API_KEY // Using apikey header
+          'apikey': EVOLUTION_API_KEY
         }
       });
       
-      console.log("Phone info response status:", response.status);
+      console.log("Instance info response status:", response.status);
       
       if (!response.ok) {
-        throw new Error(`Failed to get phone info: ${response.status}`);
+        const errorData = await response.text();
+        console.error(`Instance info retrieval failed with status ${response.status}:`, errorData);
+        throw new Error(`API responded with status ${response.status}: ${errorData}`);
       }
       
-      return response.json();
+      const data = await response.json();
+      console.log("Instance info retrieved:", data);
+      return data;
     } catch (error) {
-      console.error("Error getting phone info:", error);
+      console.error("Error getting instance info:", error);
+      throw error;
+    }
+  },
+  
+  // List all instances (for debugging)
+  listInstances: async (): Promise<any> => {
+    try {
+      console.log("Listing all instances");
+      
+      const response = await fetch(`${EVOLUTION_API_URL}${ENDPOINTS.instances}`, {
+        method: 'GET',
+        headers: {
+          'apikey': EVOLUTION_API_KEY
+        }
+      });
+      
+      console.log("List instances response status:", response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error(`List instances failed with status ${response.status}:`, errorData);
+        throw new Error(`API responded with status ${response.status}: ${errorData}`);
+      }
+      
+      const data = await response.json();
+      console.log("Instances list:", data);
+      return data;
+    } catch (error) {
+      console.error("Error listing instances:", error);
       throw error;
     }
   },
@@ -131,17 +211,18 @@ export const whatsappService = {
     try {
       console.log(`Logging out instance: ${instanceName}`);
       
-      const response = await fetch(`${EVOLUTION_API_URL}/instance/disconnect?key=${instanceName}`, {
+      const response = await fetch(`${EVOLUTION_API_URL}${ENDPOINTS.instanceLogout}?key=${instanceName}`, {
         method: 'DELETE',
         headers: {
-          'apikey': EVOLUTION_API_KEY // Using apikey header
+          'apikey': EVOLUTION_API_KEY
         }
       });
       
       console.log("Logout response status:", response.status);
       
       if (!response.ok) {
-        console.error(`Logout failed with status: ${response.status}`);
+        const errorData = await response.text();
+        console.error(`Logout failed with status ${response.status}:`, errorData);
       }
       
       return response.ok;

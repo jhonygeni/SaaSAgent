@@ -13,7 +13,7 @@ export function useWhatsAppConnection() {
   const [qrCodeData, setQrCodeData] = useState<string | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [instanceData, setInstanceData] = useState<any>(null);
 
   // Clean up polling on unmount
   useEffect(() => {
@@ -36,7 +36,7 @@ export function useWhatsAppConnection() {
   // Show error toast
   const showErrorToast = useCallback((message: string) => {
     toast({
-      title: "Erro de conexão",
+      title: "Connection Error",
       description: message,
       variant: "destructive",
     });
@@ -45,10 +45,10 @@ export function useWhatsAppConnection() {
   // Show success toast
   const showSuccessToast = useCallback((phoneNumber?: string) => {
     toast({
-      title: "Conexão realizada com sucesso!",
+      title: "Connection Successful!",
       description: phoneNumber 
-        ? `Número ${phoneNumber} conectado.` 
-        : "WhatsApp conectado com sucesso.",
+        ? `Connected to number ${phoneNumber}.` 
+        : "WhatsApp connected successfully.",
       variant: "default",
     });
   }, [toast]);
@@ -67,15 +67,22 @@ export function useWhatsAppConnection() {
     clearPolling();
     
     try {
-      const phoneData = await whatsappService.getPhoneInfo(instanceName);
-      console.log("Phone info response:", phoneData);
-      if (phoneData.phone) {
-        completeConnection(phoneData.phone);
-      } else {
-        completeConnection();
+      const instanceInfo = await whatsappService.getInstanceInfo(instanceName);
+      console.log("Instance info response:", instanceInfo);
+      
+      // Save instance data for future use
+      setInstanceData(instanceInfo);
+      
+      // Check for phone number information
+      let phoneNumber = null;
+      if (instanceInfo && instanceInfo.instance && instanceInfo.instance.user) {
+        phoneNumber = instanceInfo.instance.user.id?.split('@')[0]; // Extract phone number
       }
+      
+      completeConnection(phoneNumber);
     } catch (error) {
-      console.error("Error getting phone info:", error);
+      console.error("Error getting instance info:", error);
+      // Still mark as connected even if we can't get the phone info
       completeConnection();
     }
   }, [clearPolling]);
@@ -85,14 +92,30 @@ export function useWhatsAppConnection() {
     // Clear any existing polling interval
     clearPolling();
     
+    // Debug: List all instances to verify our instance exists
+    try {
+      const instances = await whatsappService.listInstances();
+      console.log("Current instances:", instances);
+    } catch (error) {
+      console.error("Error listing instances:", error);
+    }
+    
     const interval = setInterval(async () => {
       try {
-        const statusData = await whatsappService.getStatus(instanceName);
-        console.log("Status polling response:", statusData);
+        console.log(`Polling connection state for instance: ${instanceName}`);
+        const stateData = await whatsappService.getConnectionState(instanceName);
+        console.log("Connection state polling response:", stateData);
         
-        // Depending on the API response structure, check for connected status
-        if (statusData.state === "open" || statusData.status === "connected" || statusData.connected) {
+        // Check connection state based on Evolution API response structure
+        const state = stateData?.state || stateData?.status;
+        
+        if (state === "open" || state === "connected") {
+          console.log("Connection detected as CONNECTED!");
           handleSuccessfulConnection(instanceName);
+        } else if (state === "connecting" || state === "loading") {
+          console.log("Still connecting or loading QR code...");
+        } else if (state === "close" || state === "disconnected") {
+          console.log("Connection is closed or disconnected");
         }
       } catch (error) {
         console.error("Error polling connection status:", error);
@@ -109,7 +132,8 @@ export function useWhatsAppConnection() {
       console.log("QR code response:", qrData);
       
       // Extract QR code based on the API response structure
-      const qrCode = qrData.qrcode || qrData.qr || qrData.base64 || qrData.code;
+      // Different APIs might use different field names
+      const qrCode = qrData?.qrcode || qrData?.base64 || qrData?.code || qrData?.qr;
       
       if (qrCode) {
         setQrCodeData(qrCode);
@@ -130,21 +154,39 @@ export function useWhatsAppConnection() {
     console.log(`Starting WhatsApp connection for instance: ${instanceName}`);
     
     try {
-      const data = await whatsappService.createInstance(instanceName);
-      console.log("Evolution API response:", data);
+      // First, try to create a new instance
+      const createData = await whatsappService.createInstance(instanceName);
+      console.log("Instance creation response:", createData);
       
-      if (data.token) {
-        setAccessToken(data.token);
+      // Save instance data
+      setInstanceData(createData);
+      
+      // After creation, connect to the instance
+      const connectData = await whatsappService.connectToInstance(instanceName);
+      console.log("Instance connection response:", connectData);
+      
+      // Check if we need to generate a QR code
+      return await fetchQrCode(instanceName);
+    } catch (error: any) {
+      console.error("Error initializing WhatsApp instance:", error);
+      
+      // If we get a specific error about instance already existing, try to connect directly
+      if (error.message && error.message.includes("Conflict")) {
+        console.log("Instance already exists, attempting to connect directly");
+        
+        try {
+          // Try to connect to existing instance
+          const connectData = await whatsappService.connectToInstance(instanceName);
+          console.log("Connection to existing instance:", connectData);
+          
+          // Get QR code for the existing instance
+          return await fetchQrCode(instanceName);
+        } catch (connectError) {
+          console.error("Error connecting to existing instance:", connectError);
+          throw connectError;
+        }
       }
       
-      // Check for expected success indicators
-      if (data.success || data.status === "created" || data.created || data.instance) {
-        return await fetchQrCode(instanceName);
-      } else {
-        throw new Error("Failed to create WhatsApp instance");
-      }
-    } catch (error) {
-      console.error("Error creating WhatsApp instance:", error);
       throw error;
     }
   }, [getInstanceName, fetchQrCode]);
@@ -154,6 +196,7 @@ export function useWhatsAppConnection() {
     setConnectionStatus("waiting");
     setIsLoading(true);
     setConnectionError(null);
+    setQrCodeData(null);
     
     try {
       const qrCode = await initializeWhatsAppInstance();
@@ -162,23 +205,32 @@ export function useWhatsAppConnection() {
       }
       return qrCode;
     } catch (error) {
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : "Unknown error occurred";
+        
       console.error("Error connecting to WhatsApp:", error);
-      setConnectionError(error instanceof Error ? error.message : "Unknown error occurred");
+      setConnectionError(errorMessage);
       setConnectionStatus("failed");
-      showErrorToast("Não foi possível iniciar a conexão com o WhatsApp. Tente novamente mais tarde.");
+      showErrorToast("Could not initiate connection with WhatsApp. Please try again later.");
       return null;
     } finally {
       setIsLoading(false);
     }
   }, [initializeWhatsAppInstance, showErrorToast]);
 
-  // Call Evolution API to cancel the connection process
+  // Call API to cancel the connection process
   const cancelConnection = useCallback(async () => {
     clearPolling();
     
     try {
       const instanceName = getInstanceName();
-      await whatsappService.logout(instanceName);
+      const success = await whatsappService.logout(instanceName);
+      if (success) {
+        console.log("Successfully logged out instance:", instanceName);
+      } else {
+        console.warn("Logout may not have succeeded for instance:", instanceName);
+      }
     } catch (error) {
       console.error("Error canceling connection:", error);
     }
@@ -186,8 +238,8 @@ export function useWhatsAppConnection() {
     setConnectionStatus("failed");
     setQrCodeData(null);
     toast({
-      title: "Conexão cancelada",
-      description: "A conexão com o WhatsApp foi cancelada.",
+      title: "Connection Canceled",
+      description: "WhatsApp connection was canceled.",
       variant: "destructive",
     });
   }, [clearPolling, getInstanceName, toast]);
@@ -204,13 +256,13 @@ export function useWhatsAppConnection() {
     return qrCodeData;
   }, [qrCodeData]);
 
-  // Get the instance name and token - useful for the UI
+  // Get the instance name and data - useful for the UI
   const getConnectionInfo = useCallback(() => {
     return {
       instanceName: getInstanceName(),
-      token: accessToken
+      instanceData: instanceData
     };
-  }, [getInstanceName, accessToken]);
+  }, [getInstanceName, instanceData]);
 
   return {
     connectionStatus,

@@ -1,23 +1,28 @@
 
-import { createContext, useContext, ReactNode } from "react";
+import { createContext, useContext, ReactNode, useEffect } from "react";
 import { ConnectionStatus } from "../types";
 import { useWhatsAppConnection } from "../hooks/useWhatsAppConnection";
 
 interface ConnectionContextType {
   connectionStatus: ConnectionStatus;
-  startConnection: () => void;
+  startConnection: () => Promise<string | null>;
   cancelConnection: () => void;
   completeConnection: (phoneNumber?: string) => void;
   isLoading: boolean;
   qrCodeData: string | null;
   connectionError: string | null;
-  getConnectionInfo: () => { instanceName: string; token: string | null };
+  getConnectionInfo: () => { instanceName: string; instanceData: any };
 }
 
 const ConnectionContext = createContext<ConnectionContextType | undefined>(undefined);
 
 export function ConnectionProvider({ children }: { children: ReactNode }) {
   const connection = useWhatsAppConnection();
+  
+  // For debugging purposes, log context changes
+  useEffect(() => {
+    console.log("ConnectionContext status updated:", connection.connectionStatus);
+  }, [connection.connectionStatus]);
 
   return (
     <ConnectionContext.Provider
