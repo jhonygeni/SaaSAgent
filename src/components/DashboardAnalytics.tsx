@@ -1,5 +1,4 @@
-
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useUser } from "@/context/UserContext";
 import { formatLimit } from "@/lib/utils";
@@ -169,13 +168,6 @@ export function DashboardAnalytics() {
             IA vs Humano
           </Button>
         </div>
-        <div className="flex items-center">
-          <select className="px-3 py-1 text-sm rounded-md border bg-card">
-            <option value="7">Últimos 7 dias</option>
-            <option value="30">Últimos 30 dias</option>
-            <option value="90">Últimos 90 dias</option>
-          </select>
-        </div>
       </div>
 
       {activeTab === 'overview' && (
@@ -227,39 +219,43 @@ export function DashboardAnalytics() {
                 <CardTitle className="text-base font-medium">Clientes Atendidos por Canal</CardTitle>
               </CardHeader>
               <CardContent>
-                <ChartContainer config={chartConfig} className="h-[300px]">
-                  <BarChart data={mockClientsData} barSize={24} barGap={2}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="dia" className="text-xs" />
-                    <YAxis className="text-xs" />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Legend />
-                    <Bar 
-                      dataKey="WhatsApp" 
-                      name="WhatsApp"
-                      fill={chartConfig.WhatsApp.color} 
-                      radius={[4, 4, 0, 0]} 
-                    />
-                    <Bar 
-                      dataKey="Instagram" 
-                      name="Instagram"
-                      fill={chartConfig.Instagram.color} 
-                      radius={[4, 4, 0, 0]} 
-                    />
-                    <Bar 
-                      dataKey="Facebook" 
-                      name="Facebook"
-                      fill={chartConfig.Facebook.color} 
-                      radius={[4, 4, 0, 0]} 
-                    />
-                    <Bar 
-                      dataKey="Site" 
-                      name="Site"
-                      fill={chartConfig.Site.color} 
-                      radius={[4, 4, 0, 0]} 
-                    />
-                  </BarChart>
-                </ChartContainer>
+                <div className="h-[300px] w-full">
+                  <ChartContainer config={chartConfig}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={mockClientsData} barSize={24} barGap={2}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis dataKey="dia" className="text-xs" />
+                        <YAxis className="text-xs" />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Legend />
+                        <Bar 
+                          dataKey="WhatsApp" 
+                          name="WhatsApp"
+                          fill={chartConfig.WhatsApp.color} 
+                          radius={[4, 4, 0, 0]} 
+                        />
+                        <Bar 
+                          dataKey="Instagram" 
+                          name="Instagram"
+                          fill={chartConfig.Instagram.color} 
+                          radius={[4, 4, 0, 0]} 
+                        />
+                        <Bar 
+                          dataKey="Facebook" 
+                          name="Facebook"
+                          fill={chartConfig.Facebook.color} 
+                          radius={[4, 4, 0, 0]} 
+                        />
+                        <Bar 
+                          dataKey="Site" 
+                          name="Site"
+                          fill={chartConfig.Site.color} 
+                          radius={[4, 4, 0, 0]} 
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </ChartContainer>
+                </div>
               </CardContent>
             </Card>
 
@@ -268,31 +264,35 @@ export function DashboardAnalytics() {
                 <CardTitle className="text-base font-medium">Mensagens Enviadas vs. Recebidas</CardTitle>
               </CardHeader>
               <CardContent>
-                <ChartContainer config={chartConfig} className="h-[300px]">
-                  <LineChart data={mockMessagesData}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="dia" className="text-xs" />
-                    <YAxis className="text-xs" />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Legend />
-                    <Line 
-                      type="monotone" 
-                      dataKey="enviadas" 
-                      name="Enviadas"
-                      stroke={chartConfig.enviadas.color} 
-                      strokeWidth={2}
-                      dot={{ r: 4 }} 
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="recebidas" 
-                      name="Recebidas"
-                      stroke={chartConfig.recebidas.color} 
-                      strokeWidth={2}
-                      dot={{ r: 4 }} 
-                    />
-                  </LineChart>
-                </ChartContainer>
+                <div className="h-[300px] w-full">
+                  <ChartContainer config={chartConfig}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={mockMessagesData}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis dataKey="dia" className="text-xs" />
+                        <YAxis className="text-xs" />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Legend />
+                        <Line 
+                          type="monotone" 
+                          dataKey="enviadas" 
+                          name="Enviadas"
+                          stroke={chartConfig.enviadas.color} 
+                          strokeWidth={2}
+                          dot={{ r: 4 }} 
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="recebidas" 
+                          name="Recebidas"
+                          stroke={chartConfig.recebidas.color} 
+                          strokeWidth={2}
+                          dot={{ r: 4 }} 
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </ChartContainer>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -323,27 +323,31 @@ export function DashboardAnalytics() {
                 <CardTitle className="text-base font-medium">Leads Interessados</CardTitle>
               </CardHeader>
               <CardContent>
-                <ChartContainer config={chartConfig} className="h-[200px]">
-                  <AreaChart data={mockLeadsData}>
-                    <defs>
-                      <linearGradient id="leadGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.1}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="dia" className="text-xs" />
-                    <YAxis className="text-xs" />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Area 
-                      type="monotone" 
-                      dataKey="leads" 
-                      stroke="hsl(var(--primary))"
-                      fillOpacity={1}
-                      fill="url(#leadGradient)"
-                    />
-                  </AreaChart>
-                </ChartContainer>
+                <div className="h-[200px] w-full">
+                  <ChartContainer config={chartConfig}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={mockLeadsData}>
+                        <defs>
+                          <linearGradient id="leadGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
+                            <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.1}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis dataKey="dia" className="text-xs" />
+                        <YAxis className="text-xs" />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Area 
+                          type="monotone" 
+                          dataKey="leads" 
+                          stroke="hsl(var(--primary))"
+                          fillOpacity={1}
+                          fill="url(#leadGradient)"
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </ChartContainer>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -358,38 +362,40 @@ export function DashboardAnalytics() {
                 <span className="w-3 h-3 rounded-full bg-blue-500"></span>
                 <span className="text-lg">IA vs Atendimento Humano</span>
               </CardTitle>
-              <CardDescription>
-                Comparação de performance entre atendimento por IA e atendimento humano
-              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* IA vs Human Charts - these should be responsive for mobile and desktop */}
                 <div>
                   <h3 className="text-sm font-medium mb-2">Quantidade de Mensagens</h3>
-                  <ChartContainer config={chartConfig} className="h-[250px]">
-                    <LineChart data={mockComparisonData}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="mes" className="text-xs" />
-                      <YAxis className="text-xs" />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Line 
-                        type="monotone" 
-                        dataKey="ia" 
-                        name="IA"
-                        stroke={chartConfig.ia.color} 
-                        strokeWidth={2}
-                        dot={{ r: 4 }} 
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="humano" 
-                        name="Humano"
-                        stroke={chartConfig.humano.color} 
-                        strokeWidth={2}
-                        dot={{ r: 4 }} 
-                      />
-                    </LineChart>
-                  </ChartContainer>
+                  <div className="h-[250px] w-full">
+                    <ChartContainer config={chartConfig}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={mockComparisonData}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                          <XAxis dataKey="mes" className="text-xs" />
+                          <YAxis className="text-xs" />
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <Line 
+                            type="monotone" 
+                            dataKey="ia" 
+                            name="IA"
+                            stroke={chartConfig.ia.color} 
+                            strokeWidth={2}
+                            dot={{ r: 4 }} 
+                          />
+                          <Line 
+                            type="monotone" 
+                            dataKey="humano" 
+                            name="Humano"
+                            stroke={chartConfig.humano.color} 
+                            strokeWidth={2}
+                            dot={{ r: 4 }} 
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </ChartContainer>
+                  </div>
                   <div className="flex justify-between text-sm mt-2">
                     <div>
                       <span className="text-blue-500 font-medium">24</span>
@@ -404,30 +410,34 @@ export function DashboardAnalytics() {
 
                 <div>
                   <h3 className="text-sm font-medium mb-2">Tempo de Primeira Resposta (min)</h3>
-                  <ChartContainer config={chartConfig} className="h-[250px]">
-                    <LineChart data={mockComparisonData}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="mes" className="text-xs" />
-                      <YAxis className="text-xs" />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Line 
-                        type="monotone" 
-                        dataKey="tempoIA" 
-                        name="IA"
-                        stroke={chartConfig.tempoIA.color} 
-                        strokeWidth={2}
-                        dot={{ r: 4 }} 
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="tempoHumano" 
-                        name="Humano"
-                        stroke={chartConfig.tempoHumano.color} 
-                        strokeWidth={2}
-                        dot={{ r: 4 }} 
-                      />
-                    </LineChart>
-                  </ChartContainer>
+                  <div className="h-[250px] w-full">
+                    <ChartContainer config={chartConfig}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={mockComparisonData}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                          <XAxis dataKey="mes" className="text-xs" />
+                          <YAxis className="text-xs" />
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <Line 
+                            type="monotone" 
+                            dataKey="tempoIA" 
+                            name="IA"
+                            stroke={chartConfig.tempoIA.color} 
+                            strokeWidth={2}
+                            dot={{ r: 4 }} 
+                          />
+                          <Line 
+                            type="monotone" 
+                            dataKey="tempoHumano" 
+                            name="Humano"
+                            stroke={chartConfig.tempoHumano.color} 
+                            strokeWidth={2}
+                            dot={{ r: 4 }} 
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </ChartContainer>
+                  </div>
                   <div className="flex justify-between text-sm mt-2">
                     <div>
                       <span className="text-blue-500 font-medium">0.5</span>
@@ -442,30 +452,34 @@ export function DashboardAnalytics() {
 
                 <div>
                   <h3 className="text-sm font-medium mb-2">Tempo de Resolução (min)</h3>
-                  <ChartContainer config={chartConfig} className="h-[250px]">
-                    <LineChart data={mockComparisonData}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="mes" className="text-xs" />
-                      <YAxis className="text-xs" />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Line 
-                        type="monotone" 
-                        dataKey="resolucaoIA" 
-                        name="IA"
-                        stroke={chartConfig.resolucaoIA.color} 
-                        strokeWidth={2}
-                        dot={{ r: 4 }} 
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="resolucaoHumano" 
-                        name="Humano"
-                        stroke={chartConfig.resolucaoHumano.color} 
-                        strokeWidth={2}
-                        dot={{ r: 4 }} 
-                      />
-                    </LineChart>
-                  </ChartContainer>
+                  <div className="h-[250px] w-full">
+                    <ChartContainer config={chartConfig}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={mockComparisonData}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                          <XAxis dataKey="mes" className="text-xs" />
+                          <YAxis className="text-xs" />
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <Line 
+                            type="monotone" 
+                            dataKey="resolucaoIA" 
+                            name="IA"
+                            stroke={chartConfig.resolucaoIA.color} 
+                            strokeWidth={2}
+                            dot={{ r: 4 }} 
+                          />
+                          <Line 
+                            type="monotone" 
+                            dataKey="resolucaoHumano" 
+                            name="Humano"
+                            stroke={chartConfig.resolucaoHumano.color} 
+                            strokeWidth={2}
+                            dot={{ r: 4 }} 
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </ChartContainer>
+                  </div>
                   <div className="flex justify-between text-sm mt-2">
                     <div>
                       <span className="text-blue-500 font-medium">8.2</span>

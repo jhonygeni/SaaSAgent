@@ -24,7 +24,7 @@ export function Dashboard() {
 
   if (!user) {
     return (
-      <div className="container mx-auto py-8">
+      <div className="container mx-auto p-4 md:py-8">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -49,55 +49,20 @@ export function Dashboard() {
     <div className="flex flex-col min-h-screen bg-background">
       <DashboardHeader />
       <div className="container mx-auto py-4 md:py-6 space-y-6 md:space-y-8 px-4 md:px-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
-          <div className="lg:col-span-9">
+        {/* Dashboard Analytics */}
+        <div className="grid grid-cols-1 gap-6">
+          <div className="w-full">
             <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Visão Geral</h2>
             <DashboardAnalytics />
           </div>
-          
-          <div className="lg:col-span-3">
-            <Card className="bg-card dark:bg-card border-border h-full">
-              <CardHeader className={isMobile ? "p-4" : "p-6"}>
-                <CardTitle className="text-lg md:text-xl">Dicas Rápidas</CardTitle>
-                <CardDescription>
-                  Como melhorar seus agentes de IA
-                </CardDescription>
-              </CardHeader>
-              <CardContent className={isMobile ? "p-4 pt-0" : "p-6 pt-0"}>
-                <ul className="space-y-3">
-                  <li className="flex gap-2">
-                    <div className="bg-primary/10 rounded-full p-1 h-5 w-5 flex items-center justify-center mt-0.5">
-                      <span className="text-xs font-medium text-primary">1</span>
-                    </div>
-                    <span className="text-sm">Adicione pelo menos 5 perguntas frequentes para melhorar as respostas</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <div className="bg-primary/10 rounded-full p-1 h-5 w-5 flex items-center justify-center mt-0.5">
-                      <span className="text-xs font-medium text-primary">2</span>
-                    </div>
-                    <span className="text-sm">Forneça informações detalhadas sobre sua empresa e serviços</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <div className="bg-primary/10 rounded-full p-1 h-5 w-5 flex items-center justify-center mt-0.5">
-                      <span className="text-xs font-medium text-primary">3</span>
-                    </div>
-                    <span className="text-sm">Teste seu agente regularmente para verificar a qualidade das respostas</span>
-                  </li>
-                </ul>
-              </CardContent>
-              <CardFooter className={isMobile ? "p-4 pt-0" : "p-6 pt-0"}>
-                <Button variant="outline" size="sm" onClick={() => navigate("/planos")} className="w-full">
-                  Faça upgrade para mais recursos
-                </Button>
-              </CardFooter>
-            </Card>
-          </div>
         </div>
         
+        {/* Interested Clients Section */}
         <div className="pt-2 md:pt-4">
           <InterestedClients />
         </div>
         
+        {/* Agent List Section */}
         <div className="pt-2 md:pt-4">
           <AgentList />
         </div>

@@ -64,9 +64,17 @@ export function AgentList() {
     navigate(`/testar/${id}`);
   };
 
+  const handleEditAgent = (id: string) => {
+    if (typeof window.editAgent === "function") {
+      window.editAgent(id);
+    } else {
+      console.error("Edit agent function is not available");
+    }
+  };
+
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
         <h2 className="text-2xl font-bold">Seus Agentes</h2>
         <Button 
           onClick={() => navigate("/novo-agente")} 
@@ -170,7 +178,11 @@ export function AgentList() {
                     <Button variant="ghost" size="icon" onClick={() => handleTestAgent(agent.id!)}>
                       <MessageSquare className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => handleEditAgent(agent.id!)}
+                    >
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button 
