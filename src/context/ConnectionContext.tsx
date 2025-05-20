@@ -25,10 +25,10 @@ const ConnectionContext = createContext<ConnectionContextType | undefined>(undef
 export function ConnectionProvider({ children }: { children: ReactNode }) {
   const connection = useWhatsAppConnection();
   
-  // For debugging purposes, log context changes
+  // For debugging purposes, log context changes with more detailed information
   useEffect(() => {
-    console.log("ConnectionContext status updated:", connection.connectionStatus);
-  }, [connection.connectionStatus]);
+    console.log("ConnectionContext status updated:", connection.connectionStatus, "QR data available:", !!connection.qrCodeData);
+  }, [connection.connectionStatus, connection.qrCodeData]);
 
   return (
     <ConnectionContext.Provider

@@ -5,7 +5,7 @@ export const EVOLUTION_API_KEY = "a01d49df66f0b9d8f368d3788a32aea8"; // API Key
 
 // For demonstration/testing when direct API access fails due to CORS
 // In production, these would be handled by a backend proxy
-export const USE_MOCK_DATA = true; // Set to false when using a real backend proxy
+export const USE_MOCK_DATA = true; // Keep this true to avoid CORS issues in development
 
 // API endpoints - following official Evolution API documentation
 export const ENDPOINTS = {

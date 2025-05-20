@@ -58,7 +58,12 @@ export function WhatsAppConnectionDialog({
       if (open && !hasInitiatedConnection && connectionStatus === "waiting" && !qrCodeData && !isLoading) {
         console.log("Starting WhatsApp connection process automatically");
         setHasInitiatedConnection(true);
-        await startConnection();
+        try {
+          const result = await startConnection();
+          console.log("Connection started, result:", result);
+        } catch (error) {
+          console.error("Failed to start connection:", error);
+        }
       }
     };
     
@@ -93,7 +98,17 @@ export function WhatsAppConnectionDialog({
   // Handle retry button click
   const handleRetry = async () => {
     setHasInitiatedConnection(true);
-    await startConnection();
+    try {
+      const result = await startConnection();
+      console.log("Connection retry initiated, result:", result);
+    } catch (error) {
+      console.error("Failed to retry connection:", error);
+      toast({
+        title: "Connection Error",
+        description: "Failed to initiate connection. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Copy instance info to clipboard
@@ -163,6 +178,9 @@ export function WhatsAppConnectionDialog({
               <p className="text-center text-sm text-muted-foreground">
                 Initializing WhatsApp connection...
               </p>
+              {attemptCount > 0 && (
+                <p className="text-xs text-muted-foreground">Attempt {attemptCount}</p>
+              )}
             </div>
           )}
 
@@ -177,7 +195,7 @@ export function WhatsAppConnectionDialog({
               </div>
               <div className="flex flex-col items-center space-y-2 max-w-xs text-center">
                 <Smartphone className="h-6 w-6 text-primary" />
-                <p className="text-sm font-medium">Scan the QR code</p>
+                <p className="text-sm font-medium">Scan this QR code</p>
                 <p className="text-xs text-muted-foreground">
                   Open WhatsApp on your phone, go to Settings &gt; Linked Devices,
                   and scan the QR code above.
@@ -289,13 +307,18 @@ export function WhatsAppConnectionDialog({
                 <p className="font-medium">Connection failed</p>
                 <p className="text-sm text-muted-foreground mt-1">
                   {connectionError || "Could not connect to WhatsApp. Please try again."}
-                  {USE_MOCK_DATA && (
-                    <span className="block mt-2 text-amber-600">
-                      Note: The application is running in demonstration mode with mock data. 
-                      In production, you would connect to a real WhatsApp API.
-                    </span>
-                  )}
                 </p>
+                {USE_MOCK_DATA && (
+                  <div className="mt-2 p-2 bg-amber-50 border border-amber-100 rounded text-xs text-amber-700">
+                    <p>
+                      <strong>Note:</strong> The application is running in demonstration mode with mock data. 
+                      In production, you would connect to a real WhatsApp API.
+                    </p>
+                    <p className="mt-1">
+                      To test the connection flow, try clicking "Try again" below.
+                    </p>
+                  </div>
+                )}
               </div>
               
               <div className="w-full border rounded-md p-3 bg-red-50/50 mt-2">
