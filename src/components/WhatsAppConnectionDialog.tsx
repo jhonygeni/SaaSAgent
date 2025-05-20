@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button-extensions";
 import { CheckCircle, XCircle, Loader } from "lucide-react";
 import { useConnection } from "@/context/ConnectionContext";
 import { useToast } from "@/hooks/use-toast";
-import QRCode from "qrcode.react";
+import { QRCode } from "qrcode.react";
 import {
   AlertDialog,
   AlertDialogAction,
