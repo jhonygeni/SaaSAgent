@@ -13,6 +13,7 @@ export function useWhatsAppConnection() {
   const [qrCodeData, setQrCodeData] = useState<string | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
 
   // Clean up polling on unmount
   useEffect(() => {
@@ -89,7 +90,8 @@ export function useWhatsAppConnection() {
         const statusData = await whatsappService.getStatus(instanceName);
         console.log("Status polling response:", statusData);
         
-        if (statusData.status === "connected") {
+        // Depending on the API response structure, check for connected status
+        if (statusData.state === "open" || statusData.status === "connected" || statusData.connected) {
           handleSuccessfulConnection(instanceName);
         }
       } catch (error) {
@@ -106,10 +108,13 @@ export function useWhatsAppConnection() {
       const qrData = await whatsappService.getQrCode(instanceName);
       console.log("QR code response:", qrData);
       
-      if (qrData.qrcode) {
-        setQrCodeData(qrData.qrcode);
+      // Extract QR code based on the API response structure
+      const qrCode = qrData.qrcode || qrData.qr || qrData.base64 || qrData.code;
+      
+      if (qrCode) {
+        setQrCodeData(qrCode);
         startStatusPolling(instanceName);
-        return qrData.qrcode;
+        return qrCode;
       } else {
         throw new Error("No QR code received from API");
       }
@@ -128,7 +133,12 @@ export function useWhatsAppConnection() {
       const data = await whatsappService.createInstance(instanceName);
       console.log("Evolution API response:", data);
       
-      if (data.success || data.status === "created" || data.status === "pending") {
+      if (data.token) {
+        setAccessToken(data.token);
+      }
+      
+      // Check for expected success indicators
+      if (data.success || data.status === "created" || data.created || data.instance) {
         return await fetchQrCode(instanceName);
       } else {
         throw new Error("Failed to create WhatsApp instance");
@@ -194,6 +204,14 @@ export function useWhatsAppConnection() {
     return qrCodeData;
   }, [qrCodeData]);
 
+  // Get the instance name and token - useful for the UI
+  const getConnectionInfo = useCallback(() => {
+    return {
+      instanceName: getInstanceName(),
+      token: accessToken
+    };
+  }, [getInstanceName, accessToken]);
+
   return {
     connectionStatus,
     startConnection,
@@ -202,6 +220,7 @@ export function useWhatsAppConnection() {
     isLoading,
     qrCodeData,
     connectionError,
-    getCurrentQrCode
+    getCurrentQrCode,
+    getConnectionInfo
   };
 }

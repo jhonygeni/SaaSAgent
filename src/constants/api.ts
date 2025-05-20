@@ -5,10 +5,13 @@ export const EVOLUTION_API_KEY = "a01d49df66f0b9d8f368d3788a32aea8";
 
 // API endpoints
 export const ENDPOINTS = {
-  // These are example endpoints - replace with actual endpoints from your documentation
-  connect: "/instance/create", // Example: Create a new WhatsApp instance/session
-  qrCode: "/instance/qr", // Example: Generate QR code
-  status: "/instance/status", // Example: Check connection status
-  info: "/instance/info", // Example: Get connected phone info
-  logout: "/instance/logout" // Example: Disconnect WhatsApp
+  // Authentication endpoints
+  login: "/auth/login", // Endpoint to authenticate and get access token
+  
+  // Instance endpoints
+  connect: "/instance/create", // Create a new WhatsApp instance/session
+  qrCode: "/instance/qr", // Generate QR code
+  status: "/instance/connectionState", // Check connection status
+  info: "/instance/info", // Get connected phone info
+  logout: "/instance/delete" // Disconnect WhatsApp (using delete endpoint)
 };

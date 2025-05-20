@@ -9,8 +9,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, Smartphone, CheckCircle, AlertCircle, QrCode } from "lucide-react";
+import { Loader2, Smartphone, CheckCircle, AlertCircle, QrCode, Copy } from "lucide-react";
 import { useConnection } from "@/context/ConnectionContext";
+import { toast } from "@/hooks/use-toast";
 
 interface WhatsAppConnectionDialogProps {
   open: boolean;
@@ -29,7 +30,8 @@ export function WhatsAppConnectionDialog({
     cancelConnection, 
     isLoading, 
     qrCodeData,
-    connectionError
+    connectionError,
+    getConnectionInfo
   } = useConnection();
   const [hasInitiatedConnection, setHasInitiatedConnection] = useState(false);
 
@@ -76,6 +78,29 @@ export function WhatsAppConnectionDialog({
     await startConnection();
   };
 
+  // Copy instance info to clipboard
+  const copyInstanceInfo = () => {
+    const { instanceName, token } = getConnectionInfo();
+    const infoText = `Instance Name: ${instanceName}\nAccess Token: ${token || "Not available"}`;
+    
+    navigator.clipboard.writeText(infoText)
+      .then(() => {
+        toast({
+          title: "Copiado!",
+          description: "Informações da instância copiadas para a área de transferência.",
+          variant: "default",
+        });
+      })
+      .catch((err) => {
+        console.error("Failed to copy instance info:", err);
+        toast({
+          title: "Erro ao copiar",
+          description: "Não foi possível copiar as informações para a área de transferência.",
+          variant: "destructive",
+        });
+      });
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleDialogClose}>
       <DialogContent className="sm:max-w-md">
@@ -114,6 +139,20 @@ export function WhatsAppConnectionDialog({
                   e escaneie o código QR acima.
                 </p>
               </div>
+              
+              {/* Connection details for debugging */}
+              <div className="w-full border rounded-md p-3 bg-muted/50 mt-4">
+                <div className="flex justify-between items-center mb-1">
+                  <p className="text-sm font-medium">Detalhes da conexão</p>
+                  <Button variant="ghost" size="sm" onClick={copyInstanceInfo}>
+                    <Copy className="h-4 w-4 mr-1" />
+                    <span className="text-xs">Copiar</span>
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Instance Name: {getConnectionInfo().instanceName}
+                </p>
+              </div>
             </div>
           )}
 
@@ -126,6 +165,20 @@ export function WhatsAppConnectionDialog({
                 <p className="font-medium">WhatsApp conectado com sucesso!</p>
                 <p className="text-sm text-muted-foreground mt-1">
                   Seu agente já pode enviar e receber mensagens.
+                </p>
+              </div>
+              
+              {/* Connection details */}
+              <div className="w-full border rounded-md p-3 bg-green-50 mt-2">
+                <div className="flex justify-between items-center mb-1">
+                  <p className="text-sm font-medium">Detalhes da conexão</p>
+                  <Button variant="ghost" size="sm" onClick={copyInstanceInfo}>
+                    <Copy className="h-4 w-4 mr-1" />
+                    <span className="text-xs">Copiar</span>
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Instance Name: {getConnectionInfo().instanceName}
                 </p>
               </div>
             </div>

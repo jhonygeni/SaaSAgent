@@ -11,6 +11,7 @@ interface ConnectionContextType {
   isLoading: boolean;
   qrCodeData: string | null;
   connectionError: string | null;
+  getConnectionInfo: () => { instanceName: string; token: string | null };
 }
 
 const ConnectionContext = createContext<ConnectionContextType | undefined>(undefined);
@@ -28,6 +29,7 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
         isLoading: connection.isLoading,
         qrCodeData: connection.qrCodeData,
         connectionError: connection.connectionError,
+        getConnectionInfo: connection.getConnectionInfo,
       }}
     >
       {children}
