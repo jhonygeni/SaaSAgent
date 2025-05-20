@@ -15,10 +15,12 @@ import { AgentList } from "@/components/AgentList";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { DashboardAnalytics } from "@/components/DashboardAnalytics";
 import { InterestedClients } from "@/components/InterestedClients";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export function Dashboard() {
   const { user } = useUser();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   if (!user) {
     return (
@@ -46,22 +48,22 @@ export function Dashboard() {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <DashboardHeader />
-      <div className="container mx-auto py-6 space-y-8 px-4 md:px-6">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-3">
-            <h2 className="text-2xl font-bold mb-6">Visão Geral</h2>
+      <div className="container mx-auto py-4 md:py-6 space-y-6 md:space-y-8 px-4 md:px-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
+          <div className="lg:col-span-9">
+            <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Visão Geral</h2>
             <DashboardAnalytics />
           </div>
           
-          <div className="lg:col-span-1">
-            <Card className="bg-card dark:bg-card border-border">
-              <CardHeader>
-                <CardTitle>Dicas Rápidas</CardTitle>
+          <div className="lg:col-span-3">
+            <Card className="bg-card dark:bg-card border-border h-full">
+              <CardHeader className={isMobile ? "p-4" : "p-6"}>
+                <CardTitle className="text-lg md:text-xl">Dicas Rápidas</CardTitle>
                 <CardDescription>
                   Como melhorar seus agentes de IA
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className={isMobile ? "p-4 pt-0" : "p-6 pt-0"}>
                 <ul className="space-y-3">
                   <li className="flex gap-2">
                     <div className="bg-primary/10 rounded-full p-1 h-5 w-5 flex items-center justify-center mt-0.5">
@@ -83,7 +85,7 @@ export function Dashboard() {
                   </li>
                 </ul>
               </CardContent>
-              <CardFooter>
+              <CardFooter className={isMobile ? "p-4 pt-0" : "p-6 pt-0"}>
                 <Button variant="outline" size="sm" onClick={() => navigate("/planos")} className="w-full">
                   Faça upgrade para mais recursos
                 </Button>
@@ -92,11 +94,11 @@ export function Dashboard() {
           </div>
         </div>
         
-        <div className="pt-4">
+        <div className="pt-2 md:pt-4">
           <InterestedClients />
         </div>
         
-        <div className="pt-4">
+        <div className="pt-2 md:pt-4">
           <AgentList />
         </div>
       </div>

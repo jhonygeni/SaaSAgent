@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import {
   Dialog,
@@ -21,8 +22,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface WhatsAppConnectionDialogProps {
   open: boolean;
@@ -38,14 +39,25 @@ export function WhatsAppConnectionDialog({
   const [retryCount, setRetryCount] = useState(0);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [qrCode, setQrCode] = useState("");
+  const isMobile = useIsMobile();
 
-  // Generate a mock QR code for demonstration
+  // TODO: Replace this with the actual Evolution API 2.2.3 integration
+  // Use the Evolution API endpoint to generate and fetch the QR code
   useEffect(() => {
     if (open && connectionStatus === "waiting") {
-      // In a real implementation, this would be fetched from the Evolution API
+      // This should be replaced with the actual Evolution API call
+      // Example:
+      // fetchEvolutionQRCode()
+      //   .then(response => setQrCode(response.qrCodeValue))
+      //   .catch(error => {
+      //     console.error("Failed to fetch QR code:", error);
+      //     toast.error("Failed to generate QR code. Please try again.");
+      //   });
+      
+      // Placeholder until API details are provided
       setQrCode("https://evolution-api.com/connect/12345");
     }
-  }, [open, connectionStatus]);
+  }, [open, connectionStatus, toast]);
 
   // Start connection process when the dialog opens
   useEffect(() => {
@@ -54,11 +66,14 @@ export function WhatsAppConnectionDialog({
     }
   }, [open, startConnection]);
 
+  // TODO: Add websocket or polling to check connection status from Evolution API
+
   const handleCancel = () => {
     setShowCancelConfirm(true);
   };
 
   const confirmCancel = () => {
+    // TODO: Call Evolution API to cancel connection attempt
     cancelConnection();
     setShowCancelConfirm(false);
     onOpenChange(false);
@@ -67,10 +82,12 @@ export function WhatsAppConnectionDialog({
   const handleRetry = () => {
     setRetryCount((prev) => prev + 1);
     startConnection();
+    // TODO: Call Evolution API to restart connection process
   };
 
   const handleComplete = () => {
-    // Simulate connection success
+    // TODO: Call Evolution API to verify connection was successful
+    // and retrieve the connected phone number
     completeConnection("+55 11 99999-9999");
     onOpenChange(false);
   };
@@ -78,12 +95,15 @@ export function WhatsAppConnectionDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-md" onInteractOutside={(e) => {
-          // Prevent closing when clicking outside during loading
-          if (isLoading) {
-            e.preventDefault();
-          }
-        }}>
+        <DialogContent 
+          className="sm:max-w-md" 
+          onInteractOutside={(e) => {
+            // Prevent closing when clicking outside during loading
+            if (isLoading) {
+              e.preventDefault();
+            }
+          }}
+        >
           <DialogHeader>
             <DialogTitle>Conectar WhatsApp</DialogTitle>
             <DialogDescription>
@@ -136,7 +156,7 @@ export function WhatsAppConnectionDialog({
             )}
           </div>
 
-          <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-between sm:space-x-2">
+          <DialogFooter className={`flex ${isMobile ? 'flex-col-reverse gap-2' : 'sm:flex-row sm:justify-between sm:space-x-2'}`}>
             {connectionStatus === "waiting" && (
               <>
                 <Button type="button" variant="outline" onClick={handleCancel} disabled={isLoading}>
@@ -146,7 +166,7 @@ export function WhatsAppConnectionDialog({
                   type="button" 
                   onClick={handleComplete} 
                   disabled={isLoading}
-                  className="mb-2 sm:mb-0"
+                  className={isMobile ? "mb-0" : "mb-2 sm:mb-0"}
                 >
                   Conectado? Clique aqui
                 </Button>
@@ -168,7 +188,7 @@ export function WhatsAppConnectionDialog({
                   type="button" 
                   onClick={handleRetry}
                   loading={isLoading}
-                  className="mb-2 sm:mb-0"
+                  className={isMobile ? "mb-0" : "mb-2 sm:mb-0"}
                 >
                   Tentar novamente
                 </Button>
