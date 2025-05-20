@@ -25,6 +25,7 @@ export const EXAMPLE_AGENT: Agent = {
   site: "www.suaimobiliaria.com.br",
   areaDeAtuacao: "Imobiliária",
   informacoes: "Somos uma imobiliária especializada em imóveis de alto padrão. Nossa missão é proporcionar a melhor experiência na compra e venda de imóveis, com profissionalismo, ética e transparência.",
+  prompt: "Você é um assistente virtual especializado no setor imobiliário. Seja sempre profissional, paciente e detalhista ao explicar processos imobiliários. Enfatize a transparência e segurança nas negociações. Quando não souber uma resposta específica sobre um imóvel, sugira que o cliente deixe seus dados para um corretor entrar em contato com informações detalhadas.",
   faqs: [
     {
       pergunta: "Como funciona o processo de compra de um imóvel?",

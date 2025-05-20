@@ -1,4 +1,3 @@
-
 export type BusinessSector = 
   | "Varejo" 
   | "Saúde" 
@@ -22,6 +21,7 @@ export type Agent = {
   site: string;
   areaDeAtuacao: BusinessSector;
   informacoes: string;
+  prompt?: string; // Added prompt field
   faqs: FAQ[];
   createdAt?: string;
   status?: "ativo" | "inativo";

@@ -32,7 +32,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { AlertCircle, Plus, Trash, Info } from "lucide-react";
+import { AlertCircle, Plus, Trash, Info, Sparkles } from "lucide-react";
+import { useTheme } from "next-themes";
+import { Switch } from "@/components/ui/switch";
 
 export function NewAgentForm() {
   const { currentAgent, updateAgent, addFAQ, updateFAQ, removeFAQ, resetAgent, addAgent } = useAgent();
@@ -40,8 +42,12 @@ export function NewAgentForm() {
   const { toast } = useToast();
   const { user } = useUser();
   const navigate = useNavigate();
+  const { theme, setTheme } = useTheme();
   const [errors, setErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const maxRetries = 3;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,8 +62,11 @@ export function NewAgentForm() {
     setIsSubmitting(true);
     
     try {
-      // Send agent data to webhook
-      const success = await sendAgentToWebhook(currentAgent);
+      // Send agent data to webhook with retry logic
+      const success = await sendWebhookWithRetry(
+        "https://webhooksaas.geni.chat/webhook/principal", 
+        currentAgent
+      );
       
       if (success) {
         // Add agent to context
@@ -66,16 +75,24 @@ export function NewAgentForm() {
         // Start connection process
         startConnection();
         
+        // Show success toast
+        toast({
+          title: "Agente criado com sucesso!",
+          description: "Seu agente foi criado e está pronto para ser conectado.",
+          variant: "default",
+        });
+        
         // Navigate to connection page
         navigate("/conectar");
       } else {
         toast({
           title: "Erro ao criar agente",
-          description: "Não foi possível enviar os dados para o servidor.",
+          description: "Não foi possível enviar os dados para o servidor. Verifique sua conexão e tente novamente.",
           variant: "destructive",
         });
       }
     } catch (error) {
+      console.error("Erro detalhado:", error);
       toast({
         title: "Erro ao criar agente",
         description: "Ocorreu um erro inesperado. Tente novamente mais tarde.",
@@ -83,6 +100,50 @@ export function NewAgentForm() {
       });
     } finally {
       setIsSubmitting(false);
+      setRetryCount(0); // Reset retry count
+    }
+  };
+  
+  const sendWebhookWithRetry = async (url: string, data: any, retries = maxRetries): Promise<boolean> => {
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+      
+      if (response.ok) {
+        return true;
+      }
+      
+      console.error("Erro na resposta do webhook:", {
+        status: response.status,
+        statusText: response.statusText,
+      });
+      
+      // If we have retries left and it's a potentially recoverable error
+      if (retries > 0 && (response.status >= 500 || response.status === 429)) {
+        setRetryCount(prev => prev + 1);
+        const delay = 1000 * Math.pow(2, maxRetries - retries); // Exponential backoff
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return sendWebhookWithRetry(url, data, retries - 1);
+      }
+      
+      return false;
+    } catch (error) {
+      console.error("Erro ao enviar dados para o webhook:", error);
+      
+      // Retry on network errors if we have retries left
+      if (retries > 0) {
+        setRetryCount(prev => prev + 1);
+        const delay = 1000 * Math.pow(2, maxRetries - retries); // Exponential backoff
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return sendWebhookWithRetry(url, data, retries - 1);
+      }
+      
+      return false;
     }
   };
   
@@ -90,13 +151,99 @@ export function NewAgentForm() {
     updateAgent(EXAMPLE_AGENT);
   };
 
+  const handleGeneratePrompt = async () => {
+    if (!currentAgent.areaDeAtuacao || !currentAgent.informacoes) {
+      toast({
+        title: "Informações insuficientes",
+        description: "Preencha a área de atuação e as informações da empresa para gerar um prompt otimizado.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsGeneratingPrompt(true);
+    
+    try {
+      const response = await fetch("https://webhooksaas.geni.chat/webhook/4d77007b-a6c3-450f-93de-ec97a8db140f", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          areaDeAtuacao: currentAgent.areaDeAtuacao,
+          informacoes: currentAgent.informacoes,
+          nome: currentAgent.nome,
+          site: currentAgent.site,
+          faqs: currentAgent.faqs
+        }),
+      });
+      
+      if (response.ok) {
+        try {
+          const data = await response.json();
+          if (data && data.prompt) {
+            updateAgent({ prompt: data.prompt });
+            toast({
+              title: "Prompt gerado com sucesso!",
+              description: "O prompt foi aprimorado pela IA com base nas informações da sua empresa.",
+              variant: "default",
+            });
+          } else {
+            throw new Error("Formato de resposta inválido");
+          }
+        } catch (e) {
+          console.error("Erro ao processar resposta:", e);
+          toast({
+            title: "Erro ao processar resposta",
+            description: "O servidor retornou dados em formato inválido.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        console.error("Erro na resposta do webhook:", {
+          status: response.status,
+          statusText: response.statusText,
+        });
+        toast({
+          title: "Erro ao gerar prompt",
+          description: "Não foi possível gerar um prompt otimizado. Tente novamente mais tarde.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Erro ao enviar dados para o webhook de prompt:", error);
+      toast({
+        title: "Erro de conexão",
+        description: "Não foi possível se conectar ao servidor de IA. Verifique sua conexão e tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingPrompt(false);
+    }
+  };
+
+  const toggleTheme = () => {
+    setTheme(theme === "dark" ? "light" : "dark");
+  };
+
   return (
     <div className="container mx-auto py-8 max-w-3xl">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-3xl font-bold">Criar Novo Agente</h2>
-        <Button variant="outline" onClick={handleFillExample}>
-          Preencher Exemplo
-        </Button>
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-muted-foreground">
+              {theme === "dark" ? "Modo Escuro" : "Modo Claro"}
+            </span>
+            <Switch 
+              checked={theme === "dark"}
+              onCheckedChange={toggleTheme}
+            />
+          </div>
+          <Button variant="outline" onClick={handleFillExample}>
+            Preencher Exemplo
+          </Button>
+        </div>
       </div>
       
       {errors.length > 0 && (
@@ -112,6 +259,17 @@ export function NewAgentForm() {
               </li>
             ))}
           </ul>
+        </Card>
+      )}
+      
+      {retryCount > 0 && (
+        <Card className="mb-6 p-4 border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700">
+          <div className="flex gap-2 items-center">
+            <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            <p className="text-sm text-amber-800 dark:text-amber-300">
+              Tentando novamente... ({retryCount}/{maxRetries})
+            </p>
+          </div>
         </Card>
       )}
       
@@ -217,6 +375,43 @@ export function NewAgentForm() {
               />
             </FormControl>
           </FormItem>
+          
+          <FormItem>
+            <div className="flex items-center justify-between">
+              <FormLabel>Prompt do Agente</FormLabel>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-4 w-4 text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-xs">Este prompt será usado para definir o comportamento do seu agente.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            <div className="flex items-center gap-2">
+              <FormControl className="flex-1">
+                <Textarea
+                  placeholder="Descreva como seu agente deve se comportar ou gere automaticamente com IA..."
+                  className="min-h-[100px]"
+                  value={currentAgent.prompt || ""}
+                  onChange={(e) => updateAgent({ prompt: e.target.value })}
+                />
+              </FormControl>
+              <Button 
+                type="button" 
+                variant="outline" 
+                className="h-10 whitespace-nowrap"
+                onClick={handleGeneratePrompt}
+                disabled={isGeneratingPrompt || !currentAgent.areaDeAtuacao || !currentAgent.informacoes}
+                loading={isGeneratingPrompt}
+              >
+                <Sparkles className="h-4 w-4 mr-2" />
+                Aprimorar com IA
+              </Button>
+            </div>
+          </FormItem>
         </div>
 
         <div className="space-y-4">
@@ -289,8 +484,8 @@ export function NewAgentForm() {
         </div>
 
         <div className="pt-4 flex justify-end">
-          <Button type="submit" size="lg" disabled={isSubmitting}>
-            {isSubmitting ? "Enviando..." : "Criar Agente"}
+          <Button type="submit" size="lg" disabled={isSubmitting} loading={isSubmitting}>
+            Criar Agente
           </Button>
         </div>
       </form>
