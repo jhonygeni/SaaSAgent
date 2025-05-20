@@ -1,3 +1,4 @@
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useUser } from "@/context/UserContext";
@@ -149,8 +150,8 @@ export function DashboardAnalytics() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between mb-2">
-        <div className="space-x-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button 
             size="sm"
             variant={activeTab === 'overview' ? "default" : "outline"}
@@ -168,7 +169,7 @@ export function DashboardAnalytics() {
             IA vs Humano
           </Button>
         </div>
-        <div className="flex space-x-2">
+        <div className="flex items-center">
           <select className="px-3 py-1 text-sm rounded-md border bg-card">
             <option value="7">Últimos 7 dias</option>
             <option value="30">Últimos 30 dias</option>
@@ -179,8 +180,8 @@ export function DashboardAnalytics() {
 
       {activeTab === 'overview' && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="bg-card dark:bg-card border-border">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base font-medium">Clientes Atendidos</CardTitle>
               </CardHeader>
@@ -193,7 +194,7 @@ export function DashboardAnalytics() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="bg-card dark:bg-card border-border">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base font-medium">Mensagens Trocadas</CardTitle>
               </CardHeader>
@@ -206,7 +207,7 @@ export function DashboardAnalytics() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="bg-card dark:bg-card border-border">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base font-medium">Leads Interessados</CardTitle>
               </CardHeader>
@@ -221,7 +222,7 @@ export function DashboardAnalytics() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
+            <Card className="bg-card dark:bg-card border-border">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base font-medium">Clientes Atendidos por Canal</CardTitle>
               </CardHeader>
@@ -262,7 +263,7 @@ export function DashboardAnalytics() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="bg-card dark:bg-card border-border">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base font-medium">Mensagens Enviadas vs. Recebidas</CardTitle>
               </CardHeader>
@@ -297,7 +298,7 @@ export function DashboardAnalytics() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card className="lg:col-span-1">
+            <Card className="lg:col-span-1 bg-card dark:bg-card border-border">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base font-medium">Uso de Mensagens</CardTitle>
               </CardHeader>
@@ -317,7 +318,7 @@ export function DashboardAnalytics() {
               </CardContent>
             </Card>
 
-            <Card className="lg:col-span-2">
+            <Card className="lg:col-span-2 bg-card dark:bg-card border-border">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base font-medium">Leads Interessados</CardTitle>
               </CardHeader>
@@ -351,7 +352,7 @@ export function DashboardAnalytics() {
 
       {activeTab === 'comparison' && (
         <div className="grid grid-cols-1 gap-6">
-          <Card>
+          <Card className="bg-card dark:bg-card border-border">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full bg-blue-500"></span>

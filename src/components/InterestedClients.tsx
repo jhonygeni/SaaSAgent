@@ -75,9 +75,9 @@ export function InterestedClients() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <h2 className="text-2xl font-bold">Clientes Interessados</h2>
-        <div className="relative w-64">
+        <div className="relative w-full sm:w-64">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar cliente..."
@@ -89,7 +89,7 @@ export function InterestedClients() {
       </div>
 
       {paginatedClients.length === 0 ? (
-        <Card>
+        <Card className="bg-card dark:bg-card border-border">
           <CardContent className="py-10 text-center text-muted-foreground">
             <p>Nenhum cliente interessado encontrado.</p>
           </CardContent>
@@ -97,7 +97,7 @@ export function InterestedClients() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {paginatedClients.map(client => (
-            <Card key={client.id}>
+            <Card key={client.id} className="bg-card dark:bg-card border-border">
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-2">

@@ -1,8 +1,5 @@
 
 import { useState, useEffect } from "react";
-import { useConnection } from "@/context/ConnectionContext";
-import { useAgent } from "@/context/AgentContext";
-import { Button } from "@/components/ui/button-extensions";
 import {
   Dialog,
   DialogContent,
@@ -11,194 +8,193 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { toast } from "@/hooks/use-toast";
-import { Check, X, RefreshCw, Smartphone, QrCode } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-
-// Mock QR Code Image (In real implementation, this would be dynamically generated)
-const MOCK_QR_CODE_URL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADIAQMAAACXljzdAAAABlBMVEX///8AAABVwtN+AAAA9klEQVRYw+2WMQ7DIAxFDUydo1yAa+T+V+gCHIe1akaT/y1Rh4QftiPZz/LXB8PDw8PDw8P/jt/evy9uaNi6r7vYoe6V9XsNOa11eM2l+1A7aL3EkFNdWLvqzPqAtyldqfCr6owO6YJ13erAho13MTY49IE9N1z0OTvvaFaWvjI2WHy4nbVBJzZu4KyomoWv4g+PGDfIwS/XzOrgN4s/5HA3k1/F9WNidt7RLDHAVXzG+KvsLrzSgfXPxngD6/+qYdXpkk5rl8Y53TRLkVvfb+LZ+DFtEeuqfmH8OvPD5Vczf4pnMTtnvVmPLOr9Znbun31HKTw8PPzv+AcAAP//oMvuAhp65jAAAAAASUVORK5CYII=";
+import { Button } from "@/components/ui/button-extensions";
+import { CheckCircle, XCircle, Loader } from "lucide-react";
+import { useConnection } from "@/context/ConnectionContext";
+import { useToast } from "@/hooks/use-toast";
+import QRCode from "qrcode.react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface WhatsAppConnectionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess?: () => void;
 }
 
 export function WhatsAppConnectionDialog({
   open,
   onOpenChange,
-  onSuccess
 }: WhatsAppConnectionDialogProps) {
-  const [qrCode, setQrCode] = useState(MOCK_QR_CODE_URL);
-  const [showConnected, setShowConnected] = useState(false);
-  const { connectionStatus, completeConnection, cancelConnection, isLoading } = useConnection();
-  const { updateAgent, currentAgent, agents, updateAgentById } = useAgent();
-  const navigate = useNavigate();
-  
-  // In a real implementation, we would poll a backend API to check for connection status
-  useEffect(() => {
-    if (connectionStatus === "waiting" && open) {
-      const timer = setTimeout(() => {
-        // Simulate successful connection after 10 seconds
-        if (Math.random() > 0.2) { // 80% success rate for demo
-          setShowConnected(true);
-          const mockPhoneNumber = `+55 11 9${Math.floor(Math.random() * 10000)}-${Math.floor(Math.random() * 10000)}`;
-          
-          // Mark the agent as connected
-          if (agents.length > 0) {
-            const latestAgent = agents[agents.length - 1];
-            updateAgentById(latestAgent.id!, {
-              connected: true,
-              phoneNumber: mockPhoneNumber,
-              status: "ativo"
-            });
-          }
-          
-          completeConnection(mockPhoneNumber);
-          if (onSuccess) {
-            setTimeout(() => {
-              onSuccess();
-            }, 2000);
-          }
-        } else {
-          // Simulate failure
-          cancelConnection();
-          onOpenChange(false);
-        }
-      }, 10000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [connectionStatus, open]);
+  const { connectionStatus, startConnection, cancelConnection, completeConnection, isLoading } = useConnection();
+  const { toast } = useToast();
+  const [retryCount, setRetryCount] = useState(0);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [qrCode, setQrCode] = useState("");
 
-  const handleRefreshQR = () => {
-    // In a real implementation, we would request a new QR code from the backend
-    toast({
-      title: "QR Code atualizado",
-      description: "Um novo QR code foi gerado.",
-    });
-    // For demo, we'll just simulate a new QR code
-    setQrCode(`${MOCK_QR_CODE_URL}?refresh=${Date.now()}`);
+  // Generate a mock QR code for demonstration
+  useEffect(() => {
+    if (open && connectionStatus === "waiting") {
+      // In a real implementation, this would be fetched from the Evolution API
+      setQrCode("https://evolution-api.com/connect/12345");
+    }
+  }, [open, connectionStatus]);
+
+  // Start connection process when the dialog opens
+  useEffect(() => {
+    if (open) {
+      startConnection();
+    }
+  }, [open, startConnection]);
+
+  const handleCancel = () => {
+    setShowCancelConfirm(true);
+  };
+
+  const confirmCancel = () => {
+    cancelConnection();
+    setShowCancelConfirm(false);
+    onOpenChange(false);
+  };
+
+  const handleRetry = () => {
+    setRetryCount((prev) => prev + 1);
+    startConnection();
+  };
+
+  const handleComplete = () => {
+    // Simulate connection success
+    completeConnection("+55 11 99999-9999");
+    onOpenChange(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Conectar WhatsApp</DialogTitle>
-          <DialogDescription>
-            Escaneie o QR code abaixo para conectar seu WhatsApp ao agente.
-          </DialogDescription>
-        </DialogHeader>
-        
-        {connectionStatus === "waiting" && !showConnected && (
-          <div className="space-y-8">
-            <div className="flex items-center justify-center flex-col">
-              <div className="rounded-lg overflow-hidden border shadow-lg mb-4">
-                {isLoading ? (
-                  <div className="w-[200px] h-[200px] flex items-center justify-center bg-muted">
-                    <RefreshCw className="h-10 w-10 animate-spin text-muted-foreground" />
-                  </div>
-                ) : (
-                  <img
-                    src={qrCode}
-                    alt="QR Code para conexão do WhatsApp"
-                    className="w-[200px] h-[200px]"
-                  />
-                )}
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-md" onInteractOutside={(e) => {
+          // Prevent closing when clicking outside during loading
+          if (isLoading) {
+            e.preventDefault();
+          }
+        }}>
+          <DialogHeader>
+            <DialogTitle>Conectar WhatsApp</DialogTitle>
+            <DialogDescription>
+              {connectionStatus === "waiting" && "Escaneie o QR code abaixo com seu WhatsApp para conectar seu agente."}
+              {connectionStatus === "connected" && "Seu WhatsApp foi conectado com sucesso."}
+              {connectionStatus === "failed" && "Não foi possível conectar ao WhatsApp."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col items-center justify-center py-4">
+            {isLoading ? (
+              <div className="flex flex-col items-center space-y-4 p-8">
+                <Loader className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-center text-sm text-muted-foreground">
+                  Conectando ao servidor...
+                </p>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRefreshQR}
-                disabled={isLoading}
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Atualizar QR Code
-              </Button>
-            </div>
-            
-            <div className="space-y-4">
-              <h3 className="font-medium text-lg">Como conectar</h3>
-              <ol className="text-left space-y-3">
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 rounded-full p-1 mt-0.5">
-                    <span className="text-xs font-medium text-primary">1</span>
-                  </div>
-                  <p>Abra o WhatsApp no seu celular</p>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 rounded-full p-1 mt-0.5">
-                    <span className="text-xs font-medium text-primary">2</span>
-                  </div>
-                  <p>Toque em Menu ou Configurações e selecione "Aparelhos conectados"</p>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 rounded-full p-1 mt-0.5">
-                    <span className="text-xs font-medium text-primary">3</span>
-                  </div>
-                  <p>Toque em "Conectar dispositivo"</p>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 rounded-full p-1 mt-0.5">
-                    <span className="text-xs font-medium text-primary">4</span>
-                  </div>
-                  <p>Escaneie o QR code acima</p>
-                </li>
-              </ol>
-            </div>
+            ) : connectionStatus === "waiting" ? (
+              <div className="flex flex-col items-center space-y-6">
+                <div className="bg-white p-4 rounded-lg">
+                  <QRCode value={qrCode} size={200} />
+                </div>
+                <div className="text-center space-y-2 max-w-xs">
+                  <p className="text-sm font-medium">Como conectar:</p>
+                  <ol className="text-sm text-muted-foreground space-y-2 text-left list-decimal pl-5">
+                    <li>Abra o WhatsApp no seu celular</li>
+                    <li>Toque em Menu ou Configurações e selecione WhatsApp Web</li>
+                    <li>Aponte seu celular para esta tela para escanear o QR code</li>
+                  </ol>
+                </div>
+              </div>
+            ) : connectionStatus === "connected" ? (
+              <div className="flex flex-col items-center space-y-4 p-4">
+                <div className="rounded-full bg-green-100 p-3 dark:bg-green-900/20">
+                  <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
+                </div>
+                <p className="text-center">
+                  Seu WhatsApp foi conectado com sucesso! Você já pode começar a usar seu agente.
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center space-y-4 p-4">
+                <div className="rounded-full bg-destructive/10 p-3">
+                  <XCircle className="h-8 w-8 text-destructive" />
+                </div>
+                <p className="text-center">
+                  Não foi possível conectar ao WhatsApp. Por favor, tente novamente.
+                </p>
+              </div>
+            )}
           </div>
-        )}
-        
-        <Dialog open={showConnected} onOpenChange={setShowConnected}>
-          <DialogContent className="sm:max-w-md text-center">
-            <DialogHeader>
-              <DialogTitle className="flex items-center justify-center gap-2">
-                <Check className="h-6 w-6 text-green-500" />
-                <span>Conexão realizada com sucesso!</span>
-              </DialogTitle>
-              <DialogDescription>
-                Seu agente de IA já está funcionando e pronto para atender pelo WhatsApp.
-              </DialogDescription>
-            </DialogHeader>
+
+          <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-between sm:space-x-2">
+            {connectionStatus === "waiting" && (
+              <>
+                <Button type="button" variant="outline" onClick={handleCancel} disabled={isLoading}>
+                  Cancelar
+                </Button>
+                <Button 
+                  type="button" 
+                  onClick={handleComplete} 
+                  disabled={isLoading}
+                  className="mb-2 sm:mb-0"
+                >
+                  Conectado? Clique aqui
+                </Button>
+              </>
+            )}
             
-            <div className="p-6 flex items-center justify-center">
-              <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center">
-                <Smartphone className="h-8 w-8 text-green-500" />
-              </div>
-            </div>
+            {connectionStatus === "connected" && (
+              <Button type="button" onClick={() => onOpenChange(false)}>
+                Continuar
+              </Button>
+            )}
             
-            <DialogFooter className="sm:justify-center">
-              <Button onClick={() => {
-                setShowConnected(false);
-                onOpenChange(false);
-                navigate("/dashboard");
-              }} size="lg">
-                Ir para o Dashboard
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-        
-        {connectionStatus === "failed" && (
-          <div className="space-y-6 border rounded-lg p-6">
-            <div className="flex items-center justify-center gap-2">
-              <div className="w-12 h-12 bg-destructive/10 rounded-full flex items-center justify-center">
-                <X className="h-6 w-6 text-destructive" />
-              </div>
-            </div>
-            <div>
-              <h3 className="font-medium text-lg mb-2">Falha na conexão</h3>
-              <p className="text-muted-foreground mb-4">
-                Não foi possível conectar ao WhatsApp. Por favor, tente novamente.
-              </p>
-              <Button onClick={() => onOpenChange(false)}>
-                Tentar novamente
-              </Button>
-            </div>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
+            {connectionStatus === "failed" && (
+              <>
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                  Fechar
+                </Button>
+                <Button 
+                  type="button" 
+                  onClick={handleRetry}
+                  loading={isLoading}
+                  className="mb-2 sm:mb-0"
+                >
+                  Tentar novamente
+                </Button>
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancelar conexão?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja cancelar a conexão com o WhatsApp? Você poderá conectar novamente mais tarde.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Voltar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmCancel}>
+              Sim, cancelar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

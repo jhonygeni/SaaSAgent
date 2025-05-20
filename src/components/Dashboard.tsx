@@ -44,17 +44,17 @@ export function Dashboard() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-background">
       <DashboardHeader />
-      <div className="container mx-auto py-8 space-y-8 px-4 md:px-6">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+      <div className="container mx-auto py-6 space-y-8 px-4 md:px-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-3">
             <h2 className="text-2xl font-bold mb-6">Visão Geral</h2>
             <DashboardAnalytics />
           </div>
           
           <div className="lg:col-span-1">
-            <Card>
+            <Card className="bg-card dark:bg-card border-border">
               <CardHeader>
                 <CardTitle>Dicas Rápidas</CardTitle>
                 <CardDescription>
