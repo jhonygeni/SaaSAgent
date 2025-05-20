@@ -21,7 +21,7 @@ const NewAgentPage = () => {
       toast({
         title: "Demo Mode Active",
         description: "Running in demo mode with mock data. No real WhatsApp connections will be made.",
-        variant: "warning",
+        variant: "destructive", // Changed from "warning" to "destructive" to match allowed variants
         duration: 6000,
       });
     }

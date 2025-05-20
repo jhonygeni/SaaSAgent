@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -50,7 +49,7 @@ export function WhatsAppConnectionDialog({
   } = useConnection();
   
   const [hasInitiatedConnection, setHasInitiatedConnection] = useState(false);
-  const [showDebugInfo, setShowDebugInfo] = useState(false);
+  const [showDebugInfo, setShowDebugInfo] = useState(true); // Show debug info by default for troubleshooting
   
   // Start connection process when dialog opens
   useEffect(() => {
@@ -74,7 +73,6 @@ export function WhatsAppConnectionDialog({
   useEffect(() => {
     if (!open) {
       setHasInitiatedConnection(false);
-      setShowDebugInfo(false);
     }
   }, [open]);
 
