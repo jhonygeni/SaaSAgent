@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState, ReactNode } from "react";
 import { Agent, FAQ } from "../types";
 import { EXAMPLE_AGENT } from "../lib/utils";
@@ -15,6 +14,7 @@ interface AgentContextType {
   updateAgentById: (id: string, updatedAgent: Partial<Agent>) => void;
   removeAgent: (id: string) => void;
   getAgentById: (id: string) => Agent | undefined;
+  setSelectedAgentForEdit: (agentId: string | null) => void;
 }
 
 const AgentContext = createContext<AgentContextType | undefined>(undefined);
@@ -33,6 +33,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
   });
   
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [selectedAgentForEdit, setSelectedAgentForEdit] = useState<string | null>(null);
 
   const updateAgent = (updatedAgent: Partial<Agent>) => {
     setCurrentAgent((prev) => ({
@@ -123,6 +124,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
         updateAgentById,
         removeAgent,
         getAgentById,
+        setSelectedAgentForEdit,
       }}
     >
       {children}
