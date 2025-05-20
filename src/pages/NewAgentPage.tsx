@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { NewAgentForm } from "@/components/NewAgentForm";
 import { WhatsAppConnectionDialog } from "@/components/WhatsAppConnectionDialog";
 import { useConnection } from "@/context/ConnectionContext";
-import { USE_MOCK_DATA } from "@/constants/api";
+import { USE_MOCK_DATA, EVOLUTION_API_URL } from "@/constants/api";
 import { toast } from "@/hooks/use-toast";
 
 const NewAgentPage = () => {
@@ -19,16 +19,18 @@ const NewAgentPage = () => {
     // Show warning if in mock mode
     if (USE_MOCK_DATA) {
       toast({
-        title: "Demo Mode Active",
-        description: "Running in demo mode with mock data. No real WhatsApp connections will be made.",
-        variant: "destructive", // Changed from "warning" to "destructive" to match allowed variants
-        duration: 6000,
+        title: "⚠️ Demo Mode Warning",
+        description: "Running in demo mode. No real WhatsApp connections will be made. This should NEVER be used in production!",
+        variant: "destructive",
+        duration: 10000,
       });
     }
   }, [connectionStatus, qrCodeData]);
 
   const handleAgentCreated = () => {
     console.log("Agent created, showing connection dialog");
+    // Log API connection details
+    console.log(`Using Evolution API at: ${EVOLUTION_API_URL}, Mock mode: ${USE_MOCK_DATA ? 'ON' : 'OFF'}`);
     setShowConnectionDialog(true);
   };
 
@@ -37,7 +39,7 @@ const NewAgentPage = () => {
     console.log("Manual test of connection requested");
     startConnection().then(qrCode => {
       if (qrCode) {
-        console.log("QR Code received successfully, length:", qrCode.length);
+        console.log("QR Code received successfully");
         setShowConnectionDialog(true);
       } else {
         console.error("Failed to get QR code");
@@ -49,6 +51,11 @@ const NewAgentPage = () => {
       }
     }).catch(error => {
       console.error("Error starting connection:", error);
+      toast({
+        title: "Connection Error",
+        description: `Failed to connect to WhatsApp API: ${error.message}`,
+        variant: "destructive",
+      });
     });
   };
 
@@ -65,7 +72,7 @@ const NewAgentPage = () => {
         {process.env.NODE_ENV !== "production" && (
           <div className="container mx-auto mt-8 p-4 border border-dashed rounded-md">
             <h3 className="text-lg font-medium mb-2">Development Tools</h3>
-            <div className="flex space-x-2">
+            <div className="flex flex-wrap gap-2">
               <button 
                 onClick={handleTestConnection}
                 className="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded text-sm"
@@ -80,7 +87,8 @@ const NewAgentPage = () => {
               </button>
             </div>
             <div className="mt-2 text-xs text-gray-500">
-              API Mode: {USE_MOCK_DATA ? "Mock Data (Demo)" : "Real API Calls (Production)"}
+              <p><strong>API Mode:</strong> {USE_MOCK_DATA ? "⚠️ Mock Data (Demo)" : "✓ Real API Calls"}</p>
+              <p><strong>API URL:</strong> {EVOLUTION_API_URL}</p>
             </div>
           </div>
         )}

@@ -2,10 +2,7 @@
 import { EVOLUTION_API_URL, EVOLUTION_API_KEY, ENDPOINTS, USE_MOCK_DATA, MOCK_QR_CODE, USE_BEARER_AUTH } from '../constants/api';
 
 interface WhatsAppInstanceRequest {
-  name: string; // Changed from instanceName to name based on API
-  webhook?: string | null;
-  webhookByEvents?: boolean;
-  qrQuality?: number;
+  name: string; // Instance name for the request
 }
 
 // Helper function to replace placeholders in endpoint URLs
@@ -23,26 +20,23 @@ export const whatsappService = {
   createInstance: async (instanceName: string): Promise<any> => {
     console.log(`Creating WhatsApp instance: ${instanceName}`);
     
-    // For development/demo when direct API access is blocked by CORS
+    // We're enforcing real API calls for production use
     if (USE_MOCK_DATA) {
-      console.log("Using mock data for createInstance");
+      console.warn("MOCK MODE IS ACTIVE - This should never be used in production!");
       return {
         status: "success",
         message: "Instance created successfully (mock)",
         instance: {
           instanceName,
           token: "mock-token-12345",
-          status: "created"
+          qrcode: MOCK_QR_CODE
         }
       };
     }
     
     try {
       const requestBody: WhatsAppInstanceRequest = {
-        name: instanceName,
-        qrQuality: 2, // Medium quality QR code
-        webhook: null, // No webhook for now
-        webhookByEvents: false
+        name: instanceName
       };
       
       console.log("Request payload for instance creation:", JSON.stringify(requestBody));
@@ -51,7 +45,7 @@ export const whatsappService = {
         'Content-Type': 'application/json',
       };
       
-      // Use Bearer token or API key based on configuration
+      // Use Bearer token authentication as required
       if (USE_BEARER_AUTH) {
         headers['Authorization'] = `Bearer ${EVOLUTION_API_KEY}`;
       } else {
@@ -59,7 +53,7 @@ export const whatsappService = {
       }
       
       console.log("API URL:", `${EVOLUTION_API_URL}${ENDPOINTS.instanceCreate}`);
-      console.log("Using headers:", headers);
+      console.log("Using headers:", JSON.stringify(headers, null, 2));
       
       const response = await fetch(`${EVOLUTION_API_URL}${ENDPOINTS.instanceCreate}`, {
         method: 'POST',
@@ -70,6 +64,7 @@ export const whatsappService = {
       console.log("Instance creation response status:", response.status);
       
       if (!response.ok) {
+        // Try to parse error response
         let errorData;
         try {
           errorData = await response.json();
@@ -77,88 +72,28 @@ export const whatsappService = {
           errorData = await response.text();
         }
         console.error(`Instance creation failed with status ${response.status}:`, errorData);
-        
-        // If instance already exists, don't treat it as an error
-        if (response.status === 409) {
-          console.log("Instance already exists, proceeding to connect");
-          return {
-            status: "success",
-            message: "Instance already exists (will connect to existing)",
-            instance: {
-              name: instanceName,
-              status: "exists"
-            }
-          };
-        }
-        
         throw new Error(`API responded with status ${response.status}: ${JSON.stringify(errorData)}`);
       }
       
       const data = await response.json();
-      console.log("Instance creation successful:", data);
+      console.log("Instance creation successful response:", data);
+      
+      // The response should contain the instanceName, token, and QR code
+      // If QR is not in the initial response, immediately fetch it
+      if (!data.qrcode && data.instance && data.instance.name) {
+        console.log("QR code not in creation response, fetching it separately");
+        try {
+          const qrData = await whatsappService.getQrCode(data.instance.name);
+          // Combine the instance data with the QR code data
+          data.qrcode = qrData.qrcode || qrData.base64 || qrData.qr;
+        } catch (qrError) {
+          console.error("Failed to fetch QR code after instance creation:", qrError);
+        }
+      }
+      
       return data;
     } catch (error) {
       console.error("Error creating WhatsApp instance:", error);
-      throw error;
-    }
-  },
-  
-  // Connect to existing instance
-  connectToInstance: async (instanceName: string): Promise<any> => {
-    console.log(`Connecting to WhatsApp instance: ${instanceName}`);
-    
-    // For development/demo when direct API access is blocked by CORS
-    if (USE_MOCK_DATA) {
-      console.log("Using mock data for connectToInstance");
-      return {
-        status: "success",
-        message: "Instance connected successfully (mock)",
-        instance: {
-          name: instanceName,
-          connected: true
-        }
-      };
-    }
-    
-    try {
-      const requestBody = { name: instanceName };
-      
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-      
-      if (USE_BEARER_AUTH) {
-        headers['Authorization'] = `Bearer ${EVOLUTION_API_KEY}`;
-      } else {
-        headers['apikey'] = EVOLUTION_API_KEY;
-      }
-      
-      const endpoint = formatEndpoint(ENDPOINTS.instanceConnect, { instanceName });
-      
-      const response = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify(requestBody)
-      });
-      
-      console.log("Instance connection response status:", response.status);
-      
-      if (!response.ok) {
-        let errorData;
-        try {
-          errorData = await response.json();
-        } catch (e) {
-          errorData = await response.text();
-        }
-        console.error(`Instance connection failed with status ${response.status}:`, errorData);
-        throw new Error(`API responded with status ${response.status}: ${JSON.stringify(errorData)}`);
-      }
-      
-      const data = await response.json();
-      console.log("Instance connection successful:", data);
-      return data;
-    } catch (error) {
-      console.error("Error connecting to WhatsApp instance:", error);
       throw error;
     }
   },
@@ -168,9 +103,8 @@ export const whatsappService = {
     try {
       console.log(`Fetching QR code for instance: ${instanceName}`);
       
-      // For development/demo when direct API access is blocked by CORS
       if (USE_MOCK_DATA) {
-        console.log("Using mock data for QR code");
+        console.warn("MOCK MODE IS ACTIVE - This should never be used in production!");
         return {
           status: "success",
           qrcode: MOCK_QR_CODE,
@@ -188,7 +122,8 @@ export const whatsappService = {
       
       const endpoint = formatEndpoint(ENDPOINTS.qrCode, { instanceName });
       
-      console.log("QR code endpoint:", `${EVOLUTION_API_URL}${endpoint}`);
+      console.log("QR code request URL:", `${EVOLUTION_API_URL}${endpoint}`);
+      console.log("Using headers:", JSON.stringify(headers, null, 2));
       
       const response = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
         method: 'GET',
@@ -211,22 +146,6 @@ export const whatsappService = {
       const data = await response.json();
       console.log("QR Code retrieved successfully (data):", data);
       
-      // Check if the response contains the QR code
-      if (!data.qrcode && !data.base64 && !data.qr) {
-        console.warn("QR code response doesn't contain expected QR data fields");
-        console.log("Available fields in response:", Object.keys(data));
-        
-        // Try to identify any field that might contain the QR code
-        const possibleQRFields = Object.keys(data).filter(key => 
-          typeof data[key] === 'string' && data[key].length > 100
-        );
-        
-        if (possibleQRFields.length > 0) {
-          console.log("Possible QR code fields found:", possibleQRFields);
-          data.qrcode = data[possibleQRFields[0]]; // Use the first candidate
-        }
-      }
-      
       return data;
     } catch (error) {
       console.error("Error getting QR code:", error);
@@ -239,16 +158,12 @@ export const whatsappService = {
     try {
       console.log(`Checking connection state for instance: ${instanceName}`);
       
-      // For development/demo when direct API access is blocked by CORS
       if (USE_MOCK_DATA) {
-        // Simulate a connection after a certain number of attempts
-        const mockState = Math.random() > 0.7 ? "open" : "connecting";
-        console.log(`Using mock data for connection state: ${mockState}`);
-        
+        console.warn("MOCK MODE IS ACTIVE - This should never be used in production!");
         return {
           status: "success",
-          state: mockState,
-          message: `WhatsApp connection state: ${mockState} (mock)`
+          state: "connecting",
+          message: "WhatsApp connection state: connecting (mock)"
         };
       }
       
@@ -294,9 +209,8 @@ export const whatsappService = {
     try {
       console.log(`Getting info for instance: ${instanceName}`);
       
-      // For development/demo when direct API access is blocked by CORS
       if (USE_MOCK_DATA) {
-        console.log("Using mock data for instance info");
+        console.warn("MOCK MODE IS ACTIVE - This should never be used in production!");
         return {
           status: "success",
           instance: {
@@ -354,19 +268,14 @@ export const whatsappService = {
     try {
       console.log("Listing all instances");
       
-      // For development/demo when direct API access is blocked by CORS
       if (USE_MOCK_DATA) {
-        console.log("Using mock data for listing instances");
+        console.warn("MOCK MODE IS ACTIVE - This should never be used in production!");
         return {
           status: "success",
           instances: [
             {
               name: "mock_instance_1",
               status: "connected"
-            },
-            {
-              name: "mock_instance_2",
-              status: "disconnected"
             }
           ]
         };
@@ -412,9 +321,8 @@ export const whatsappService = {
     try {
       console.log(`Logging out instance: ${instanceName}`);
       
-      // For development/demo when direct API access is blocked by CORS
       if (USE_MOCK_DATA) {
-        console.log("Using mock data for logout");
+        console.warn("MOCK MODE IS ACTIVE - This should never be used in production!");
         return true;
       }
       

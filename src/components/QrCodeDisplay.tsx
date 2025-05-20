@@ -1,3 +1,4 @@
+
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState } from "react";
 
@@ -14,33 +15,43 @@ export function QrCodeDisplay({
   level = "M",
   includeMargin = true,
 }: QrCodeDisplayProps) {
-  const [qrValue, setQrValue] = useState<string>(value);
+  const [qrValue, setQrValue] = useState<string>("");
+  const [isBase64, setIsBase64] = useState<boolean>(false);
   
   // Handle both direct QR code values and base64 strings
   useEffect(() => {
-    // If it looks like it might be base64 (just a simple check)
-    if (value && value.length > 100 && !value.startsWith('http')) {
+    if (!value) {
+      return;
+    }
+    
+    // If it looks like it might be base64
+    if (value && value.length > 100 && !value.startsWith('http') && !value.startsWith('data:')) {
       setQrValue(`data:image/png;base64,${value}`);
+      setIsBase64(true);
+    } else if (value.startsWith('data:')) {
+      setQrValue(value);
+      setIsBase64(true);
     } else {
       setQrValue(value);
+      setIsBase64(false);
     }
   }, [value]);
 
   if (!value) {
     return (
       <div className="bg-white p-4 rounded-lg inline-block w-[200px] h-[200px] flex items-center justify-center">
-        <p className="text-gray-400 text-sm text-center">No QR code available</p>
+        <p className="text-gray-400 text-sm text-center">QR code not available yet</p>
       </div>
     );
   }
 
-  // If it's a URL or base64 data URL, render as an image
-  if (qrValue.startsWith('data:') || qrValue.startsWith('http')) {
+  // If it's a base64 image or URL, render as an image
+  if (isBase64) {
     return (
       <div className="bg-white p-4 rounded-lg inline-block">
         <img 
           src={qrValue} 
-          alt="QR Code" 
+          alt="WhatsApp QR Code" 
           width={size} 
           height={size}
           className="max-w-full"
