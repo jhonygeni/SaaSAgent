@@ -17,11 +17,14 @@ import {
   QrCode, 
   Copy, 
   RefreshCw,
-  Info 
+  Info,
+  Bug,
+  ArrowRight
 } from "lucide-react";
 import { useConnection } from "@/context/ConnectionContext";
 import { toast } from "@/hooks/use-toast";
 import { QrCodeDisplay } from "@/components/QrCodeDisplay";
+import { USE_MOCK_DATA } from "@/constants/api";
 
 interface WhatsAppConnectionDialogProps {
   open: boolean;
@@ -41,12 +44,14 @@ export function WhatsAppConnectionDialog({
     isLoading, 
     qrCodeData,
     connectionError,
-    getConnectionInfo
+    getConnectionInfo,
+    debugInfo,
+    attemptCount
   } = useConnection();
   
   const [hasInitiatedConnection, setHasInitiatedConnection] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<string | null>(null);
-
+  const [showDebugInfo, setShowDebugInfo] = useState(false);
+  
   // Start connection process when dialog opens
   useEffect(() => {
     const initiateConnection = async () => {
@@ -64,6 +69,7 @@ export function WhatsAppConnectionDialog({
   useEffect(() => {
     if (!open) {
       setHasInitiatedConnection(false);
+      setShowDebugInfo(false);
     }
   }, [open]);
 
@@ -115,19 +121,24 @@ export function WhatsAppConnectionDialog({
   
   // Toggle debug information
   const toggleDebugInfo = () => {
+    setShowDebugInfo(!showDebugInfo);
+  };
+
+  // Copy debug info to clipboard
+  const copyDebugInfo = () => {
     if (debugInfo) {
-      setDebugInfo(null);
-      return;
+      navigator.clipboard.writeText(debugInfo)
+        .then(() => {
+          toast({
+            title: "Debug Info Copied",
+            description: "Debug information copied to clipboard.",
+            variant: "default",
+          });
+        })
+        .catch((err) => {
+          console.error("Failed to copy debug info:", err);
+        });
     }
-    
-    const { instanceName, instanceData } = getConnectionInfo();
-    setDebugInfo(JSON.stringify({
-      instanceName,
-      instanceData,
-      connectionStatus,
-      qrCodeData: qrCodeData ? "[QR DATA AVAILABLE]" : null,
-      error: connectionError
-    }, null, 2));
   };
 
   return (
@@ -137,6 +148,11 @@ export function WhatsAppConnectionDialog({
           <DialogTitle>Connect WhatsApp</DialogTitle>
           <DialogDescription>
             Connect your WhatsApp so the agent can send and receive messages.
+            {USE_MOCK_DATA && (
+              <div className="mt-1 text-xs p-1 bg-yellow-50 text-yellow-700 rounded">
+                Running in demo mode - real API calls are disabled
+              </div>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -168,15 +184,29 @@ export function WhatsAppConnectionDialog({
                 </p>
               </div>
               
+              {attemptCount > 0 && (
+                <div className="w-full text-center">
+                  <p className="text-xs text-muted-foreground">
+                    Waiting for connection... (Attempt {attemptCount})
+                  </p>
+                  <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+                    <div 
+                      className="bg-primary h-2.5 rounded-full" 
+                      style={{ width: `${Math.min(100, (attemptCount / 10) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+              
               <div className="w-full border rounded-md p-3 bg-muted/50 mt-4">
                 <div className="flex justify-between items-center mb-1">
                   <p className="text-sm font-medium">Connection details</p>
                   <div className="flex space-x-1">
-                    <Button variant="ghost" size="sm" onClick={toggleDebugInfo}>
-                      <Info className="h-4 w-4" />
+                    <Button variant="ghost" size="sm" onClick={toggleDebugInfo} title="Show debug info">
+                      <Bug className="h-4 w-4" />
                       <span className="sr-only">Debug info</span>
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={copyInstanceInfo}>
+                    <Button variant="ghost" size="sm" onClick={copyInstanceInfo} title="Copy connection info">
                       <Copy className="h-4 w-4" />
                       <span className="sr-only">Copy</span>
                     </Button>
@@ -186,8 +216,14 @@ export function WhatsAppConnectionDialog({
                   Instance: {getConnectionInfo().instanceName}
                 </p>
                 
-                {debugInfo && (
+                {showDebugInfo && debugInfo && (
                   <div className="mt-2 p-2 bg-muted rounded-sm">
+                    <div className="flex justify-between items-center mb-1">
+                      <p className="text-xs font-medium">Debug Information</p>
+                      <Button variant="ghost" size="sm" onClick={copyDebugInfo} className="h-5 w-5 p-0">
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
                     <pre className="text-[10px] overflow-x-auto max-h-40 overflow-y-auto whitespace-pre-wrap break-all">
                       {debugInfo}
                     </pre>
@@ -213,11 +249,11 @@ export function WhatsAppConnectionDialog({
                 <div className="flex justify-between items-center mb-1">
                   <p className="text-sm font-medium">Connection details</p>
                   <div className="flex space-x-1">
-                    <Button variant="ghost" size="sm" onClick={toggleDebugInfo}>
-                      <Info className="h-4 w-4" />
+                    <Button variant="ghost" size="sm" onClick={toggleDebugInfo} title="Show debug info">
+                      <Bug className="h-4 w-4" />
                       <span className="sr-only">Debug info</span>
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={copyInstanceInfo}>
+                    <Button variant="ghost" size="sm" onClick={copyInstanceInfo} title="Copy connection info">
                       <Copy className="h-4 w-4" />
                       <span className="sr-only">Copy</span>
                     </Button>
@@ -227,8 +263,14 @@ export function WhatsAppConnectionDialog({
                   Instance: {getConnectionInfo().instanceName}
                 </p>
                 
-                {debugInfo && (
+                {showDebugInfo && debugInfo && (
                   <div className="mt-2 p-2 bg-muted rounded-sm">
+                    <div className="flex justify-between items-center mb-1">
+                      <p className="text-xs font-medium">Debug Information</p>
+                      <Button variant="ghost" size="sm" onClick={copyDebugInfo} className="h-5 w-5 p-0">
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
                     <pre className="text-[10px] overflow-x-auto max-h-40 overflow-y-auto whitespace-pre-wrap break-all">
                       {debugInfo}
                     </pre>
@@ -247,6 +289,12 @@ export function WhatsAppConnectionDialog({
                 <p className="font-medium">Connection failed</p>
                 <p className="text-sm text-muted-foreground mt-1">
                   {connectionError || "Could not connect to WhatsApp. Please try again."}
+                  {USE_MOCK_DATA && (
+                    <span className="block mt-2 text-amber-600">
+                      Note: The application is running in demonstration mode with mock data. 
+                      In production, you would connect to a real WhatsApp API.
+                    </span>
+                  )}
                 </p>
               </div>
               
@@ -254,15 +302,25 @@ export function WhatsAppConnectionDialog({
                 <div className="flex justify-between items-center mb-1">
                   <p className="text-sm font-medium">Error details</p>
                   <div className="flex space-x-1">
-                    <Button variant="ghost" size="sm" onClick={toggleDebugInfo}>
-                      <Info className="h-4 w-4" />
+                    <Button variant="ghost" size="sm" onClick={toggleDebugInfo} title="Show debug info">
+                      <Bug className="h-4 w-4" />
                       <span className="sr-only">Debug info</span>
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={copyDebugInfo} title="Copy debug info">
+                      <Copy className="h-4 w-4" />
+                      <span className="sr-only">Copy debug info</span>
                     </Button>
                   </div>
                 </div>
                 
-                {debugInfo && (
+                {showDebugInfo && debugInfo && (
                   <div className="mt-2 p-2 bg-muted rounded-sm">
+                    <div className="flex justify-between items-center mb-1">
+                      <p className="text-xs font-medium">Debug Information</p>
+                      <Button variant="ghost" size="sm" onClick={copyDebugInfo} className="h-5 w-5 p-0">
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
                     <pre className="text-[10px] overflow-x-auto max-h-40 overflow-y-auto whitespace-pre-wrap break-all">
                       {debugInfo}
                     </pre>
@@ -309,7 +367,7 @@ export function WhatsAppConnectionDialog({
               onClick={() => handleDialogClose(false)}
               className="w-full"
             >
-              Complete
+              Complete <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           )}
         </DialogFooter>

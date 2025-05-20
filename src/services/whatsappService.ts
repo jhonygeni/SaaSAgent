@@ -1,5 +1,5 @@
 
-import { EVOLUTION_API_URL, EVOLUTION_API_KEY, ENDPOINTS } from '../constants/api';
+import { EVOLUTION_API_URL, EVOLUTION_API_KEY, ENDPOINTS, USE_MOCK_DATA, MOCK_QR_CODE } from '../constants/api';
 
 interface WhatsAppInstanceRequest {
   instanceName: string;
@@ -14,6 +14,20 @@ export const whatsappService = {
   // Create a WhatsApp instance
   createInstance: async (instanceName: string): Promise<any> => {
     console.log(`Creating WhatsApp instance: ${instanceName}`);
+    
+    // For development/demo when direct API access is blocked by CORS
+    if (USE_MOCK_DATA) {
+      console.log("Using mock data for createInstance");
+      return {
+        status: "success",
+        message: "Instance created successfully (mock)",
+        instance: {
+          instanceName,
+          token: "mock-token-12345",
+          status: "created"
+        }
+      };
+    }
     
     try {
       const requestBody: WhatsAppInstanceRequest = {
@@ -55,6 +69,19 @@ export const whatsappService = {
   connectToInstance: async (instanceName: string): Promise<any> => {
     console.log(`Connecting to WhatsApp instance: ${instanceName}`);
     
+    // For development/demo when direct API access is blocked by CORS
+    if (USE_MOCK_DATA) {
+      console.log("Using mock data for connectToInstance");
+      return {
+        status: "success",
+        message: "Instance connected successfully (mock)",
+        instance: {
+          instanceName,
+          connected: true
+        }
+      };
+    }
+    
     try {
       const requestBody = { instanceName };
       
@@ -88,6 +115,16 @@ export const whatsappService = {
   getQrCode: async (instanceName: string): Promise<any> => {
     try {
       console.log(`Fetching QR code for instance: ${instanceName}`);
+      
+      // For development/demo when direct API access is blocked by CORS
+      if (USE_MOCK_DATA) {
+        console.log("Using mock data for QR code");
+        return {
+          status: "success",
+          qrcode: MOCK_QR_CODE,
+          message: "QR Code generated successfully (mock)"
+        };
+      }
       
       const response = await fetch(`${EVOLUTION_API_URL}${ENDPOINTS.qrCode}?key=${instanceName}`, {
         method: 'GET',
@@ -124,6 +161,19 @@ export const whatsappService = {
     try {
       console.log(`Checking connection state for instance: ${instanceName}`);
       
+      // For development/demo when direct API access is blocked by CORS
+      if (USE_MOCK_DATA) {
+        // Simulate a connection after a certain number of attempts
+        const mockState = Math.random() > 0.7 ? "open" : "connecting";
+        console.log(`Using mock data for connection state: ${mockState}`);
+        
+        return {
+          status: "success",
+          state: mockState,
+          message: `WhatsApp connection state: ${mockState} (mock)`
+        };
+      }
+      
       const response = await fetch(`${EVOLUTION_API_URL}${ENDPOINTS.connectionState}?key=${instanceName}`, {
         method: 'GET',
         headers: {
@@ -152,6 +202,24 @@ export const whatsappService = {
   getInstanceInfo: async (instanceName: string): Promise<any> => {
     try {
       console.log(`Getting info for instance: ${instanceName}`);
+      
+      // For development/demo when direct API access is blocked by CORS
+      if (USE_MOCK_DATA) {
+        console.log("Using mock data for instance info");
+        return {
+          status: "success",
+          instance: {
+            instanceName,
+            user: {
+              id: "5511987654321@c.us",
+              name: "Test User",
+              phone: "+5511987654321"
+            },
+            status: "connected",
+            isConnected: true
+          }
+        };
+      }
       
       const response = await fetch(`${EVOLUTION_API_URL}${ENDPOINTS.instanceInfo}?key=${instanceName}`, {
         method: 'GET',
@@ -182,6 +250,24 @@ export const whatsappService = {
     try {
       console.log("Listing all instances");
       
+      // For development/demo when direct API access is blocked by CORS
+      if (USE_MOCK_DATA) {
+        console.log("Using mock data for listing instances");
+        return {
+          status: "success",
+          instances: [
+            {
+              instanceName: "mock_instance_1",
+              status: "connected"
+            },
+            {
+              instanceName: "mock_instance_2",
+              status: "disconnected"
+            }
+          ]
+        };
+      }
+      
       const response = await fetch(`${EVOLUTION_API_URL}${ENDPOINTS.instances}`, {
         method: 'GET',
         headers: {
@@ -210,6 +296,12 @@ export const whatsappService = {
   logout: async (instanceName: string): Promise<boolean> => {
     try {
       console.log(`Logging out instance: ${instanceName}`);
+      
+      // For development/demo when direct API access is blocked by CORS
+      if (USE_MOCK_DATA) {
+        console.log("Using mock data for logout");
+        return true;
+      }
       
       const response = await fetch(`${EVOLUTION_API_URL}${ENDPOINTS.instanceLogout}?key=${instanceName}`, {
         method: 'DELETE',

@@ -4,6 +4,7 @@ import { ConnectionStatus } from '../types';
 import { whatsappService } from '../services/whatsappService';
 import { useToast } from './use-toast';
 import { useUser } from '../context/UserContext';
+import { USE_MOCK_DATA } from '../constants/api';
 
 export function useWhatsAppConnection() {
   const { user } = useUser();
@@ -14,6 +15,8 @@ export function useWhatsAppConnection() {
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
   const [instanceData, setInstanceData] = useState<any>(null);
+  const [attemptCount, setAttemptCount] = useState(0);
+  const [debugInfo, setDebugInfo] = useState<string | null>(null);
 
   // Clean up polling on unmount
   useEffect(() => {
@@ -61,6 +64,22 @@ export function useWhatsAppConnection() {
     }
   }, [pollingInterval]);
 
+  // Update debug info
+  const updateDebugInfo = useCallback((newInfo: any = null) => {
+    const debugData = {
+      instanceName: getInstanceName(),
+      instanceData,
+      connectionStatus,
+      qrCodeData: qrCodeData ? "[QR DATA AVAILABLE]" : null,
+      error: connectionError,
+      attemptCount,
+      mockMode: USE_MOCK_DATA,
+      ...newInfo
+    };
+    setDebugInfo(JSON.stringify(debugData, null, 2));
+    console.log("Debug info updated:", debugData);
+  }, [getInstanceName, instanceData, connectionStatus, qrCodeData, connectionError, attemptCount]);
+
   // Handle successful connection
   const handleSuccessfulConnection = useCallback(async (instanceName: string) => {
     setConnectionStatus("connected");
@@ -72,10 +91,13 @@ export function useWhatsAppConnection() {
       
       // Save instance data for future use
       setInstanceData(instanceInfo);
+      updateDebugInfo({ instanceInfo });
       
-      // Check for phone number information
+      // Extract phone number information
       let phoneNumber = null;
-      if (instanceInfo && instanceInfo.instance && instanceInfo.instance.user) {
+      if (USE_MOCK_DATA) {
+        phoneNumber = instanceInfo?.instance?.user?.phone || "+5511987654321";
+      } else if (instanceInfo && instanceInfo.instance && instanceInfo.instance.user) {
         phoneNumber = instanceInfo.instance.user.id?.split('@')[0]; // Extract phone number
       }
       
@@ -85,7 +107,7 @@ export function useWhatsAppConnection() {
       // Still mark as connected even if we can't get the phone info
       completeConnection();
     }
-  }, [clearPolling]);
+  }, [clearPolling, updateDebugInfo]);
 
   // Start polling for connection status
   const startStatusPolling = useCallback(async (instanceName: string) => {
@@ -96,15 +118,24 @@ export function useWhatsAppConnection() {
     try {
       const instances = await whatsappService.listInstances();
       console.log("Current instances:", instances);
+      updateDebugInfo({ instances });
     } catch (error) {
       console.error("Error listing instances:", error);
+      updateDebugInfo({ listInstancesError: error instanceof Error ? error.message : String(error) });
     }
     
+    let pollAttempts = 0;
+    const MAX_POLL_ATTEMPTS = 30; // Stop polling after this many attempts (90 seconds with 3-second interval)
+    
     const interval = setInterval(async () => {
+      pollAttempts++;
+      setAttemptCount(pollAttempts);
+      
       try {
-        console.log(`Polling connection state for instance: ${instanceName}`);
+        console.log(`Polling connection state for instance: ${instanceName} (attempt ${pollAttempts}/${MAX_POLL_ATTEMPTS})`);
         const stateData = await whatsappService.getConnectionState(instanceName);
         console.log("Connection state polling response:", stateData);
+        updateDebugInfo({ pollAttempts, stateData });
         
         // Check connection state based on Evolution API response structure
         const state = stateData?.state || stateData?.status;
@@ -114,22 +145,43 @@ export function useWhatsAppConnection() {
           handleSuccessfulConnection(instanceName);
         } else if (state === "connecting" || state === "loading") {
           console.log("Still connecting or loading QR code...");
+          
+          // If using mock data and this is the 5th attempt, simulate success
+          if (USE_MOCK_DATA && pollAttempts >= 5) {
+            console.log("Mock mode: Simulating successful connection after 5 attempts");
+            handleSuccessfulConnection(instanceName);
+          }
         } else if (state === "close" || state === "disconnected") {
           console.log("Connection is closed or disconnected");
         }
+        
+        // Stop polling after max attempts to avoid infinite polling
+        if (pollAttempts >= MAX_POLL_ATTEMPTS) {
+          console.warn(`Max polling attempts (${MAX_POLL_ATTEMPTS}) reached. Stopping.`);
+          clearPolling();
+          
+          if (connectionStatus !== "connected") {
+            setConnectionError("Connection timed out. Please try again.");
+            setConnectionStatus("failed");
+          }
+        }
       } catch (error) {
         console.error("Error polling connection status:", error);
+        updateDebugInfo({ 
+          pollError: error instanceof Error ? error.message : String(error) 
+        });
       }
     }, 3000);
     
     setPollingInterval(interval);
-  }, [handleSuccessfulConnection, clearPolling]);
+  }, [handleSuccessfulConnection, clearPolling, connectionStatus, updateDebugInfo]);
 
   // Get QR code for WhatsApp instance
   const fetchQrCode = useCallback(async (instanceName: string): Promise<string | null> => {
     try {
       const qrData = await whatsappService.getQrCode(instanceName);
       console.log("QR code response:", qrData);
+      updateDebugInfo({ qrData });
       
       // Extract QR code based on the API response structure
       // Different APIs might use different field names
@@ -144,14 +196,18 @@ export function useWhatsAppConnection() {
       }
     } catch (error) {
       console.error("Error getting QR code:", error);
+      updateDebugInfo({ 
+        qrError: error instanceof Error ? error.message : String(error)
+      });
       throw error;
     }
-  }, [startStatusPolling]);
+  }, [startStatusPolling, updateDebugInfo]);
 
   // Initialize WhatsApp instance
   const initializeWhatsAppInstance = useCallback(async () => {
     const instanceName = getInstanceName();
     console.log(`Starting WhatsApp connection for instance: ${instanceName}`);
+    updateDebugInfo({ action: "initialize", instanceName });
     
     try {
       // First, try to create a new instance
@@ -160,15 +216,20 @@ export function useWhatsAppConnection() {
       
       // Save instance data
       setInstanceData(createData);
+      updateDebugInfo({ createData });
       
       // After creation, connect to the instance
       const connectData = await whatsappService.connectToInstance(instanceName);
       console.log("Instance connection response:", connectData);
+      updateDebugInfo({ connectData });
       
       // Check if we need to generate a QR code
       return await fetchQrCode(instanceName);
     } catch (error: any) {
       console.error("Error initializing WhatsApp instance:", error);
+      updateDebugInfo({ 
+        initError: error instanceof Error ? error.message : String(error)
+      });
       
       // If we get a specific error about instance already existing, try to connect directly
       if (error.message && error.message.includes("Conflict")) {
@@ -178,18 +239,22 @@ export function useWhatsAppConnection() {
           // Try to connect to existing instance
           const connectData = await whatsappService.connectToInstance(instanceName);
           console.log("Connection to existing instance:", connectData);
+          updateDebugInfo({ connectData });
           
           // Get QR code for the existing instance
           return await fetchQrCode(instanceName);
         } catch (connectError) {
           console.error("Error connecting to existing instance:", connectError);
+          updateDebugInfo({
+            connectError: connectError instanceof Error ? connectError.message : String(connectError)
+          });
           throw connectError;
         }
       }
       
       throw error;
     }
-  }, [getInstanceName, fetchQrCode]);
+  }, [getInstanceName, fetchQrCode, updateDebugInfo]);
 
   // Start connection process
   const startConnection = useCallback(async () => {
@@ -197,6 +262,8 @@ export function useWhatsAppConnection() {
     setIsLoading(true);
     setConnectionError(null);
     setQrCodeData(null);
+    setAttemptCount(0);
+    updateDebugInfo({ action: "startConnection" });
     
     try {
       const qrCode = await initializeWhatsAppInstance();
@@ -213,15 +280,20 @@ export function useWhatsAppConnection() {
       setConnectionError(errorMessage);
       setConnectionStatus("failed");
       showErrorToast("Could not initiate connection with WhatsApp. Please try again later.");
+      updateDebugInfo({ 
+        connectionError: errorMessage,
+        connectionStatus: "failed"
+      });
       return null;
     } finally {
       setIsLoading(false);
     }
-  }, [initializeWhatsAppInstance, showErrorToast]);
+  }, [initializeWhatsAppInstance, showErrorToast, updateDebugInfo]);
 
   // Call API to cancel the connection process
   const cancelConnection = useCallback(async () => {
     clearPolling();
+    updateDebugInfo({ action: "cancelConnection" });
     
     try {
       const instanceName = getInstanceName();
@@ -233,6 +305,9 @@ export function useWhatsAppConnection() {
       }
     } catch (error) {
       console.error("Error canceling connection:", error);
+      updateDebugInfo({
+        cancelError: error instanceof Error ? error.message : String(error)
+      });
     }
     
     setConnectionStatus("failed");
@@ -242,14 +317,19 @@ export function useWhatsAppConnection() {
       description: "WhatsApp connection was canceled.",
       variant: "destructive",
     });
-  }, [clearPolling, getInstanceName, toast]);
+  }, [clearPolling, getInstanceName, toast, updateDebugInfo]);
 
   // Update connection status to connected
   const completeConnection = useCallback((phoneNumber?: string) => {
     setConnectionStatus("connected");
     setQrCodeData(null);
     showSuccessToast(phoneNumber);
-  }, [showSuccessToast]);
+    updateDebugInfo({
+      action: "completeConnection",
+      phoneNumber,
+      connectionStatus: "connected"
+    });
+  }, [showSuccessToast, updateDebugInfo]);
 
   // Get current QR code without starting a new connection
   const getCurrentQrCode = useCallback(() => {
@@ -260,9 +340,10 @@ export function useWhatsAppConnection() {
   const getConnectionInfo = useCallback(() => {
     return {
       instanceName: getInstanceName(),
-      instanceData: instanceData
+      instanceData: instanceData,
+      debugInfo: debugInfo
     };
-  }, [getInstanceName, instanceData]);
+  }, [getInstanceName, instanceData, debugInfo]);
 
   return {
     connectionStatus,
@@ -273,6 +354,8 @@ export function useWhatsAppConnection() {
     qrCodeData,
     connectionError,
     getCurrentQrCode,
-    getConnectionInfo
+    getConnectionInfo,
+    debugInfo,
+    attemptCount
   };
 }
