@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import {
   Form,
@@ -18,7 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AREAS_DE_ATUACAO, EXAMPLE_AGENT, validateAgent, sendAgentToWebhook } from "@/lib/utils";
+import { AREAS_DE_ATUACAO, EXAMPLE_AGENT, validateAgent } from "@/lib/utils";
+import { sendAgentToWebhookWithRetry, generatePromptWithAI } from "@/lib/webhook-utils";
 import { useAgent } from "@/context/AgentContext";
 import { FAQ } from "@/types";
 import { useConnection } from "@/context/ConnectionContext";
@@ -35,6 +35,7 @@ import {
 import { AlertCircle, Plus, Trash, Info, Sparkles } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Switch } from "@/components/ui/switch";
+import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 
 export function NewAgentForm() {
   const { currentAgent, updateAgent, addFAQ, updateFAQ, removeFAQ, resetAgent, addAgent } = useAgent();
@@ -42,7 +43,7 @@ export function NewAgentForm() {
   const { toast } = useToast();
   const { user } = useUser();
   const navigate = useNavigate();
-  const { theme, setTheme } = useTheme();
+  const { theme } = useTheme();
   const [errors, setErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
@@ -60,15 +61,17 @@ export function NewAgentForm() {
     }
     
     setIsSubmitting(true);
+    setRetryCount(0);
     
     try {
-      // Send agent data to webhook with retry logic
-      const success = await sendWebhookWithRetry(
-        "https://webhooksaas.geni.chat/webhook/principal", 
-        currentAgent
+      const result = await sendAgentToWebhookWithRetry(
+        currentAgent,
+        (attempt, max) => {
+          setRetryCount(attempt);
+        }
       );
       
-      if (success) {
+      if (result.success) {
         // Add agent to context
         addAgent(currentAgent);
         
@@ -87,63 +90,20 @@ export function NewAgentForm() {
       } else {
         toast({
           title: "Erro ao criar agente",
-          description: "Não foi possível enviar os dados para o servidor. Verifique sua conexão e tente novamente.",
+          description: `Não foi possível enviar os dados para o servidor: ${result.error?.message || "Erro desconhecido"}`,
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro detalhado:", error);
       toast({
         title: "Erro ao criar agente",
-        description: "Ocorreu um erro inesperado. Tente novamente mais tarde.",
+        description: `Ocorreu um erro inesperado: ${error.message || "Detalhes indisponíveis"}`,
         variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
-      setRetryCount(0); // Reset retry count
-    }
-  };
-  
-  const sendWebhookWithRetry = async (url: string, data: any, retries = maxRetries): Promise<boolean> => {
-    try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      });
-      
-      if (response.ok) {
-        return true;
-      }
-      
-      console.error("Erro na resposta do webhook:", {
-        status: response.status,
-        statusText: response.statusText,
-      });
-      
-      // If we have retries left and it's a potentially recoverable error
-      if (retries > 0 && (response.status >= 500 || response.status === 429)) {
-        setRetryCount(prev => prev + 1);
-        const delay = 1000 * Math.pow(2, maxRetries - retries); // Exponential backoff
-        await new Promise(resolve => setTimeout(resolve, delay));
-        return sendWebhookWithRetry(url, data, retries - 1);
-      }
-      
-      return false;
-    } catch (error) {
-      console.error("Erro ao enviar dados para o webhook:", error);
-      
-      // Retry on network errors if we have retries left
-      if (retries > 0) {
-        setRetryCount(prev => prev + 1);
-        const delay = 1000 * Math.pow(2, maxRetries - retries); // Exponential backoff
-        await new Promise(resolve => setTimeout(resolve, delay));
-        return sendWebhookWithRetry(url, data, retries - 1);
-      }
-      
-      return false;
+      setRetryCount(0);
     }
   };
   
@@ -162,68 +122,41 @@ export function NewAgentForm() {
     }
     
     setIsGeneratingPrompt(true);
+    setRetryCount(0);
     
     try {
-      const response = await fetch("https://webhooksaas.geni.chat/webhook/4d77007b-a6c3-450f-93de-ec97a8db140f", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          areaDeAtuacao: currentAgent.areaDeAtuacao,
-          informacoes: currentAgent.informacoes,
-          nome: currentAgent.nome,
-          site: currentAgent.site,
-          faqs: currentAgent.faqs
-        }),
-      });
-      
-      if (response.ok) {
-        try {
-          const data = await response.json();
-          if (data && data.prompt) {
-            updateAgent({ prompt: data.prompt });
-            toast({
-              title: "Prompt gerado com sucesso!",
-              description: "O prompt foi aprimorado pela IA com base nas informações da sua empresa.",
-              variant: "default",
-            });
-          } else {
-            throw new Error("Formato de resposta inválido");
-          }
-        } catch (e) {
-          console.error("Erro ao processar resposta:", e);
-          toast({
-            title: "Erro ao processar resposta",
-            description: "O servidor retornou dados em formato inválido.",
-            variant: "destructive",
-          });
+      const result = await generatePromptWithAI(
+        currentAgent,
+        (attempt, max) => {
+          setRetryCount(attempt);
         }
-      } else {
-        console.error("Erro na resposta do webhook:", {
-          status: response.status,
-          statusText: response.statusText,
+      );
+      
+      if (result.success && result.data?.prompt) {
+        updateAgent({ prompt: result.data.prompt });
+        toast({
+          title: "Prompt gerado com sucesso!",
+          description: "O prompt foi aprimorado pela IA com base nas informações da sua empresa.",
+          variant: "default",
         });
+      } else {
         toast({
           title: "Erro ao gerar prompt",
-          description: "Não foi possível gerar um prompt otimizado. Tente novamente mais tarde.",
+          description: `Não foi possível gerar um prompt otimizado: ${result.error?.message || "Erro desconhecido"}`,
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao enviar dados para o webhook de prompt:", error);
       toast({
         title: "Erro de conexão",
-        description: "Não foi possível se conectar ao servidor de IA. Verifique sua conexão e tente novamente.",
+        description: `Não foi possível se conectar ao servidor de IA: ${error.message || "Erro desconhecido"}`,
         variant: "destructive",
       });
     } finally {
       setIsGeneratingPrompt(false);
+      setRetryCount(0);
     }
-  };
-
-  const toggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark");
   };
 
   return (
@@ -235,10 +168,7 @@ export function NewAgentForm() {
             <span className="text-sm text-muted-foreground">
               {theme === "dark" ? "Modo Escuro" : "Modo Claro"}
             </span>
-            <Switch 
-              checked={theme === "dark"}
-              onCheckedChange={toggleTheme}
-            />
+            <ThemeSwitcher />
           </div>
           <Button variant="outline" onClick={handleFillExample}>
             Preencher Exemplo
