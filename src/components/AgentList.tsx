@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAgent } from "@/context/AgentContext";
@@ -31,7 +30,10 @@ export function AgentList() {
   const agentLimit = user ? getAgentLimitByPlan(user.plan) : 1;
   const hasReachedLimit = agents.length >= agentLimit;
   
-  const handleToggleStatus = (id: string, currentStatus: "ativo" | "inativo") => {
+  // Updated handleToggleStatus to account for all possible status types
+  const handleToggleStatus = (id: string, currentStatus: "ativo" | "inativo" | "pendente") => {
+    // If status is "ativo", switch to "inativo"
+    // If status is "inativo" or "pendente", switch to "ativo"
     const newStatus = currentStatus === "ativo" ? "inativo" : "ativo";
     updateAgentById(id, { status: newStatus });
     
