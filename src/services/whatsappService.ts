@@ -7,53 +7,13 @@ interface WhatsAppInstanceRequest {
   qrQuality?: number;
 }
 
-interface AuthResponse {
-  token: string;
-  success: boolean;
-}
-
 // WhatsApp connection service
 export const whatsappService = {
-  // Authenticate with Evolution API
-  authenticate: async (): Promise<string> => {
-    console.log("Authenticating with Evolution API");
-    
-    try {
-      const response = await fetch(`${EVOLUTION_API_URL}${ENDPOINTS.login}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          apiKey: EVOLUTION_API_KEY
-        })
-      });
-      
-      console.log("Authentication response status:", response.status);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Authentication Error:", response.status, errorText);
-        throw new Error(`Authentication failed with status ${response.status}: ${errorText}`);
-      }
-      
-      const data = await response.json() as AuthResponse;
-      console.log("Authentication successful, token received");
-      return data.token;
-    } catch (error) {
-      console.error("Error authenticating:", error);
-      throw error;
-    }
-  },
-  
   // Create or connect to a WhatsApp instance
   createInstance: async (instanceName: string): Promise<any> => {
     console.log(`Starting WhatsApp connection for instance: ${instanceName}`);
     
     try {
-      // First authenticate to get a valid token
-      const token = await whatsappService.authenticate();
-      
       const requestBody: WhatsAppInstanceRequest = {
         instanceName,
         qrQuality: 2 // Increased QR quality (1-100)
@@ -65,7 +25,7 @@ export const whatsappService = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'apikey': EVOLUTION_API_KEY // Using apikey header instead of authorization
         },
         body: JSON.stringify(requestBody)
       });
@@ -80,7 +40,7 @@ export const whatsappService = {
       
       const data = await response.json();
       console.log("Instance created successfully:", data);
-      return { ...data, token };
+      return { ...data, token: EVOLUTION_API_KEY };
     } catch (error) {
       console.error("Error creating WhatsApp instance:", error);
       throw error;
@@ -90,15 +50,12 @@ export const whatsappService = {
   // Get QR code for WhatsApp connection
   getQrCode: async (instanceName: string): Promise<any> => {
     try {
-      // First authenticate to get a valid token
-      const token = await whatsappService.authenticate();
-      
       console.log(`Fetching QR code for instance: ${instanceName}`);
       
       const response = await fetch(`${EVOLUTION_API_URL}/instance/qr?key=${instanceName}`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'apikey': EVOLUTION_API_KEY // Using apikey header
         }
       });
       
@@ -122,15 +79,12 @@ export const whatsappService = {
   // Check connection status
   getStatus: async (instanceName: string): Promise<any> => {
     try {
-      // First authenticate to get a valid token
-      const token = await whatsappService.authenticate();
-      
       console.log(`Checking connection status for instance: ${instanceName}`);
       
       const response = await fetch(`${EVOLUTION_API_URL}/instance/connectionState?key=${instanceName}`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'apikey': EVOLUTION_API_KEY // Using apikey header
         }
       });
       
@@ -150,15 +104,12 @@ export const whatsappService = {
   // Get phone information
   getPhoneInfo: async (instanceName: string): Promise<any> => {
     try {
-      // First authenticate to get a valid token
-      const token = await whatsappService.authenticate();
-      
       console.log(`Getting phone info for instance: ${instanceName}`);
       
       const response = await fetch(`${EVOLUTION_API_URL}/instance/info?key=${instanceName}`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'apikey': EVOLUTION_API_KEY // Using apikey header
         }
       });
       
@@ -178,15 +129,12 @@ export const whatsappService = {
   // Logout/disconnect WhatsApp
   logout: async (instanceName: string): Promise<boolean> => {
     try {
-      // First authenticate to get a valid token
-      const token = await whatsappService.authenticate();
-      
       console.log(`Logging out instance: ${instanceName}`);
       
-      const response = await fetch(`${EVOLUTION_API_URL}/instance/delete?key=${instanceName}`, {
+      const response = await fetch(`${EVOLUTION_API_URL}/instance/disconnect?key=${instanceName}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'apikey': EVOLUTION_API_KEY // Using apikey header
         }
       });
       

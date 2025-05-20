@@ -12,6 +12,7 @@ import {
 import { Loader2, Smartphone, CheckCircle, AlertCircle, QrCode, Copy } from "lucide-react";
 import { useConnection } from "@/context/ConnectionContext";
 import { toast } from "@/hooks/use-toast";
+import { QrCodeDisplay } from "@/components/QrCodeDisplay";
 
 interface WhatsAppConnectionDialogProps {
   open: boolean;
