@@ -25,7 +25,11 @@ export function useWhatsAppConnection() {
 
   // Get instance name based on user ID
   const getInstanceName = useCallback(() => {
-    return user?.id || "default_instance";
+    if (!user?.id) {
+      console.warn("User ID not available, using default instance name");
+      return "default_instance";
+    }
+    return `user_${user.id}`;
   }, [user]);
 
   // Show error toast
@@ -77,10 +81,13 @@ export function useWhatsAppConnection() {
 
   // Start polling for connection status
   const startStatusPolling = useCallback(async (instanceName: string) => {
+    // Clear any existing polling interval
+    clearPolling();
+    
     const interval = setInterval(async () => {
       try {
         const statusData = await whatsappService.getStatus(instanceName);
-        console.log("Status response:", statusData);
+        console.log("Status polling response:", statusData);
         
         if (statusData.status === "connected") {
           handleSuccessfulConnection(instanceName);
@@ -91,10 +98,10 @@ export function useWhatsAppConnection() {
     }, 3000);
     
     setPollingInterval(interval);
-  }, [handleSuccessfulConnection]);
+  }, [handleSuccessfulConnection, clearPolling]);
 
   // Get QR code for WhatsApp instance
-  const fetchQrCode = useCallback(async (instanceName: string) => {
+  const fetchQrCode = useCallback(async (instanceName: string): Promise<string | null> => {
     try {
       const qrData = await whatsappService.getQrCode(instanceName);
       console.log("QR code response:", qrData);
@@ -102,6 +109,7 @@ export function useWhatsAppConnection() {
       if (qrData.qrcode) {
         setQrCodeData(qrData.qrcode);
         startStatusPolling(instanceName);
+        return qrData.qrcode;
       } else {
         throw new Error("No QR code received from API");
       }
@@ -121,7 +129,7 @@ export function useWhatsAppConnection() {
       console.log("Evolution API response:", data);
       
       if (data.success || data.status === "created" || data.status === "pending") {
-        await fetchQrCode(instanceName);
+        return await fetchQrCode(instanceName);
       } else {
         throw new Error("Failed to create WhatsApp instance");
       }
@@ -138,12 +146,17 @@ export function useWhatsAppConnection() {
     setConnectionError(null);
     
     try {
-      await initializeWhatsAppInstance();
+      const qrCode = await initializeWhatsAppInstance();
+      if (!qrCode) {
+        throw new Error("Failed to generate QR code");
+      }
+      return qrCode;
     } catch (error) {
       console.error("Error connecting to WhatsApp:", error);
       setConnectionError(error instanceof Error ? error.message : "Unknown error occurred");
       setConnectionStatus("failed");
       showErrorToast("Não foi possível iniciar a conexão com o WhatsApp. Tente novamente mais tarde.");
+      return null;
     } finally {
       setIsLoading(false);
     }
@@ -176,6 +189,11 @@ export function useWhatsAppConnection() {
     showSuccessToast(phoneNumber);
   }, [showSuccessToast]);
 
+  // Get current QR code without starting a new connection
+  const getCurrentQrCode = useCallback(() => {
+    return qrCodeData;
+  }, [qrCodeData]);
+
   return {
     connectionStatus,
     startConnection,
@@ -183,6 +201,7 @@ export function useWhatsAppConnection() {
     completeConnection,
     isLoading,
     qrCodeData,
-    connectionError
+    connectionError,
+    getCurrentQrCode
   };
 }

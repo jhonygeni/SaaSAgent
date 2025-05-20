@@ -1,5 +1,5 @@
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, Smartphone, CheckCircle, AlertCircle } from "lucide-react";
+import { Loader2, Smartphone, CheckCircle, AlertCircle, QrCode } from "lucide-react";
 import { useConnection } from "@/context/ConnectionContext";
 
 interface WhatsAppConnectionDialogProps {
@@ -31,14 +31,27 @@ export function WhatsAppConnectionDialog({
     qrCodeData,
     connectionError
   } = useConnection();
+  const [hasInitiatedConnection, setHasInitiatedConnection] = useState(false);
 
   // Start connection process when dialog opens
   useEffect(() => {
-    if (open && connectionStatus === "waiting" && !qrCodeData && !isLoading) {
-      console.log("Starting WhatsApp connection process automatically");
-      startConnection();
+    const initiateConnection = async () => {
+      if (open && !hasInitiatedConnection && connectionStatus === "waiting" && !qrCodeData && !isLoading) {
+        console.log("Starting WhatsApp connection process automatically");
+        setHasInitiatedConnection(true);
+        await startConnection();
+      }
+    };
+    
+    initiateConnection();
+  }, [open, hasInitiatedConnection, connectionStatus, qrCodeData, isLoading, startConnection]);
+
+  // Reset state when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setHasInitiatedConnection(false);
     }
-  }, [open, connectionStatus, qrCodeData, isLoading, startConnection]);
+  }, [open]);
 
   // Handle dialog close
   const handleDialogClose = (isOpen: boolean) => {
@@ -56,6 +69,12 @@ export function WhatsAppConnectionDialog({
       onComplete();
     }
   }, [connectionStatus, onComplete]);
+
+  // Handle retry button click
+  const handleRetry = async () => {
+    setHasInitiatedConnection(true);
+    await startConnection();
+  };
 
   return (
     <Dialog open={open} onOpenChange={handleDialogClose}>
@@ -140,17 +159,18 @@ export function WhatsAppConnectionDialog({
           
           {connectionStatus === "waiting" && qrCodeData && (
             <Button 
-              onClick={() => startConnection()} 
+              onClick={handleRetry} 
               disabled={isLoading}
               className="w-full sm:w-auto"
             >
+              <QrCode className="h-4 w-4 mr-2" />
               {isLoading ? "Aguardando..." : "Gerar novo código"}
             </Button>
           )}
           
           {connectionStatus === "failed" && (
             <Button 
-              onClick={() => startConnection()}
+              onClick={handleRetry}
               className="w-full sm:w-auto"
             >
               Tentar novamente

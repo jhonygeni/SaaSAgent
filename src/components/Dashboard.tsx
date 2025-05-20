@@ -16,11 +16,38 @@ import { DashboardHeader } from "@/components/DashboardHeader";
 import { DashboardAnalytics } from "@/components/DashboardAnalytics";
 import { InterestedClients } from "@/components/InterestedClients";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useEffect, useState } from "react";
+import { useConnection } from "@/context/ConnectionContext";
+import { useToast } from "@/hooks/use-toast";
 
 export function Dashboard() {
   const { user } = useUser();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const { connectionStatus } = useConnection();
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Dashboard loading effect
+  useEffect(() => {
+    const loadDashboard = async () => {
+      try {
+        // Simulate dashboard data loading
+        await new Promise(resolve => setTimeout(resolve, 500));
+        setIsLoading(false);
+      } catch (error) {
+        console.error("Error loading dashboard:", error);
+        toast({
+          title: "Erro ao carregar dashboard",
+          description: "Não foi possível carregar os dados do dashboard.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+      }
+    };
+    
+    loadDashboard();
+  }, [toast]);
 
   if (!user) {
     return (
@@ -56,6 +83,38 @@ export function Dashboard() {
             <DashboardAnalytics />
           </div>
         </div>
+        
+        {/* Connection Status Indicator */}
+        {connectionStatus && (
+          <div className="grid grid-cols-1 gap-4">
+            <Card className={`border-l-4 ${
+              connectionStatus === "connected" 
+                ? "border-l-green-500" 
+                : connectionStatus === "failed" 
+                  ? "border-l-red-500" 
+                  : "border-l-yellow-500"
+            }`}>
+              <CardHeader className="py-3">
+                <CardTitle className="text-base flex items-center space-x-2">
+                  <span>Status WhatsApp:</span>
+                  <span className={
+                    connectionStatus === "connected" 
+                      ? "text-green-500" 
+                      : connectionStatus === "failed" 
+                        ? "text-red-500" 
+                        : "text-yellow-500"
+                  }>
+                    {connectionStatus === "connected" 
+                      ? "Conectado" 
+                      : connectionStatus === "failed" 
+                        ? "Desconectado" 
+                        : "Aguardando conexão"}
+                  </span>
+                </CardTitle>
+              </CardHeader>
+            </Card>
+          </div>
+        )}
         
         {/* Interested Clients Section - Ensure it's responsive */}
         <div className="pt-2 md:pt-4">
