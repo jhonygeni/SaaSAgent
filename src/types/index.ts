@@ -1,3 +1,4 @@
+
 export type BusinessSector = 
   | "Varejo" 
   | "Saúde" 
@@ -24,7 +25,7 @@ export type Agent = {
   prompt?: string; // Added prompt field
   faqs: FAQ[];
   createdAt?: string;
-  status?: "ativo" | "inativo";
+  status?: "ativo" | "inativo" | "pendente";
   connected?: boolean;
   phoneNumber?: string;
   messageCount?: number;

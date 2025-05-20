@@ -46,7 +46,8 @@ const DashboardPage = () => {
   useEffect(() => {
     const checkForAgentsNeedingConnection = () => {
       if (agents && agents.length > 0 && connectionStatus !== "connected") {
-        const needsConnection = agents.some(agent => !agent.connected && agent.status === "pendente");
+        const needsConnection = agents.some(agent => !agent.connected && 
+          (agent.status === "pendente" || agent.status === "ativo"));
         if (needsConnection) {
           setConnectDialogOpen(true);
         }
