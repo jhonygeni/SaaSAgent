@@ -13,7 +13,7 @@ export const ENDPOINTS = {
   instanceCreate: "/instance/create", // Create new instance (POST)
   instanceConnect: "/instance/connect/{instanceName}", // Connect and get QR code (GET)
   instanceInfo: "/instance/info", // Get instance info (GET)
-  connectionState: "/instance/connectionState", // Check connection status (GET)
+  connectionState: "/instance/connectionState/{instanceName}", // Check connection status (GET)
   instanceLogout: "/instance/logout", // Disconnect instance (DELETE)
   
   // For debugging - list all instances

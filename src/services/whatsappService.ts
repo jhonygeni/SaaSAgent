@@ -257,7 +257,7 @@ export const whatsappService = {
     return whatsappService.connectToInstance(instanceName);
   },
   
-  // Check connection status
+  // Check connection status - UPDATED to use correct endpoint
   getConnectionState: async (instanceName: string): Promise<any> => {
     try {
       console.log(`Checking connection state for instance: ${instanceName}`);
@@ -279,11 +279,13 @@ export const whatsappService = {
         headers['apikey'] = EVOLUTION_API_KEY;
       }
       
-      // We'll append the instanceName as a query parameter for connection state
-      const url = new URL(`${EVOLUTION_API_URL}${ENDPOINTS.connectionState}`);
-      url.searchParams.append('instanceName', instanceName);
+      // Use the corrected endpoint with proper URL path parameter
+      const endpoint = formatEndpoint(ENDPOINTS.connectionState, { instanceName });
+      const url = `${EVOLUTION_API_URL}${endpoint}`;
       
-      const response = await fetch(url.toString(), {
+      console.log("Connection state URL:", url);
+      
+      const response = await fetch(url, {
         method: 'GET',
         headers: headers
       });

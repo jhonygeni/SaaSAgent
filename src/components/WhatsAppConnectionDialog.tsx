@@ -135,11 +135,14 @@ export function WhatsAppConnectionDialog({
     onOpenChange(isOpen);
   };
 
-  // Handle completion
+  // Handle completion - IMPROVED to better handle connection status changes
   useEffect(() => {
     if (connectionStatus === "connected" && onComplete) {
       console.log("Connection complete, calling onComplete callback");
-      onComplete();
+      // Small delay to allow the UI to show the success state before closing
+      setTimeout(() => {
+        onComplete();
+      }, 1500);
     }
   }, [connectionStatus, onComplete]);
 

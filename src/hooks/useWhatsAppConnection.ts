@@ -156,7 +156,7 @@ export function useWhatsAppConnection() {
     }
   }, [clearPolling, updateDebugInfo]);
 
-  // Start polling for connection status
+  // Start polling for connection status - IMPROVED with correct endpoint handling
   const startStatusPolling = useCallback(async (instanceName: string) => {
     // Clear any existing polling interval
     clearPolling();
@@ -185,6 +185,7 @@ export function useWhatsAppConnection() {
         updateDebugInfo({ pollAttempts, stateData });
         
         // Check connection state based on Evolution API response structure
+        // The API returns different field names in different contexts, so we check multiple fields
         const state = stateData?.state || stateData?.status;
         
         if (state === "open" || state === "connected") {
@@ -402,7 +403,6 @@ export function useWhatsAppConnection() {
     pairingCode,
     connectionError,
     getCurrentQrCode,
-    getCurrentPairingCode,
     getConnectionInfo,
     debugInfo,
     attemptCount,
