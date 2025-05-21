@@ -18,6 +18,7 @@ import TestAgentPage from "./pages/TestAgentPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import NotFound from "./pages/NotFound";
+import UserProfilePage from "./pages/UserProfilePage";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +41,7 @@ const App = () => (
                   <Route path="/testar/:id" element={<TestAgentPage />} />
                   <Route path="/entrar" element={<LoginPage />} />
                   <Route path="/registrar" element={<RegisterPage />} />
+                  <Route path="/perfil" element={<UserProfilePage />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </BrowserRouter>

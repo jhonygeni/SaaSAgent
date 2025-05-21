@@ -47,6 +47,11 @@ export function Header() {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
+                    <Link to="/perfil" className="w-full cursor-pointer">
+                      Meu Perfil
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
                     <Link to="/planos" className="w-full cursor-pointer">
                       Gerenciar Plano
                     </Link>
