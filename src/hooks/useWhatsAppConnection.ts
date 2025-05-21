@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from 'react';
 import { ConnectionStatus } from '../types';
 import { whatsappService } from '../services/whatsappService';
@@ -16,6 +17,7 @@ export function useWhatsAppConnection() {
   const [instanceData, setInstanceData] = useState<any>(null);
   const [attemptCount, setAttemptCount] = useState(0);
   const [debugInfo, setDebugInfo] = useState<string | null>(null);
+  const [pairingCode, setPairingCode] = useState<string | null>(null);
 
   // Clean up polling on unmount
   useEffect(() => {
@@ -26,14 +28,59 @@ export function useWhatsAppConnection() {
     };
   }, [pollingInterval]);
 
-  // Get instance name based on user ID
-  const getInstanceName = useCallback(() => {
+  // Get instance name based on user ID and provided name
+  const getInstanceName = useCallback((providedName?: string) => {
+    if (providedName) {
+      // Format the name to be valid for instance
+      return providedName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+    }
+
     if (!user?.id) {
       console.warn("User ID not available, using default instance name");
       return "default_instance";
     }
+
     return `user_${user.id}`;
   }, [user]);
+
+  // Validate if an instance name is available and valid
+  const validateInstanceName = useCallback(async (instanceName: string): Promise<{valid: boolean, message?: string}> => {
+    try {
+      if (!instanceName || instanceName.trim() === '') {
+        return { valid: false, message: "Nome não pode estar vazio" };
+      }
+      
+      // Format the name to match server-side validation
+      const formattedName = instanceName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+      
+      if (formattedName.length < 3) {
+        return { valid: false, message: "Nome deve ter pelo menos 3 caracteres" };
+      }
+      
+      if (formattedName.length > 20) {
+        return { valid: false, message: "Nome não pode ter mais de 20 caracteres" };
+      }
+      
+      // Check if name is already in use by listing all instances
+      try {
+        const instances = await whatsappService.listInstances();
+        const existingInstance = Array.isArray(instances.instances) && 
+          instances.instances.find((i: any) => i.name === formattedName || i.instanceName === formattedName);
+          
+        if (existingInstance) {
+          return { valid: false, message: "Este nome já está em uso" };
+        }
+      } catch (error) {
+        console.error("Error checking instance name availability:", error);
+        // Continue anyway, we'll deal with conflicts later if they happen
+      }
+      
+      return { valid: true };
+    } catch (error) {
+      console.error("Error validating instance name:", error);
+      return { valid: false, message: "Erro na validação do nome" };
+    }
+  }, []);
 
   // Show error toast
   const showErrorToast = useCallback((message: string) => {
@@ -73,11 +120,12 @@ export function useWhatsAppConnection() {
       error: connectionError,
       attemptCount,
       mockMode: USE_MOCK_DATA,
+      pairingCode,
       ...newInfo
     };
     setDebugInfo(JSON.stringify(debugData, null, 2));
     console.log("Debug info updated:", debugData);
-  }, [getInstanceName, instanceData, connectionStatus, qrCodeData, connectionError, attemptCount]);
+  }, [getInstanceName, instanceData, connectionStatus, qrCodeData, connectionError, attemptCount, pairingCode]);
 
   // Handle successful connection
   const handleSuccessfulConnection = useCallback(async (instanceName: string) => {
@@ -175,19 +223,23 @@ export function useWhatsAppConnection() {
     setPollingInterval(interval);
   }, [handleSuccessfulConnection, clearPolling, connectionStatus, updateDebugInfo]);
 
-  // Get QR code for WhatsApp instance
+  // Fetch QR code for WhatsApp instance - using the correct endpoint
   const fetchQrCode = useCallback(async (instanceName: string): Promise<string | null> => {
     try {
+      // Use the updated connect/instanceName endpoint that returns QR code
       const qrData = await whatsappService.getQrCode(instanceName);
       console.log("QR code response:", qrData);
       updateDebugInfo({ qrData });
       
-      // Extract QR code based on the updated API response structure
-      // This could be in various fields depending on the API version
-      const qrCode = qrData?.qrcode || qrData?.base64 || qrData?.code || qrData?.pairingCode;
+      // Extract QR code and pairing code from the response
+      const qrCode = qrData?.qrcode || qrData?.base64 || qrData?.code;
+      const newPairingCode = qrData?.pairingCode;
       
       if (qrCode) {
         setQrCodeData(qrCode);
+        if (newPairingCode) {
+          setPairingCode(newPairingCode);
+        }
         startStatusPolling(instanceName);
         return qrCode;
       } else {
@@ -202,14 +254,15 @@ export function useWhatsAppConnection() {
     }
   }, [startStatusPolling, updateDebugInfo]);
 
-  // Initialize WhatsApp instance - simplified to use the new direct connect/QR endpoint
-  const initializeWhatsAppInstance = useCallback(async () => {
-    const instanceName = getInstanceName();
+  // Initialize WhatsApp instance with the correct sequence
+  const initializeWhatsAppInstance = useCallback(async (providedName?: string) => {
+    const instanceName = getInstanceName(providedName);
     console.log(`Starting WhatsApp connection for instance: ${instanceName}`);
     updateDebugInfo({ action: "initialize", instanceName });
     
     try {
-      // First, try to create a new instance
+      // 1. First, create a new instance using POST to /instance/create
+      console.log("Step 1: Creating instance...");
       const createData = await whatsappService.createInstance(instanceName);
       console.log("Instance creation response:", createData);
       
@@ -217,7 +270,8 @@ export function useWhatsAppConnection() {
       setInstanceData(createData);
       updateDebugInfo({ createData });
       
-      // After creation, directly connect to get the QR code using the updated endpoint
+      // 2. After creation, immediately connect to get the QR code
+      console.log("Step 2: Getting QR code...");
       try {
         return await fetchQrCode(instanceName);
       } catch (qrError) {
@@ -238,7 +292,7 @@ export function useWhatsAppConnection() {
         console.log("Instance already exists, attempting to connect directly");
         
         try {
-          // Get QR code for the existing instance using the updated endpoint
+          // Get QR code for the existing instance 
           return await fetchQrCode(instanceName);
         } catch (connectError) {
           console.error("Error connecting to existing instance:", connectError);
@@ -253,17 +307,18 @@ export function useWhatsAppConnection() {
     }
   }, [getInstanceName, fetchQrCode, updateDebugInfo]);
 
-  // Start connection process
-  const startConnection = useCallback(async () => {
+  // Start connection process with a specific instance name
+  const startConnection = useCallback(async (providedName?: string) => {
     setConnectionStatus("waiting");
     setIsLoading(true);
     setConnectionError(null);
     setQrCodeData(null);
+    setPairingCode(null);
     setAttemptCount(0);
-    updateDebugInfo({ action: "startConnection" });
+    updateDebugInfo({ action: "startConnection", providedName });
     
     try {
-      const qrCode = await initializeWhatsAppInstance();
+      const qrCode = await initializeWhatsAppInstance(providedName);
       if (!qrCode) {
         throw new Error("Failed to generate QR code");
       }
@@ -287,34 +342,23 @@ export function useWhatsAppConnection() {
     }
   }, [initializeWhatsAppInstance, showErrorToast, updateDebugInfo]);
 
-  // Call API to cancel the connection process
+  // Call API to cancel the connection process - NEVER use during agent creation
   const cancelConnection = useCallback(async () => {
     clearPolling();
     updateDebugInfo({ action: "cancelConnection" });
     
-    try {
-      const instanceName = getInstanceName();
-      const success = await whatsappService.logout(instanceName);
-      if (success) {
-        console.log("Successfully logged out instance:", instanceName);
-      } else {
-        console.warn("Logout may not have succeeded for instance:", instanceName);
-      }
-    } catch (error) {
-      console.error("Error canceling connection:", error);
-      updateDebugInfo({
-        cancelError: error instanceof Error ? error.message : String(error)
-      });
-    }
+    // We're not calling logout during agent creation
+    // The server will automatically clean up abandoned instances
     
     setConnectionStatus("failed");
     setQrCodeData(null);
+    setPairingCode(null);
     toast({
       title: "Connection Canceled",
       description: "WhatsApp connection was canceled.",
       variant: "destructive",
     });
-  }, [clearPolling, getInstanceName, toast, updateDebugInfo]);
+  }, [clearPolling, toast, updateDebugInfo]);
 
   // Update connection status to connected
   const completeConnection = useCallback((phoneNumber?: string) => {
@@ -333,14 +377,20 @@ export function useWhatsAppConnection() {
     return qrCodeData;
   }, [qrCodeData]);
 
+  // Get current pairing code if available
+  const getCurrentPairingCode = useCallback(() => {
+    return pairingCode;
+  }, [pairingCode]);
+
   // Get the instance name and data - useful for the UI
   const getConnectionInfo = useCallback(() => {
     return {
       instanceName: getInstanceName(),
       instanceData: instanceData,
-      debugInfo: debugInfo
+      debugInfo: debugInfo,
+      pairingCode: pairingCode
     };
-  }, [getInstanceName, instanceData, debugInfo]);
+  }, [getInstanceName, instanceData, debugInfo, pairingCode]);
 
   return {
     connectionStatus,
@@ -349,10 +399,13 @@ export function useWhatsAppConnection() {
     completeConnection,
     isLoading,
     qrCodeData,
+    pairingCode,
     connectionError,
     getCurrentQrCode,
+    getCurrentPairingCode,
     getConnectionInfo,
     debugInfo,
-    attemptCount
+    attemptCount,
+    validateInstanceName
   };
 }

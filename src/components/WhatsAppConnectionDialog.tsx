@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,6 +45,7 @@ export function WhatsAppConnectionDialog({
     cancelConnection, 
     isLoading, 
     qrCodeData,
+    pairingCode,
     connectionError,
     getConnectionInfo,
     debugInfo,
@@ -57,21 +59,6 @@ export function WhatsAppConnectionDialog({
   const [isValidatingName, setIsValidatingName] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
   const [nameValidated, setNameValidated] = useState(false);
-  const [pairingCode, setPairingCode] = useState<string | null>(null);
-  
-  // Effect to check for pairing code in the connection debug info
-  useEffect(() => {
-    if (debugInfo) {
-      try {
-        const debugData = JSON.parse(debugInfo);
-        if (debugData?.qrData?.pairingCode) {
-          setPairingCode(debugData.qrData.pairingCode);
-        }
-      } catch (e) {
-        console.error("Error parsing debug info for pairing code:", e);
-      }
-    }
-  }, [debugInfo]);
   
   // Effect to validate instance name when it changes
   useEffect(() => {

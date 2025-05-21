@@ -1,3 +1,4 @@
+
 import { EVOLUTION_API_URL, EVOLUTION_API_KEY, ENDPOINTS, USE_MOCK_DATA, MOCK_QR_CODE, USE_BEARER_AUTH } from '../constants/api';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -185,18 +186,7 @@ export const whatsappService = {
         await storeInstanceData(userId, data);
       }
       
-      // If QR is not in the initial response, immediately fetch it
-      if (!data.qrcode && data.instance && data.instance.instanceName) {
-        console.log("QR code not in creation response, fetching it separately");
-        try {
-          const qrData = await whatsappService.getQrCode(data.instance.instanceName);
-          // Combine the instance data with the QR code data
-          data.qrcode = qrData.qrcode || qrData.base64 || qrData.qr;
-        } catch (qrError) {
-          console.error("Failed to fetch QR code after instance creation:", qrError);
-        }
-      }
-      
+      // Return the data - we'll immediately get the QR code in a separate call
       return data;
     } catch (error) {
       console.error("Error creating WhatsApp instance:", error);
@@ -204,7 +194,7 @@ export const whatsappService = {
     }
   },
   
-  // Connect to an existing WhatsApp instance
+  // Connect to an existing WhatsApp instance and get QR code
   connectToInstance: async (instanceName: string): Promise<any> => {
     try {
       console.log(`Connecting to WhatsApp instance: ${instanceName}`);
@@ -214,6 +204,8 @@ export const whatsappService = {
         return {
           status: "success",
           message: "Connected to instance successfully (mock)",
+          qrcode: MOCK_QR_CODE,
+          pairingCode: "123-456-789",
           instance: {
             instanceName,
             connected: true
@@ -221,9 +213,7 @@ export const whatsappService = {
         };
       }
       
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
+      const headers: HeadersInit = {};
       
       if (USE_BEARER_AUTH) {
         headers['Authorization'] = `Bearer ${EVOLUTION_API_KEY}`;
@@ -231,12 +221,12 @@ export const whatsappService = {
         headers['apikey'] = EVOLUTION_API_KEY;
       }
       
-      // Use the updated endpoint for direct connection which also returns QR code
+      // Use the correct endpoint for connection and QR code
       const endpoint = formatEndpoint(ENDPOINTS.instanceConnect, { instanceName });
       console.log("Connect instance URL:", `${EVOLUTION_API_URL}${endpoint}`);
       
       const response = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
-        method: 'GET', // Changed to GET for the new endpoint
+        method: 'GET',
         headers: headers
       });
       
@@ -262,67 +252,9 @@ export const whatsappService = {
     }
   },
   
-  // Get QR code for WhatsApp connection
+  // Get QR code for WhatsApp connection - now uses the correct /instance/connect endpoint
   getQrCode: async (instanceName: string): Promise<any> => {
-    try {
-      console.log(`Fetching QR code for instance: ${instanceName}`);
-      
-      if (USE_MOCK_DATA) {
-        console.warn("MOCK MODE IS ACTIVE - This should never be used in production!");
-        return {
-          status: "success",
-          qrcode: MOCK_QR_CODE,
-          message: "QR Code generated successfully (mock)"
-        };
-      }
-      
-      const headers: HeadersInit = {};
-      
-      if (USE_BEARER_AUTH) {
-        headers['Authorization'] = `Bearer ${EVOLUTION_API_KEY}`;
-      } else {
-        headers['apikey'] = EVOLUTION_API_KEY;
-      }
-      
-      // Use the updated endpoint for connecting and getting QR code
-      const endpoint = formatEndpoint(ENDPOINTS.instanceConnect, { instanceName });
-      
-      console.log("QR code request URL:", `${EVOLUTION_API_URL}${endpoint}`);
-      console.log("Using headers:", JSON.stringify(headers, null, 2));
-      
-      const response = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
-        method: 'GET',
-        headers: headers
-      });
-      
-      console.log("QR code response status:", response.status);
-      
-      if (!response.ok) {
-        let errorData;
-        try {
-          errorData = await response.json();
-        } catch (e) {
-          errorData = await response.text();
-        }
-        console.error(`QR code retrieval failed with status ${response.status}:`, errorData);
-        throw new Error(`API responded with status ${response.status}: ${JSON.stringify(errorData)}`);
-      }
-      
-      const data = await response.json();
-      console.log("QR Code retrieved successfully (data):", data);
-      
-      // Normalize response based on the new Evolution API structure
-      // It might return qrcode, base64, code, or pairingCode fields
-      const result = {
-        ...data,
-        qrcode: data.qrcode || data.base64 || data.code || data.pairingCode || null
-      };
-      
-      return result;
-    } catch (error) {
-      console.error("Error getting QR code:", error);
-      throw error;
-    }
+    return whatsappService.connectToInstance(instanceName);
   },
   
   // Check connection status
@@ -347,9 +279,11 @@ export const whatsappService = {
         headers['apikey'] = EVOLUTION_API_KEY;
       }
       
-      const endpoint = formatEndpoint(ENDPOINTS.connectionState, { instanceName });
+      // We'll append the instanceName as a query parameter for connection state
+      const url = new URL(`${EVOLUTION_API_URL}${ENDPOINTS.connectionState}`);
+      url.searchParams.append('instanceName', instanceName);
       
-      const response = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
+      const response = await fetch(url.toString(), {
         method: 'GET',
         headers: headers
       });
@@ -406,9 +340,11 @@ export const whatsappService = {
         headers['apikey'] = EVOLUTION_API_KEY;
       }
       
-      const endpoint = formatEndpoint(ENDPOINTS.instanceInfo, { instanceName });
+      // Use query parameter for instance info endpoint
+      const url = new URL(`${EVOLUTION_API_URL}${ENDPOINTS.instanceInfo}`);
+      url.searchParams.append('instanceName', instanceName);
       
-      const response = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
+      const response = await fetch(url.toString(), {
         method: 'GET',
         headers: headers
       });
@@ -488,7 +424,7 @@ export const whatsappService = {
     }
   },
   
-  // Logout/disconnect WhatsApp
+  // Logout/disconnect WhatsApp - THIS SHOULD NEVER BE CALLED DURING CREATION
   logout: async (instanceName: string): Promise<boolean> => {
     try {
       console.log(`Logging out instance: ${instanceName}`);
@@ -506,10 +442,12 @@ export const whatsappService = {
         headers['apikey'] = EVOLUTION_API_KEY;
       }
       
-      const endpoint = formatEndpoint(ENDPOINTS.instanceLogout, { instanceName });
+      // Use query parameter for logout endpoint
+      const url = new URL(`${EVOLUTION_API_URL}${ENDPOINTS.instanceLogout}`);
+      url.searchParams.append('instanceName', instanceName);
       
-      const response = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
-        method: 'DELETE',
+      const response = await fetch(url.toString(), {
+        method: 'DELETE', // Only use DELETE for explicit logout, never during creation
         headers: headers
       });
       
