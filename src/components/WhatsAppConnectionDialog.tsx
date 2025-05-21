@@ -58,6 +58,7 @@ export function WhatsAppConnectionDialog({
   const [showDebugInfo, setShowDebugInfo] = useState(process.env.NODE_ENV !== "production");
   const [apiHealthStatus, setApiHealthStatus] = useState<"unknown" | "healthy" | "unhealthy">("unknown");
   const [retryCount, setRetryCount] = useState(0);
+  const [lastInstanceName, setLastInstanceName] = useState<string | null>(null);
   
   // Check API health when dialog opens
   useEffect(() => {
@@ -69,8 +70,10 @@ export function WhatsAppConnectionDialog({
   // Check API health
   const checkApiHealth = async () => {
     try {
+      console.log("Checking API health...");
       setApiHealthStatus("unknown");
       const isHealthy = await whatsappService.checkApiHealth();
+      console.log("API health check result:", isHealthy);
       setApiHealthStatus(isHealthy ? "healthy" : "unhealthy");
     } catch (error) {
       console.error("API health check failed:", error);
@@ -78,7 +81,7 @@ export function WhatsAppConnectionDialog({
     }
   };
   
-  // Start connection process when dialog opens
+  // Start connection process when dialog opens and API is healthy
   useEffect(() => {
     const initiateConnection = async () => {
       if (open && !hasInitiatedConnection && connectionStatus === "waiting" && !qrCodeData && !isLoading) {
@@ -101,6 +104,7 @@ export function WhatsAppConnectionDialog({
           const instanceName = `${instanceBase}_${timestamp}_${randomStr}`;
           
           console.log(`Using dynamic instance name: ${instanceName}`);
+          setLastInstanceName(instanceName);
           
           await startConnection(instanceName);
         } catch (error) {
@@ -110,7 +114,7 @@ export function WhatsAppConnectionDialog({
     };
     
     // Delay slightly to ensure API health check completes first
-    const timer = setTimeout(initiateConnection, 500);
+    const timer = setTimeout(initiateConnection, 800);
     return () => clearTimeout(timer);
   }, [open, hasInitiatedConnection, connectionStatus, qrCodeData, isLoading, startConnection, agentId, apiHealthStatus]);
 
@@ -119,6 +123,7 @@ export function WhatsAppConnectionDialog({
     if (!open) {
       setHasInitiatedConnection(false);
       setRetryCount(0);
+      setLastInstanceName(null);
     }
   }, [open]);
 
@@ -150,6 +155,7 @@ export function WhatsAppConnectionDialog({
   // Handle custom instance name submit
   const handleCustomNameSubmit = async (customInstanceName: string) => {
     setHasInitiatedConnection(true);
+    setLastInstanceName(customInstanceName);
     const formattedName = customInstanceName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
     await startConnection(formattedName);
   };
@@ -173,6 +179,7 @@ export function WhatsAppConnectionDialog({
       const instanceName = `${instanceBase}_${timestamp}_${randomStr}_r${retryNum}`;
       
       console.log(`Retry #${retryNum}: Using dynamic instance name: ${instanceName}`);
+      setLastInstanceName(instanceName);
       
       await startConnection(instanceName);
     } catch (error) {
@@ -200,6 +207,13 @@ export function WhatsAppConnectionDialog({
     }
     return "Conecte seu WhatsApp para que o agente possa enviar e receber mensagens.";
   };
+
+  // Log when QR code changes
+  useEffect(() => {
+    if (qrCodeData) {
+      console.log("QR code data is available:", qrCodeData ? `${qrCodeData.substring(0, 20)}...` : "none");
+    }
+  }, [qrCodeData]);
 
   return (
     <Dialog open={open} onOpenChange={handleDialogClose}>
@@ -255,13 +269,14 @@ export function WhatsAppConnectionDialog({
             />
           )}
 
-          {showDebugInfo && !isLoading && connectionStatus === "waiting" && qrCodeData && (
+          {showDebugInfo && (
             <DebugPanel 
               debugInfo={debugInfo}
               connectionInfo={getConnectionInfo()}
               showDebugInfo={showDebugInfo}
               toggleDebugInfo={toggleDebugInfo}
               apiHealthStatus={apiHealthStatus}
+              lastInstanceName={lastInstanceName}
             />
           )}
         </div>

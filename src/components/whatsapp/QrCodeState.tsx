@@ -14,6 +14,9 @@ export const QrCodeState: React.FC<QrCodeStateProps> = ({
   pairingCode,
   attemptCount
 }) => {
+  // Log QR code data for debugging
+  console.log(`Rendering QR code state with data available: ${!!qrCodeData}, pairing code available: ${!!pairingCode}`);
+  
   return (
     <div className="flex flex-col items-center space-y-4">
       <div className="bg-white p-4 rounded-lg shadow-sm">

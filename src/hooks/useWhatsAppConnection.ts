@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { ConnectionStatus } from '../types';
 import { whatsappService } from '../services/whatsappService';
@@ -77,10 +78,10 @@ export function useWhatsAppConnection() {
       try {
         const instances = await whatsappService.listInstances();
         
-        // Fix: Better handling of response format - check if instances exists and is an array
+        // Better handling of response format - check if instances exists and is an array
         if (instances && instances.instances && Array.isArray(instances.instances)) {
           const existingInstance = instances.instances.find((i: any) => 
-            i.name === formattedName || i.instanceName === formattedName
+            (i.name === formattedName || i.instanceName === formattedName)
           );
             
           if (existingInstance) {
@@ -297,7 +298,7 @@ export function useWhatsAppConnection() {
     setPollingInterval(interval);
   }, [handleSuccessfulConnection, clearPolling, connectionStatus, updateDebugInfo]);
 
-  // Fetch QR code for WhatsApp instance - FIXED to use GET method
+  // Fetch QR code for WhatsApp instance - USING GET METHOD
   const fetchQrCode = useCallback(async (instanceName: string): Promise<string | null> => {
     try {
       // First check if the API is accessible
@@ -306,7 +307,8 @@ export function useWhatsAppConnection() {
         throw new Error("API server not accessible or authentication failed. Please check your API key and try again.");
       }
       
-      // Use GET method to connect and get QR code
+      // Use GET method to connect and get QR code (IMPORTANT!)
+      console.log(`Fetching QR code for instance: ${instanceName}`);
       const qrData = await whatsappService.getQrCode(instanceName);
       console.log("QR code response:", qrData);
       
@@ -315,6 +317,7 @@ export function useWhatsAppConnection() {
       const newPairingCode = qrData?.pairingCode;
       
       if (qrCode) {
+        console.log("QR code successfully received");
         setQrCodeData(qrCode);
         if (newPairingCode) {
           setPairingCode(newPairingCode);
@@ -322,6 +325,7 @@ export function useWhatsAppConnection() {
         startStatusPolling(instanceName);
         return qrCode;
       } else {
+        console.error("No QR code received in API response:", qrData);
         throw new Error("No QR code received from API");
       }
     } catch (error) {
@@ -355,234 +359,168 @@ export function useWhatsAppConnection() {
         throw new Error("API server not accessible or authentication failed. Please check your API key and try again.");
       }
       
-      // Check if we've already created this instance to avoid duplicate creation
-      const isNewInstance = !createdInstancesRef.current.has(instanceName);
+      // Create the instance
+      const instanceData = await whatsappService.createInstance(instanceName, user?.id);
+      console.log("Instance created successfully:", instanceData);
       
-      // 1. First, create a new instance using POST to /instance/create (only if it's a new instance)
-      let createData;
-      if (isNewInstance) {
-        console.log("Step 1: Creating instance...");
-        try {
-          createData = await whatsappService.createInstance(instanceName);
-          console.log("Instance creation response:", createData);
-          
-          // Add to our tracking set
-          createdInstancesRef.current.add(instanceName);
-          
-          // Save instance data
-          setInstanceData(createData);
-          updateDebugInfo({ createData });
-        } catch (createError: any) {
-          console.error("Error creating instance:", createError);
-          
-          // If instance already exists, we can proceed to get QR code
-          if (createError.message && createError.message.includes("already in use")) {
-            console.log("Instance already exists, will proceed to get QR code");
-          } else {
-            throw createError;
-          }
-        }
-      } else {
-        console.log("Instance already created in this session, skipping creation step");
+      // Store for later use
+      setInstanceData(instanceData);
+      createdInstancesRef.current.add(instanceName);
+      
+      // Get the QR code using GET method (IMPORTANT!)
+      return await fetchQrCode(instanceName);
+    } catch (error) {
+      // Special handling for duplicate instance name errors
+      if (error instanceof Error && error.message.includes("already in use")) {
+        console.error("Instance name already in use:", error);
+        setConnectionError("Este nome de instância já está em uso. Por favor, escolha outro nome.");
+        setConnectionStatus("failed");
+        throw error;
       }
       
-      // 2. After creation, immediately connect to get the QR code
-      console.log("Step 2: Getting QR code...");
-      try {
-        return await fetchQrCode(instanceName);
-      } catch (qrError) {
-        console.error("Error getting QR code after instance creation:", qrError);
-        updateDebugInfo({
-          qrError: qrError instanceof Error ? qrError.message : String(qrError)
-        });
-        throw qrError;
-      }
-    } catch (error: any) {
-      console.error("Error initializing WhatsApp instance:", error);
-      updateDebugInfo({ 
-        initError: error instanceof Error ? error.message : String(error)
-      });
-      
-      // Special handling for authentication errors
-      if (error.message && (error.message.includes("Authentication failed") || 
-                           error.message.includes("403") || 
-                           error.message.includes("401"))) {
-        throw new Error("Authentication failed. Please check your API key and try again.");
-      }
-      
-      // If we get a specific error about instance already existing, try to connect directly
-      if (error.message && (error.message.includes("Conflict") || error.message.includes("already in use"))) {
-        console.log("Instance already exists, attempting to connect directly");
-        
-        try {
-          // Get QR code for the existing instance 
-          return await fetchQrCode(instanceName);
-        } catch (connectError) {
-          console.error("Error connecting to existing instance:", connectError);
-          updateDebugInfo({
-            connectError: connectError instanceof Error ? connectError.message : String(connectError)
-          });
-          throw connectError;
-        }
-      }
-      
+      // All other errors
+      console.error("Failed to initialize WhatsApp instance:", error);
+      setConnectionError(`Falha ao inicializar instância WhatsApp: ${error instanceof Error ? error.message : String(error)}`);
+      setConnectionStatus("failed");
       throw error;
     }
-  }, [getInstanceName, fetchQrCode, updateDebugInfo]);
+  }, [getInstanceName, user, updateDebugInfo, fetchQrCode]);
 
-  // Start connection process with a specific instance name
-  const startConnection = useCallback(async (providedName?: string) => {
+  /**
+   * Start WhatsApp connection process
+   */
+  const startConnection = useCallback(async (instanceName?: string): Promise<string | null> => {
+    const instanceId = instanceName || getInstanceName();
+    
+    // Reset state on new connection
     setConnectionStatus("waiting");
     setIsLoading(true);
+    setQrCodeData(null);
     setConnectionError(null);
-    setQrCodeData(null);
     setPairingCode(null);
+    setCreditsConsumed(false);
     setAttemptCount(0);
-    setCreditsConsumed(false); // Reset credit consumption tracking
-    updateDebugInfo({ action: "startConnection", providedName });
-    
-    // Limit retries to prevent excessive API calls
-    let attempts = 0;
-    const maxAttempts = MAX_CONNECTION_RETRIES;
-    
-    while (attempts < maxAttempts) {
-      attempts++;
-      console.log(`Connection attempt ${attempts}/${maxAttempts}`);
-      
-      try {
-        const qrCode = await initializeWhatsAppInstance(providedName);
-        if (!qrCode) {
-          throw new Error("Failed to generate QR code");
-        }
-        return qrCode;
-      } catch (error) {
-        const errorMessage = error instanceof Error 
-          ? error.message 
-          : "Unknown error occurred";
-          
-        console.error(`Error connecting to WhatsApp (attempt ${attempts}/${maxAttempts}):`, error);
-        
-        // If it's the last attempt, show the error and mark as failed
-        if (attempts >= maxAttempts) {
-          setConnectionError(errorMessage);
-          setConnectionStatus("failed");
-          showErrorToast("Could not initiate connection with WhatsApp. Please try again later.");
-          updateDebugInfo({ 
-            connectionError: errorMessage,
-            connectionStatus: "failed",
-            attempts
-          });
-          return null;
-        } else {
-          // For authentication errors, fail immediately (no retry)
-          if (errorMessage.includes("Authentication failed") || 
-              errorMessage.includes("403") || 
-              errorMessage.includes("401")) {
-            setConnectionError(errorMessage);
-            setConnectionStatus("failed");
-            showErrorToast("Authentication failed. Please check your API key and try again.");
-            updateDebugInfo({ 
-              connectionError: errorMessage,
-              connectionStatus: "failed",
-              attempts
-            });
-            return null;
-          }
-          
-          // Otherwise wait and retry
-          console.log(`Retrying in ${attempts * 1000}ms...`);
-          await new Promise(resolve => setTimeout(resolve, attempts * 1000));
-        }
-      }
-    }
-    
-    return null;
-  }, [initializeWhatsAppInstance, showErrorToast, updateDebugInfo]);
-
-  // Call API to cancel the connection process - NEVER use during agent creation
-  const cancelConnection = useCallback(async () => {
-    clearPolling();
-    updateDebugInfo({ action: "cancelConnection" });
-    
-    // We're not calling logout during agent creation
-    // The server will automatically clean up abandoned instances
-    
-    setConnectionStatus("failed");
-    setQrCodeData(null);
-    setPairingCode(null);
-    toast({
-      title: "Connection Canceled",
-      description: "WhatsApp connection was canceled.",
-      variant: "destructive",
-    });
-  }, [clearPolling, toast, updateDebugInfo]);
-
-  // Update connection status to connected
-  const completeConnection = useCallback((phoneNumber?: string) => {
-    setConnectionStatus("connected");
-    setQrCodeData(null);
-    showSuccessToast(phoneNumber);
     updateDebugInfo({
-      action: "completeConnection",
-      phoneNumber,
-      connectionStatus: "connected"
+      action: "startConnection",
+      instanceId,
+      startTime: new Date().toISOString(),
     });
-  }, [showSuccessToast, updateDebugInfo]);
+    
+    try {
+      // Initialize instance and get QR code
+      console.log(`Starting WhatsApp connection process for instance: ${instanceId}`);
+      const qrCode = await initializeWhatsAppInstance(instanceId);
+      
+      console.log("Connection process started successfully");
+      setIsLoading(false);
+      
+      return qrCode;
+    } catch (error) {
+      console.error("Error starting WhatsApp connection:", error);
+      setIsLoading(false);
+      
+      // Set error message based on error type
+      const errorMessage = error instanceof Error 
+        ? error.message
+        : "Unknown error occurred while connecting to WhatsApp";
+        
+      setConnectionError(errorMessage);
+      setConnectionStatus("failed");
+      
+      // Show error to user
+      showErrorToast(errorMessage);
+      return null;
+    }
+  }, [getInstanceName, updateDebugInfo, initializeWhatsAppInstance, showErrorToast]);
 
-  // Get current QR code without starting a new connection
-  const getCurrentQrCode = useCallback(() => {
+  /**
+   * Cancel ongoing connection attempt
+   */
+  const cancelConnection = useCallback(() => {
+    // Clear any polling interval
+    clearPolling();
+    
+    // Reset connection state
+    setConnectionStatus("waiting");
+    setIsLoading(false);
+    setQrCodeData(null);
+    setConnectionError(null);
+    setPairingCode(null);
+    
+    // No need to logout/disconnect instance - it will time out automatically
+    console.log("Connection process canceled by user");
+  }, [clearPolling]);
+
+  /**
+   * Handle connection success
+   */
+  const completeConnection = useCallback((phoneNumber?: string | null) => {
+    setConnectionStatus("connected");
+    clearPolling();
+    
+    // Show a toast notification
+    showSuccessToast(phoneNumber || undefined);
+    
+    console.log("Connection process completed successfully", phoneNumber ? `for number ${phoneNumber}` : "");
+  }, [clearPolling, showSuccessToast]);
+
+  /**
+   * Get current QR code
+   */
+  const getCurrentQrCode = useCallback((): string | null => {
     return qrCodeData;
   }, [qrCodeData]);
 
-  // Get current pairing code if available
-  const getCurrentPairingCode = useCallback(() => {
-    return pairingCode;
-  }, [pairingCode]);
-
-  // Get the instance name and data - useful for the UI
+  /**
+   * Get connection info for debugging
+   */
   const getConnectionInfo = useCallback(() => {
     return {
-      instanceName: getInstanceName(),
-      instanceData: instanceData,
-      debugInfo: debugInfo,
-      pairingCode: pairingCode
+      status: connectionStatus,
+      instanceData,
+      qrCode: qrCodeData ? "Available" : "Not available",
+      error: connectionError,
+      attemptCount,
     };
-  }, [getInstanceName, instanceData, debugInfo, pairingCode]);
+  }, [connectionStatus, instanceData, qrCodeData, connectionError, attemptCount]);
 
-  // New method to fetch all instances related to the current user
+  // Fetch user's existing instances
   const fetchUserInstances = useCallback(async () => {
     try {
-      setIsLoading(true);
-      // First check if the API is accessible
-      const isApiHealthy = await whatsappService.checkApiHealth();
-      if (!isApiHealthy) {
-        throw new Error("API server not accessible or authentication failed. Please check your API key and try again.");
+      if (!user?.id) {
+        console.log("No user ID available, cannot fetch instances");
+        return [];
       }
       
-      // Use the new fetchInstances method
+      // Check API health first
+      const isApiHealthy = await whatsappService.checkApiHealth();
+      if (!isApiHealthy) {
+        console.error("API is not healthy, cannot fetch instances");
+        return [];
+      }
+      
+      // Use fetchInstances method to get all instances
       const data = await whatsappService.fetchInstances();
+      console.log("Fetched user instances:", data);
       return data?.instances || [];
     } catch (error) {
       console.error("Error fetching user instances:", error);
-      showErrorToast("Could not retrieve WhatsApp instances.");
       return [];
-    } finally {
-      setIsLoading(false);
     }
-  }, [showErrorToast]);
+  }, [user]);
 
   return {
     connectionStatus,
+    isLoading,
+    qrCodeData,
+    connectionError,
     startConnection,
     cancelConnection,
     completeConnection,
-    isLoading,
-    qrCodeData,
-    pairingCode,
-    connectionError,
     getCurrentQrCode,
     getConnectionInfo,
     debugInfo,
+    pairingCode,
     attemptCount,
     validateInstanceName,
     fetchUserInstances

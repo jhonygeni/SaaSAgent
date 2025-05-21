@@ -7,7 +7,7 @@ interface QrCodeDisplayProps {
   size?: number;
   level?: "L" | "M" | "Q" | "H";
   includeMargin?: boolean;
-  pairingCode?: string; // Added to support pairing code if available
+  pairingCode?: string | null; // Added to support pairing code if available
 }
 
 export function QrCodeDisplay({
@@ -23,20 +23,27 @@ export function QrCodeDisplay({
   // Handle both direct QR code values and base64 strings
   useEffect(() => {
     if (!value) {
+      console.log("QR code value is empty");
       return;
     }
     
     try {
       // Check if we're dealing with a base64 string
       if (typeof value === 'string') {
+        // Log first few characters for debugging
+        console.log(`QR code value (first 20 chars): ${value.substring(0, 20)}...`);
+        
         // If it looks like it might be base64
         if (value.length > 100 && !value.startsWith('http') && !value.startsWith('data:')) {
+          console.log("Detected base64 encoded QR code");
           setQrValue(`data:image/png;base64,${value}`);
           setIsBase64(true);
         } else if (value.startsWith('data:')) {
+          console.log("Detected data URL QR code");
           setQrValue(value);
           setIsBase64(true);
         } else {
+          console.log("Using raw QR code value");
           setQrValue(value);
           setIsBase64(false);
         }
@@ -71,6 +78,11 @@ export function QrCodeDisplay({
           width={size} 
           height={size}
           className="max-w-full"
+          onError={(e) => {
+            console.error("Error loading QR code image", e);
+            // Fallback to text-based QR code on error
+            setIsBase64(false);
+          }}
         />
         {/* Show pairing code if available */}
         {pairingCode && (

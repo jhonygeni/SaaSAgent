@@ -1,9 +1,11 @@
+
 import { 
   EVOLUTION_API_URL, 
   EVOLUTION_API_KEY, 
   USE_BEARER_AUTH, 
   MAX_CONNECTION_RETRIES, 
-  RETRY_DELAY_MS 
+  RETRY_DELAY_MS,
+  PREVENT_CREDIT_CONSUMPTION_ON_FAILURE
 } from '../../constants/api';
 
 /**
@@ -56,6 +58,7 @@ export const retryOperation = async <T>(
       
       // If retryCondition is provided, check if we should retry
       if (retryCondition && !retryCondition(error)) {
+        console.log("Not retrying due to condition check");
         throw error; // Don't retry if condition says not to
       }
       
@@ -114,7 +117,7 @@ export const apiClient = {
         } catch (e) {
           const text = await response.text();
           console.log(`GET response (non-JSON) from ${url}:`, text);
-          responseData = text;
+          responseData = { message: text };
         }
         
         if (!response.ok) {
@@ -123,6 +126,12 @@ export const apiClient = {
             typeof responseData === 'object' ? JSON.stringify(responseData) : responseData
           }`;
           console.error(errorMsg);
+          
+          // Special handling for 403/401 errors - don't consume credits
+          if (PREVENT_CREDIT_CONSUMPTION_ON_FAILURE && (response.status === 403 || response.status === 401)) {
+            console.error("Authentication error - canceling operation to prevent credit consumption");
+          }
+          
           throw new Error(errorMsg);
         }
         
@@ -135,7 +144,9 @@ export const apiClient = {
     }, undefined, undefined, (error) => {
       // Don't retry on authentication errors
       return !(error instanceof Error && (
-        error.message.includes("403") || error.message.includes("401")
+        error.message.includes("403") || 
+        error.message.includes("401") ||
+        error.message.includes("Authentication failed")
       ));
     });
   },
@@ -149,28 +160,52 @@ export const apiClient = {
     console.log(`Making POST request to: ${url}`, { headers, data });
     
     return retryOperation(async () => {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(data)
-      });
-      
-      // Parse response regardless of success/failure for debugging
-      let responseData;
       try {
-        responseData = await response.json();
-        console.log(`POST response from ${url}:`, responseData);
-      } catch (e) {
-        const text = await response.text();
-        console.log(`POST response (non-JSON) from ${url}:`, text);
-        responseData = text;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(data)
+        });
+        
+        // Parse response regardless of success/failure for debugging
+        let responseData;
+        try {
+          responseData = await response.json();
+          console.log(`POST response from ${url}:`, responseData);
+        } catch (e) {
+          const text = await response.text();
+          console.log(`POST response (non-JSON) from ${url}:`, text);
+          responseData = { message: text };
+        }
+        
+        if (!response.ok) {
+          const errorMsg = `API responded with status ${response.status}: ${
+            typeof responseData === 'object' ? JSON.stringify(responseData) : responseData
+          }`;
+          console.error(errorMsg);
+          
+          // Special handling for 403/401 errors to prevent credit consumption
+          if (PREVENT_CREDIT_CONSUMPTION_ON_FAILURE && (response.status === 403 || response.status === 401)) {
+            console.error("Authentication error - canceling operation to prevent credit consumption");
+          }
+          
+          throw new Error(errorMsg);
+        }
+        
+        return responseData;
+      } catch (error) {
+        // Improved error logging with request details
+        console.error(`Request failed for POST ${url}:`, error);
+        throw error;
       }
-      
-      if (!response.ok) {
-        throw new Error(`API responded with status ${response.status}: ${JSON.stringify(responseData)}`);
-      }
-      
-      return responseData;
+    }, undefined, undefined, (error) => {
+      // Don't retry on specific errors
+      return !(error instanceof Error && (
+        error.message.includes("403") || 
+        error.message.includes("401") ||
+        error.message.includes("Authentication failed") ||
+        error.message.includes("already in use")
+      ));
     });
   },
   
@@ -193,26 +228,33 @@ export const apiClient = {
     const headers = createHeaders();
     console.log(`Making DELETE request to: ${url}`, { headers });
     
-    const response = await fetch(url, {
-      method: 'DELETE',
-      headers
-    });
-    
-    // Parse response regardless of success/failure for debugging
-    let responseData;
     try {
-      responseData = await response.json();
-      console.log(`DELETE response from ${url}:`, responseData);
-    } catch (e) {
-      const text = await response.text();
-      console.log(`DELETE response (non-JSON) from ${url}:`, text);
-      responseData = text;
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers
+      });
+      
+      // Parse response regardless of success/failure for debugging
+      let responseData;
+      try {
+        responseData = await response.json();
+        console.log(`DELETE response from ${url}:`, responseData);
+      } catch (e) {
+        const text = await response.text();
+        console.log(`DELETE response (non-JSON) from ${url}:`, text);
+        responseData = { message: text };
+      }
+      
+      if (!response.ok) {
+        throw new Error(`API responded with status ${response.status}: ${
+          typeof responseData === 'object' ? JSON.stringify(responseData) : responseData
+        }`);
+      }
+      
+      return responseData;
+    } catch (error) {
+      console.error(`Request failed for DELETE ${url}:`, error);
+      throw error;
     }
-    
-    if (!response.ok) {
-      throw new Error(`API responded with status ${response.status}: ${JSON.stringify(responseData)}`);
-    }
-    
-    return responseData;
   }
 };
