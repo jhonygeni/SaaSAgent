@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useUser } from "@/context/UserContext";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
@@ -14,7 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button-extensions";
 import { Label } from "@/components/ui/label";
-import { toast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Alert,
@@ -30,11 +30,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Check, AlertCircle, Lock, Mail, Phone, User as UserIcon } from "lucide-react";
+import { Check, AlertCircle, Lock, Mail, Phone, User as UserIcon, RefreshCw } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const UserProfilePage = () => {
-  const { user, updateUser, setPlan, logout } = useUser();
+  const { user, updateUser, setPlan, logout, checkSubscriptionStatus } = useUser();
   const navigate = useNavigate();
+  const { toast } = useToast();
   
   const [name, setName] = useState(user?.name || "");
   const [email, setEmail] = useState(user?.email || "");
@@ -45,11 +47,82 @@ const UserProfilePage = () => {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [refreshingSubscription, setRefreshingSubscription] = useState(false);
+  const [subscriptionEnd, setSubscriptionEnd] = useState<string | null>(null);
+  
+  useEffect(() => {
+    if (user) {
+      setName(user.name || "");
+      setEmail(user.email || "");
+    }
+  }, [user]);
+  
+  useEffect(() => {
+    if (user) {
+      checkSubscriptionStatusDetails();
+    }
+  }, [user]);
   
   if (!user) {
     navigate("/entrar");
     return null;
   }
+  
+  const checkSubscriptionStatusDetails = async () => {
+    try {
+      setRefreshingSubscription(true);
+      
+      const { data, error } = await supabase.functions.invoke('check-subscription');
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      if (data) {
+        if (data.plan && data.plan !== user.plan) {
+          setPlan(data.plan);
+        }
+        
+        setSubscriptionEnd(data.subscription_end);
+      }
+    } catch (err) {
+      console.error("Error checking subscription:", err);
+      toast({
+        variant: "destructive",
+        title: "Erro ao verificar assinatura",
+        description: "Não foi possível verificar o status da sua assinatura.",
+      });
+    } finally {
+      setRefreshingSubscription(false);
+    }
+  };
+  
+  const openCustomerPortal = async () => {
+    try {
+      setIsLoading(true);
+      
+      const { data, error } = await supabase.functions.invoke("customer-portal", {});
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error("No portal URL returned");
+      }
+    } catch (err) {
+      console.error("Customer portal error:", err);
+      toast({
+        variant: "destructive",
+        title: "Erro ao abrir portal",
+        description: "Não foi possível abrir o portal de gerenciamento. Tente novamente.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   const handleUpdateProfile = async () => {
     setIsLoading(true);
@@ -125,6 +198,17 @@ const UserProfilePage = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+  
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "Não disponível";
+    
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    }).format(date);
   };
   
   const getPlanDisplay = () => {
@@ -245,8 +329,22 @@ const UserProfilePage = () => {
             <TabsContent value="plan">
               <Card>
                 <CardHeader>
-                  <CardTitle>Seu Plano Atual</CardTitle>
-                  <CardDescription>Gerencie seu plano e assinatura</CardDescription>
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                    <div>
+                      <CardTitle>Seu Plano Atual</CardTitle>
+                      <CardDescription>Gerencie seu plano e assinatura</CardDescription>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={checkSubscriptionStatusDetails}
+                      disabled={refreshingSubscription}
+                      className="flex items-center gap-2 self-start"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${refreshingSubscription ? "animate-spin" : ""}`} />
+                      Atualizar status
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="p-6 border rounded-lg bg-card">
@@ -257,6 +355,13 @@ const UserProfilePage = () => {
                         <Badge className={getPlanDisplay().color}>
                           Plano Atual
                         </Badge>
+                        
+                        {subscriptionEnd && user.plan !== 'free' && (
+                          <div className="mt-4 text-sm">
+                            <span className="text-muted-foreground">Próxima cobrança: </span>
+                            <span className="font-medium">{formatDate(subscriptionEnd)}</span>
+                          </div>
+                        )}
                       </div>
                       <div className="text-right">
                         <div className="text-3xl font-bold mb-1">
@@ -267,13 +372,25 @@ const UserProfilePage = () => {
                     </div>
                   </div>
                   
-                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  <div className="flex flex-col sm:flex-row gap-4">
                     <Button
                       className="w-full" 
                       onClick={() => navigate("/planos")}
                     >
                       Gerenciar Plano
                     </Button>
+                    
+                    {user.plan !== "free" && (
+                      <Button
+                        variant="outline"
+                        className="w-full" 
+                        onClick={openCustomerPortal}
+                        disabled={isLoading}
+                        loading={isLoading}
+                      >
+                        Portal de Pagamento
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>

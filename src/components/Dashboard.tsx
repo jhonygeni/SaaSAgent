@@ -19,14 +19,16 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useEffect, useState } from "react";
 import { useConnection } from "@/context/ConnectionContext";
 import { useToast } from "@/hooks/use-toast";
+import { useSearchParams } from "react-router-dom";
 
 export function Dashboard() {
-  const { user } = useUser();
+  const { user, checkSubscriptionStatus } = useUser();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { connectionStatus } = useConnection();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
+  const [searchParams] = useSearchParams();
   
   // Dashboard loading effect
   useEffect(() => {
@@ -48,6 +50,21 @@ export function Dashboard() {
     
     loadDashboard();
   }, [toast]);
+  
+  // Check if redirected from successful checkout
+  useEffect(() => {
+    const checkoutSuccess = searchParams.get('checkout_success');
+    
+    if (checkoutSuccess && user) {
+      // Refresh subscription status after successful checkout
+      checkSubscriptionStatus();
+      
+      toast({
+        title: "Assinatura ativada",
+        description: "Sua assinatura foi ativada com sucesso. Aproveite seu novo plano!",
+      });
+    }
+  }, [searchParams, user, checkSubscriptionStatus, toast]);
 
   if (!user) {
     return (

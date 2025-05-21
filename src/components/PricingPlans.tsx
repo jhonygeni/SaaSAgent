@@ -3,13 +3,15 @@ import { useUser } from "@/context/UserContext";
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
 import { useState } from "react";
-import { toast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 
 export function PricingPlans() {
   const { user, setPlan } = useUser();
   const [loading, setLoading] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const handleSelectPlan = async (plan: "free" | "starter" | "growth") => {
     if (!user) {
@@ -27,22 +29,65 @@ export function PricingPlans() {
       return;
     }
     
-    setLoading(plan);
-    
-    // Simulate payment processing
-    setTimeout(() => {
-      setPlan(plan);
-      setLoading(null);
-      toast({
-        title: "Plano atualizado com sucesso",
-        description: `Você agora está utilizando o plano ${plan === "starter" ? "Starter" : "Growth"}.`,
+    try {
+      setLoading(plan);
+      
+      // Call Supabase Edge Function to create Stripe checkout
+      const { data, error } = await supabase.functions.invoke("create-checkout", {
+        body: { planId: plan },
       });
-      navigate("/dashboard");
-    }, 2000);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (data?.url) {
+        // Redirect to Stripe checkout
+        window.location.href = data.url;
+      } else {
+        throw new Error("No checkout URL returned");
+      }
+    } catch (err) {
+      console.error("Checkout error:", err);
+      toast({
+        variant: "destructive",
+        title: "Erro ao processar pagamento",
+        description: "Ocorreu um erro ao criar a sessão de pagamento. Por favor, tente novamente.",
+      });
+      setLoading(null);
+    }
   };
 
   const isCurrentPlan = (plan: string) => {
     return user?.plan === plan;
+  };
+
+  const openCustomerPortal = async () => {
+    if (!user) return;
+    
+    try {
+      setLoading("manage");
+      
+      const { data, error } = await supabase.functions.invoke("customer-portal", {});
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error("No portal URL returned");
+      }
+    } catch (err) {
+      console.error("Customer portal error:", err);
+      toast({
+        variant: "destructive",
+        title: "Erro ao abrir portal",
+        description: "Não foi possível abrir o portal de gerenciamento. Tente novamente.",
+      });
+      setLoading(null);
+    }
   };
 
   return (
@@ -53,6 +98,26 @@ export function PricingPlans() {
           Comece grátis e faça upgrade conforme sua empresa cresce
         </p>
       </div>
+
+      {user && user.plan !== "free" && (
+        <div className="mb-8 max-w-5xl mx-auto">
+          <div className="bg-muted/50 p-4 rounded-lg flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div>
+              <h3 className="font-medium">Gerenciar sua assinatura atual</h3>
+              <p className="text-sm text-muted-foreground">
+                Atualize seu método de pagamento ou cancele sua assinatura
+              </p>
+            </div>
+            <Button 
+              onClick={openCustomerPortal} 
+              disabled={loading === "manage"}
+              loading={loading === "manage"}
+            >
+              Gerenciar Assinatura
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
         {/* Plano Free */}
