@@ -319,17 +319,18 @@ export function DashboardAnalytics() {
               </CardContent>
             </Card>
 
-            <Card className="lg:col-span-2 bg-card dark:bg-card border-border">
-              <CardHeader className="pb-2">
+            <Card className="lg:col-span-2 bg-card dark:bg-card border-border h-full">
+              <CardHeader className="pb-0">
                 <CardTitle className="text-base font-medium">Leads Interessados</CardTitle>
               </CardHeader>
-              <CardContent className="pt-4 pb-6">
-                <div className="h-[220px] w-full">
+              <CardContent className="pt-2 pb-4">
+                {/* Improved chart container with proper spacing and responsive height */}
+                <div className="h-[240px] md:h-[250px] w-full pt-3">
                   <ChartContainer config={chartConfig}>
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="99%" height="100%">
                       <AreaChart 
                         data={mockLeadsData}
-                        margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                        margin={{ top: 10, right: 30, left: 5, bottom: 20 }}
                       >
                         <defs>
                           <linearGradient id="leadGradient" x1="0" y1="0" x2="0" y2="1">
@@ -337,18 +338,25 @@ export function DashboardAnalytics() {
                             <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.1}/>
                           </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
                         <XAxis 
                           dataKey="dia" 
                           className="text-xs"
-                          padding={{ left: 10, right: 10 }} 
+                          padding={{ left: 15, right: 15 }} 
+                          tick={{ fontSize: 11 }}
+                          tickMargin={10}
                         />
                         <YAxis 
                           className="text-xs" 
                           domain={[0, 'dataMax + 1']} 
                           allowDecimals={false}
+                          tick={{ fontSize: 11 }}
+                          tickMargin={8}
                         />
-                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <ChartTooltip 
+                          content={<ChartTooltipContent />} 
+                          cursor={{ strokeDasharray: '3 3' }}
+                        />
                         <Area 
                           type="monotone" 
                           dataKey="leads" 
@@ -357,6 +365,8 @@ export function DashboardAnalytics() {
                           strokeWidth={2}
                           fillOpacity={1}
                           fill="url(#leadGradient)"
+                          dot={{ r: 3, strokeWidth: 2 }}
+                          activeDot={{ r: 6, strokeWidth: 0 }}
                         />
                       </AreaChart>
                     </ResponsiveContainer>
