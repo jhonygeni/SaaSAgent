@@ -11,10 +11,10 @@ export const USE_MOCK_DATA = false; // Disable mock mode to ensure real API call
 export const ENDPOINTS = {
   // Instance management endpoints with correct HTTP methods
   instanceCreate: "/instance/create", // Create new instance (POST)
-  instanceConnectQR: "/instance/connect/{instanceName}", // FIXED: Use correct endpoint path
-  instanceInfo: "/instance/info", // Get instance info (GET)
-  connectionState: "/instance/connectionState", // Check connection status (GET)
-  instanceLogout: "/instance/logout", // Disconnect instance (DELETE)
+  instanceConnectQR: "/instance/connect/{instanceName}", // Connect and get QR code
+  instanceInfo: "/instance/info/{instanceName}", // Get instance info (GET)
+  connectionState: "/instance/connectionState/{instanceName}", // Check connection status (GET)
+  instanceLogout: "/instance/logout/{instanceName}", // Disconnect instance (DELETE)
   
   // Endpoint for fetching instances
   fetchInstances: "/instance/fetchInstances", // Get instances with filtering (GET)

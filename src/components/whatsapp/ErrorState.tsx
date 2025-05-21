@@ -11,6 +11,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({ errorMessage, isAuthErro
   // Extract specific error message for connection errors
   const isConnectError = errorMessage?.includes('/instance/connect') || errorMessage?.includes('Cannot GET');
   const isConnectionEndpointError = errorMessage?.includes('404') && isConnectError;
+  const isStateEndpointError = errorMessage?.includes('/instance/connectionState') && errorMessage?.includes('404');
   
   return (
     <div className="flex flex-col items-center space-y-4 py-4">
@@ -22,6 +23,8 @@ export const ErrorState: React.FC<ErrorStateProps> = ({ errorMessage, isAuthErro
         <p className="text-sm text-muted-foreground mt-1">
           {isConnectError 
             ? "O endpoint de conexão para o QR code não está disponível. Por favor, verifique a configuração da API."
+            : isStateEndpointError
+            ? "O endpoint para verificar o estado da conexão não está disponível."
             : errorMessage || "Não foi possível conectar à API do WhatsApp. Por favor, tente novamente."}
         </p>
       </div>
@@ -40,7 +43,17 @@ export const ErrorState: React.FC<ErrorStateProps> = ({ errorMessage, isAuthErro
           <p className="font-medium">Erro no endpoint de conexão</p>
           <p className="text-xs mt-1">
             O endpoint para obter o código QR não está configurado corretamente ou não está disponível no servidor.
-            Endpoint esperado: <code className="bg-red-100 px-1">/instance/connect/[nome-da-instancia]</code>
+            Endpoint esperado: <code className="bg-red-100 px-1">/instance/connect/{'{nome-da-instancia}'}</code>
+          </p>
+        </div>
+      )}
+      
+      {isStateEndpointError && (
+        <div className="w-full bg-red-50 p-3 rounded-md text-sm text-red-800">
+          <p className="font-medium">Erro no endpoint de status de conexão</p>
+          <p className="text-xs mt-1">
+            O endpoint para verificar o status da conexão não está configurado corretamente.
+            Endpoint esperado: <code className="bg-red-100 px-1">/instance/connectionState/{'{nome-da-instancia}'}</code>
           </p>
         </div>
       )}

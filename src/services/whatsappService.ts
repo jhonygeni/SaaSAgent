@@ -183,7 +183,9 @@ export const whatsappService = {
         };
       }
       
-      const endpoint = `${ENDPOINTS.connectionState}?instanceName=${instanceName}`;
+      // Use formatEndpoint to properly create the URL
+      const endpoint = formatEndpoint(ENDPOINTS.connectionState, { instanceName });
+      console.log("Connection state URL:", `${apiClient.baseUrl}${endpoint}`);
       
       const data = await apiClient.get<ConnectionStateResponse>(endpoint);
       console.log("Connection state retrieved:", data);
@@ -218,7 +220,10 @@ export const whatsappService = {
         };
       }
       
-      const data = await apiClient.get<InstanceInfo>(`${ENDPOINTS.instanceInfo}?instanceName=${instanceName}`);
+      // Use formatEndpoint to properly create the URL
+      const endpoint = formatEndpoint(ENDPOINTS.instanceInfo, { instanceName });
+      
+      const data = await apiClient.get<InstanceInfo>(endpoint);
       console.log("Instance info retrieved:", data);
       return data;
     } catch (error) {
