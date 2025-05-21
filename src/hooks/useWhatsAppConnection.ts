@@ -1,6 +1,6 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { ConnectionStatus } from './types';
+import { ConnectionStatus } from '../types';
 import { whatsappService } from '../services/whatsappService';
 import { useToast } from './use-toast';
 import { 
