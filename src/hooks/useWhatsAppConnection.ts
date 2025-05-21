@@ -1,6 +1,6 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { ConnectionStatus } from '../types';
+import { ConnectionStatus } from './whatsapp/types';
 import { whatsappService } from '../services/whatsappService';
 import { useToast } from './use-toast';
 import { 
@@ -10,7 +10,7 @@ import {
   AUTO_CLOSE_DELAY_MS
 } from '../constants/api';
 
-// Import our new modular hooks
+// Import our modular hooks
 import { useInstanceManager } from './whatsapp/useInstanceManager';
 import { useQrCode } from './whatsapp/useQrCode';
 import { useNameValidator } from './whatsapp/useNameValidator';
@@ -52,7 +52,8 @@ export function useWhatsAppConnection() {
     getInstanceName,
     fetchUserInstances,
     createdInstancesRef,
-    clearCurrentInstanceName
+    clearCurrentInstanceName,
+    createAndConfigureInstance
   } = useInstanceManager();
   
   // Track connection attempts to avoid consuming credits on retries
@@ -99,10 +100,10 @@ export function useWhatsAppConnection() {
         return await fetchQrCode(instanceName);
       }
       
-      // 2. Create the instance first - this is the main API call that should only happen ONCE
+      // 2. Create the instance and configure webhook - this is the main API call that should only happen ONCE
       console.log(`Creating new instance with name: ${instanceName}`);
-      const instanceData = await whatsappService.createInstance(instanceName);
-      console.log("Instance created successfully:", instanceData);
+      const instanceData = await createAndConfigureInstance(instanceName);
+      console.log("Instance created and webhook configured successfully:", instanceData);
       
       // Store for later use
       setInstanceData(instanceData);
@@ -128,7 +129,7 @@ export function useWhatsAppConnection() {
     } finally {
       creationInProgressRef.current = false;
     }
-  }, [getInstanceName, updateDebugInfo, fetchQrCode, setInstanceData, setConnectionError, setConnectionStatus, clearCurrentInstanceName]);
+  }, [getInstanceName, updateDebugInfo, fetchQrCode, setInstanceData, setConnectionError, setConnectionStatus, clearCurrentInstanceName, createAndConfigureInstance]);
 
   /**
    * Start WhatsApp connection process following the correct API sequence

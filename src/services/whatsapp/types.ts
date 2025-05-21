@@ -1,4 +1,3 @@
-
 import { ConnectionStatus } from '@/types';
 
 // WhatsApp instance request
@@ -66,4 +65,29 @@ export interface ConnectionManager {
   cancelConnection: () => void;
   completeConnection: (phoneNumber?: string) => void;
   getCurrentQrCode: () => string | null;
+}
+
+/**
+ * WhatsApp webhook configuration request type
+ */
+export interface WebhookConfigRequest {
+  enabled: boolean;
+  url: string;
+  webhookByEvents: boolean;
+  webhookBase64: boolean;
+  events: string[];
+}
+
+/**
+ * WhatsApp webhook configuration response type
+ */
+export interface WebhookConfigResponse {
+  status: string;
+  message: string;
+  webhook?: {
+    enabled: boolean;
+    url: string;
+    events: string[];
+  };
+  error?: string;
 }

@@ -3,6 +3,7 @@ import { useState, useCallback, useRef } from 'react';
 import { useUser } from '@/context/UserContext';
 import { whatsappService } from '@/services/whatsappService';
 import { USE_MOCK_DATA } from '@/constants/api';
+import { toast } from '@/hooks/use-toast';
 
 /**
  * Hook for managing WhatsApp instances
@@ -13,6 +14,7 @@ export function useInstanceManager() {
   const [isLoading, setIsLoading] = useState(false);
   const createdInstancesRef = useRef<Set<string>>(new Set());
   const currentInstanceNameRef = useRef<string | null>(null);
+  const webhookConfiguredInstancesRef = useRef<Set<string>>(new Set());
   
   // Get instance name based on user ID and provided name
   const getInstanceName = useCallback((providedName?: string) => {
@@ -43,6 +45,54 @@ export function useInstanceManager() {
     currentInstanceNameRef.current = uniqueName;
     return uniqueName;
   }, [user]);
+
+  // Configure webhook for the instance
+  const configureWebhookForInstance = useCallback(async (instanceName: string) => {
+    try {
+      // Skip if already configured
+      if (webhookConfiguredInstancesRef.current.has(instanceName)) {
+        console.log(`Webhook already configured for instance: ${instanceName}`);
+        return true;
+      }
+
+      console.log(`Configuring webhook for instance: ${instanceName}`);
+      const response = await whatsappService.configureWebhook(instanceName);
+      
+      if (response && response.status === "success") {
+        console.log(`Webhook successfully configured for instance: ${instanceName}`);
+        webhookConfiguredInstancesRef.current.add(instanceName);
+        return true;
+      } else {
+        console.error(`Failed to configure webhook for instance: ${instanceName}`, response);
+        return false;
+      }
+    } catch (error) {
+      console.error(`Error configuring webhook for instance: ${instanceName}`, error);
+      toast({
+        title: "Erro na configuração do webhook",
+        description: "O agente foi criado mas pode ter funcionalidade limitada.",
+        variant: "destructive",
+      });
+      return false;
+    }
+  }, []);
+
+  // Create and configure instance
+  const createAndConfigureInstance = useCallback(async (instanceName: string, userId?: string) => {
+    try {
+      // Step 1: Create the instance
+      const instanceData = await whatsappService.createInstance(instanceName, userId);
+      setInstanceData(instanceData);
+      
+      // Step 2: Immediately configure webhook for this instance
+      await configureWebhookForInstance(instanceName);
+      
+      return instanceData;
+    } catch (error) {
+      console.error("Failed to create and configure instance:", error);
+      throw error;
+    }
+  }, [configureWebhookForInstance]);
 
   // Get the instance name and data - useful for the UI
   const getConnectionInfo = useCallback(() => {
@@ -88,6 +138,9 @@ export function useInstanceManager() {
     fetchUserInstances,
     createdInstancesRef,
     clearCurrentInstanceName,
-    currentInstanceName: currentInstanceNameRef.current
+    currentInstanceName: currentInstanceNameRef.current,
+    createAndConfigureInstance,
+    configureWebhookForInstance
   };
 }
+
