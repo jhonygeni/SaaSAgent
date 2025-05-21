@@ -76,10 +76,10 @@ export function WhatsAppConnectionDialog({
     }
   }, [open]);
   
-  // Check API health
+  // Check API health by using the fetchInstances endpoint instead of /instance/health
   const checkApiHealth = async () => {
     try {
-      console.log("Checking API health...");
+      console.log("Checking API health using fetchInstances endpoint...");
       setApiHealthStatus("unknown");
       const isHealthy = await whatsappService.checkApiHealth();
       console.log("API health check result:", isHealthy);

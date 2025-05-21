@@ -16,22 +16,16 @@ import {
 export const whatsappService = {
   /**
    * Check if the API is accessible, useful for debugging connection issues
+   * Uses the fetchInstances endpoint instead of a non-existent health endpoint
    */
   checkApiHealth: async (): Promise<boolean> => {
     try {
-      // Try the health endpoint
-      try {
-        const healthResponse = await apiClient.get<any>(`${ENDPOINTS.healthCheck}`);
-        console.log("API health check successful", healthResponse);
-        return true;
-      } catch (e) {
-        console.log("Health endpoint not available, trying fetchInstances endpoint");
-      }
+      console.log("Checking API accessibility using fetchInstances endpoint");
       
-      // If health endpoint fails, try fetchInstances as a fallback
+      // Try fetchInstances as the health check endpoint
       try {
-        await apiClient.get<any>(`${ENDPOINTS.fetchInstances}`);
-        console.log("API accessibility check successful (fetchInstances endpoint)");
+        const response = await apiClient.get<any>(`${ENDPOINTS.fetchInstances}`);
+        console.log("API health check successful using fetchInstances endpoint", response);
         return true;
       } catch (error) {
         // Check if it's an auth error (which means API is accessible but credentials are wrong)
@@ -40,9 +34,10 @@ export const whatsappService = {
           console.error("API health check failed, authentication issue");
           return false;
         }
+        
+        console.error("API health check failed completely:", error);
+        return false;
       }
-      
-      return false;
     } catch (error) {
       console.error("API health check failed with exception:", error);
       return false;

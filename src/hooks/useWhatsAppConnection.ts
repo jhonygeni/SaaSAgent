@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { ConnectionStatus } from './whatsapp/types';
 import { whatsappService } from '../services/whatsappService';
@@ -86,7 +85,7 @@ export function useWhatsAppConnection() {
       console.log(`Starting WhatsApp connection for instance: ${instanceName}`);
       updateDebugInfo({ action: "initialize", instanceName });
       
-      // 1. First check if the API is accessible
+      // 1. First check if the API is accessible using the fetchInstances endpoint
       const isApiHealthy = await whatsappService.checkApiHealth();
       if (!isApiHealthy) {
         throw new Error("API server not accessible or authentication failed. Please check your API key and try again.");

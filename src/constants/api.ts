@@ -19,8 +19,8 @@ export const ENDPOINTS = {
   // Endpoint for fetching instances
   fetchInstances: "/instance/fetchInstances", // Get instances with filtering (GET)
   
-  // Health check endpoint
-  healthCheck: "/instance/health", // Check API health (GET)
+  // Webhook configuration endpoint
+  webhookConfig: "/webhook/set/{instanceName}", // Configure webhook (POST)
 };
 
 // Only used when USE_MOCK_DATA is true, which should never be in production
