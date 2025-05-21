@@ -1,11 +1,8 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/context/UserContext";
-import { Card } from "@/components/ui/card";
 import { ChannelBarChart } from "./charts/ChannelBarChart";
 import { LineChart } from "./charts/LineChart";
-import { AreaChart } from "./charts/AreaChart";
 import { MessageUsageCard } from "./charts/MessageUsageCard";
 import { StatsOverview } from "./charts/StatsOverview";
 import { ComparisonSection } from "./charts/ComparisonSection";
@@ -29,16 +26,6 @@ const mockMessagesData = [
   { dia: "Sex", enviadas: 75, recebidas: 60 },
   { dia: "Sáb", enviadas: 30, recebidas: 25 },
   { dia: "Dom", enviadas: 15, recebidas: 10 },
-];
-
-const mockLeadsData = [
-  { dia: "Seg", leads: 2 },
-  { dia: "Ter", leads: 3 },
-  { dia: "Qua", leads: 1 },
-  { dia: "Qui", leads: 4 },
-  { dia: "Sex", leads: 6 },
-  { dia: "Sáb", leads: 2 },
-  { dia: "Dom", leads: 1 },
 ];
 
 const mockComparisonData = [
@@ -109,9 +96,6 @@ export function DashboardAnalytics() {
   const { user } = useUser();
   const [activeTab, setActiveTab] = useState<'overview' | 'comparison'>('overview');
   
-  // Total leads from mock data
-  const totalLeads = mockLeadsData.reduce((sum, item) => sum + item.leads, 0);
-  
   // Total clients across all channels for this week
   const totalClients = mockClientsData.reduce((sum, day) => 
     sum + day.WhatsApp + day.Instagram + day.Facebook + day.Site, 0
@@ -150,7 +134,6 @@ export function DashboardAnalytics() {
           <StatsOverview 
             totalClients={totalClients}
             totalMessages={totalMessages}
-            totalLeads={totalLeads}
           />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -179,24 +162,13 @@ export function DashboardAnalytics() {
             />
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-6">
             {user && (
               <MessageUsageCard 
                 messageCount={user.messageCount}
                 messageLimit={user.messageLimit}
               />
             )}
-
-            <AreaChart 
-              data={mockLeadsData}
-              title="Leads Interessados"
-              dataKey="leads"
-              name="Leads"
-              color="hsl(var(--primary))"
-              gradientId="leadGradient"
-              chartConfig={chartConfig}
-              className="lg:col-span-2"
-            />
           </div>
         </>
       )}

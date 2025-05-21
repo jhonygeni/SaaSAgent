@@ -4,12 +4,11 @@ import { StatCard } from "./StatCard";
 interface StatsOverviewProps {
   totalClients: number;
   totalMessages: number;
-  totalLeads: number;
 }
 
-export function StatsOverview({ totalClients, totalMessages, totalLeads }: StatsOverviewProps) {
+export function StatsOverview({ totalClients, totalMessages }: StatsOverviewProps) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <StatCard 
         title="Clientes Atendidos"
         value={totalClients}
@@ -21,13 +20,6 @@ export function StatsOverview({ totalClients, totalMessages, totalLeads }: Stats
         title="Mensagens Trocadas"
         value={totalMessages}
         change="+8%"
-        subtitle="Últimos 7 dias"
-      />
-
-      <StatCard 
-        title="Leads Interessados"
-        value={totalLeads}
-        change="+15%"
         subtitle="Últimos 7 dias"
       />
     </div>
