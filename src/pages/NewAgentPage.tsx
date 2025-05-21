@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { NewAgentForm } from "@/components/NewAgentForm";
 import { WhatsAppConnectionDialog } from "@/components/WhatsAppConnectionDialog";
@@ -57,7 +58,7 @@ const NewAgentPage = () => {
         toast({
           title: "Nome Duplicado",
           description: "Este nome já está em uso. Abra o diálogo de conexão para usar um nome diferente.",
-          variant: "warning",
+          variant: "destructive", // Changed from "warning" to "destructive"
         });
         setShowConnectionDialog(true);
       } else {
