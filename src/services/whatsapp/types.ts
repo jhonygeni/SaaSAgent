@@ -107,6 +107,7 @@ export interface QrCodeResponse {
   base64?: string;
   code?: string;
   pairingCode?: string;
+  count?: number; // Adicionado para corresponder à resposta da API
 }
 
 /**

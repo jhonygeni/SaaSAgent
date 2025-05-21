@@ -11,7 +11,8 @@ import {
   QrCodeResponse,
   InstanceInfo,
   InstancesListResponse,
-  WhatsAppInstanceRequest
+  WhatsAppInstanceRequest,
+  WhatsAppInstanceResponse
 } from '@/services/whatsapp/types';
 import { apiClient, formatEndpoint } from '@/services/whatsapp/apiClient';
 
@@ -86,15 +87,14 @@ const whatsappService = {
     }
   },
 
-  // Create a new WhatsApp instance - CORREÇÃO CRÍTICA: Incluindo webhook no payload inicial
+  // Create a new WhatsApp instance
   createInstance: async (instanceName: string, userId?: string) => {
     try {
       const endpoint = ENDPOINTS.instanceCreate;
-      
-      // CORREÇÃO CRÍTICA: Incluindo o campo webhook no payload inicial
       const instanceData: WhatsAppInstanceRequest = {
         instanceName,
-        integration: "WHATSAPP-BAILEYS", // Usando exatamente este valor sem modificação
+        // IMPORTANTE: Use exatamente o valor correto para o parâmetro de integração
+        integration: "WHATSAPP-BAILEYS", 
         token: userId || "default_user",
         qrcode: true,
         webhook: {
@@ -106,17 +106,20 @@ const whatsappService = {
       
       console.log("Creating instance with exact data:", JSON.stringify(instanceData, null, 2));
       
-      return await apiClient.post(endpoint, instanceData);
+      return await apiClient.post<WhatsAppInstanceResponse>(endpoint, instanceData);
     } catch (error) {
       console.error(`Error creating instance ${instanceName}:`, error);
       throw error;
     }
   },
 
-  // Get the QR code for an instance
+  // Get the QR code for an instance using the correct connect endpoint
   getQrCode: async (instanceName: string): Promise<QrCodeResponse> => {
     try {
-      const endpoint = formatEndpoint(ENDPOINTS.instanceConnectQR, { instanceName });
+      // IMPORTANTE: Usando o endpoint correto de conexão
+      const endpoint = formatEndpoint(ENDPOINTS.instanceConnect, { instanceName });
+      console.log(`Getting QR code using connect endpoint: ${endpoint}`);
+      
       return await apiClient.get<QrCodeResponse>(endpoint);
     } catch (error) {
       console.error(`Error getting QR code for ${instanceName}:`, error);

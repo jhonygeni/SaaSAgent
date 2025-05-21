@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { ConnectionStatus } from './whatsapp/types';
 import { whatsappService } from '../services/whatsappService';
@@ -99,17 +100,21 @@ export function useWhatsAppConnection() {
         return await fetchQrCode(instanceName);
       }
       
-      // 2. Create the instance and configure webhook - this is the main API call that should only happen ONCE
+      // 2. Create the instance (with webhook included in the payload)
       console.log(`Creating new instance with name: ${instanceName}`);
       const instanceData = await createAndConfigureInstance(instanceName);
-      console.log("Instance created and webhook configured successfully:", instanceData);
+      console.log("Instance created successfully:", instanceData);
       
       // Store for later use
       setInstanceData(instanceData);
       createdInstancesRef.current.add(instanceName);
       
-      // 3. Get the QR code - this is a separate API call
-      return await fetchQrCode(instanceName);
+      // 3. Get the QR code using connect endpoint
+      console.log(`Getting QR code for instance: ${instanceName}`);
+      const qrCode = await fetchQrCode(instanceName);
+      console.log("QR code obtained:", qrCode ? "Success" : "Failed");
+      
+      return qrCode;
     } catch (error) {
       // Special handling for duplicate instance name errors
       if (error instanceof Error && error.message.includes("already in use")) {
@@ -154,8 +159,6 @@ export function useWhatsAppConnection() {
       startConnectionTimer();
       
       // Initialize instance and get QR code
-      // IMPORTANT: This does both step 1 (create instance) and step 2 (get QR code)
-      // according to the API documentation
       const instanceId = instanceName || getInstanceName();
       console.log(`Starting WhatsApp connection process for instance: ${instanceId}`);
       

@@ -1,3 +1,4 @@
+
 import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,11 +27,12 @@ import { InstancesListResponse } from "@/services/whatsapp/types";
 import { LoadingState } from "./whatsapp/LoadingState";
 import { QrCodeState } from "./whatsapp/QrCodeState";
 import { SuccessState } from "./whatsapp/SuccessState";
-import { ErrorState } from "./whatsapp/ErrorState";
+import { ErrorState } from "./ErrorState";
 import { DebugPanel } from "./whatsapp/DebugPanel";
 import { CustomNameForm } from "./whatsapp/CustomNameForm";
 import { ApiHealthBadge } from "./whatsapp/ApiHealthBadge";
 import { ApiHealthWarning } from "./whatsapp/ApiHealthWarning";
+import { useToast } from "@/hooks/use-toast";
 
 interface WhatsAppConnectionDialogProps {
   open: boolean;
@@ -60,12 +62,13 @@ export function WhatsAppConnectionDialog({
     validateInstanceName
   } = useConnection();
   
+  const { toast } = useToast();
   const [hasInitiatedConnection, setHasInitiatedConnection] = useState(false);
   const [showDebugInfo, setShowDebugInfo] = useState(process.env.NODE_ENV !== "production");
   const [apiHealthStatus, setApiHealthStatus] = useState<"unknown" | "healthy" | "unhealthy">("unknown");
   const [retryCount, setRetryCount] = useState(0);
   const [lastInstanceName, setLastInstanceName] = useState<string | null>(null);
-  const [autoCloseAfterSuccess, setAutoCloseAfterSuccess] = useState(AUTO_CLOSE_AFTER_SUCCESS);
+  const [autoCloseEnabled, setAutoCloseEnabled] = useState(AUTO_CLOSE_AFTER_SUCCESS);
   const [instances, setInstances] = useState<any[]>([]);
   const [dialogCloseTriggered, setDialogCloseTriggered] = useState(false);
   
@@ -106,7 +109,7 @@ export function WhatsAppConnectionDialog({
     }
   };
   
-  // CRITICAL FIX: Make sure to format instance names consistently
+  // Normalize instance name for consistent API calls
   const sanitizeInstanceName = (name: string): string => {
     return name.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/__+/g, '_');
   };
@@ -143,7 +146,7 @@ export function WhatsAppConnectionDialog({
         const instanceBase = agentId ? `a_${agentId.substring(0, 6)}` : 'agent';
         const instanceName = `${instanceBase}_${timestamp}_${randomStr}`;
         
-        // CRITICAL FIX: Make sure to sanitize the instance name before using it
+        // Normalize the instance name before using it
         const sanitizedName = sanitizeInstanceName(instanceName);
         console.log(`Using sanitized instance name: ${sanitizedName} (from ${instanceName})`);
         setLastInstanceName(sanitizedName);
@@ -166,13 +169,20 @@ export function WhatsAppConnectionDialog({
       setHasInitiatedConnection(false);
       setRetryCount(0);
       setLastInstanceName(null);
+      
+      // Cancel connection if dialog is closed and connection is not successful
+      if (connectionStatus !== "connected") {
+        cancelConnection();
+      }
     }
-  }, [open]);
+  }, [open, cancelConnection, connectionStatus]);
 
   // CRITICAL FIX: Handle connection success and auto-close dialog
   useEffect(() => {
     if (connectionStatus === "connected" && !dialogCloseTriggered) {
-      console.log("Connection successful, completing connection and triggering auto-close");
+      console.log("Connection successful, completing connection and showing toast notification");
+      
+      // Call completeConnection to register the success
       completeConnection();
       
       // Call the onComplete callback if provided
@@ -180,10 +190,16 @@ export function WhatsAppConnectionDialog({
         onComplete();
       }
       
+      // Show success toast
+      toast({
+        title: "WhatsApp Conectado",
+        description: "Seu WhatsApp foi conectado com sucesso! O pop-up será fechado automaticamente.",
+      });
+      
       setDialogCloseTriggered(true);
       
       // Auto-close the dialog after successful connection with a delay
-      if (autoCloseAfterSuccess) {
+      if (autoCloseEnabled) {
         console.log(`Auto-closing dialog in ${AUTO_CLOSE_DELAY_MS}ms after successful connection`);
         const timer = setTimeout(() => {
           console.log("Auto-closing dialog now");
@@ -193,7 +209,7 @@ export function WhatsAppConnectionDialog({
         return () => clearTimeout(timer);
       }
     }
-  }, [connectionStatus, completeConnection, onComplete, autoCloseAfterSuccess, onOpenChange, dialogCloseTriggered]);
+  }, [connectionStatus, completeConnection, onComplete, autoCloseEnabled, onOpenChange, dialogCloseTriggered, toast]);
 
   // Handle dialog close
   const handleDialogClose = useCallback((isOpen: boolean) => {
@@ -208,14 +224,14 @@ export function WhatsAppConnectionDialog({
   const handleCustomNameSubmit = async (customInstanceName: string) => {
     setHasInitiatedConnection(true);
     
-    // CRITICAL FIX: Sanitize the custom name before using it
+    // Normalize the custom name before using it
     const sanitizedName = sanitizeInstanceName(customInstanceName);
     setLastInstanceName(sanitizedName);
     
     await startConnection(sanitizedName);
   };
 
-  // Handle retry button click - CRITICAL: Don't reuse instance names
+  // Handle retry button click - create new unique instance name
   const handleRetry = async () => {
     setHasInitiatedConnection(true);
     setRetryCount(prevCount => prevCount + 1);
@@ -234,7 +250,7 @@ export function WhatsAppConnectionDialog({
       const instanceBase = agentId ? `a_${agentId.substring(0, 6)}` : 'retry';
       const instanceName = `${instanceBase}_${timestamp}_${randomStr}_r${retryNum}`;
       
-      // CRITICAL FIX: Sanitize the instance name
+      // Normalize the instance name
       const sanitizedName = sanitizeInstanceName(instanceName);
       console.log(`Retry #${retryNum}: Using new sanitized instance name: ${sanitizedName}`);
       setLastInstanceName(sanitizedName);
@@ -254,7 +270,7 @@ export function WhatsAppConnectionDialog({
 
   // Toggle auto-close feature
   const toggleAutoClose = () => {
-    setAutoCloseAfterSuccess(!autoCloseAfterSuccess);
+    setAutoCloseEnabled(!autoCloseEnabled);
   };
 
   // Get connection info
@@ -357,7 +373,7 @@ export function WhatsAppConnectionDialog({
                 <input 
                   type="checkbox" 
                   id="auto-close" 
-                  checked={autoCloseAfterSuccess} 
+                  checked={autoCloseEnabled} 
                   onChange={toggleAutoClose}
                   className="w-4 h-4"
                 />
