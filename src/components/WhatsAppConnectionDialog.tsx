@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,6 +57,21 @@ export function WhatsAppConnectionDialog({
   const [isValidatingName, setIsValidatingName] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
   const [nameValidated, setNameValidated] = useState(false);
+  const [pairingCode, setPairingCode] = useState<string | null>(null);
+  
+  // Effect to check for pairing code in the connection debug info
+  useEffect(() => {
+    if (debugInfo) {
+      try {
+        const debugData = JSON.parse(debugInfo);
+        if (debugData?.qrData?.pairingCode) {
+          setPairingCode(debugData.qrData.pairingCode);
+        }
+      } catch (e) {
+        console.error("Error parsing debug info for pairing code:", e);
+      }
+    }
+  }, [debugInfo]);
   
   // Effect to validate instance name when it changes
   useEffect(() => {
@@ -350,6 +364,7 @@ export function WhatsAppConnectionDialog({
                 <QrCodeDisplay 
                   value={qrCodeData}
                   size={200}
+                  pairingCode={pairingCode}
                 />
               </div>
               <div className="flex flex-col items-center space-y-2 max-w-xs text-center">
@@ -359,6 +374,12 @@ export function WhatsAppConnectionDialog({
                   Abra o WhatsApp no seu celular, vá em Configurações &gt; Aparelhos Conectados,
                   e escaneie o código QR acima.
                 </p>
+                {pairingCode && (
+                  <div className="mt-1 p-2 bg-green-50 rounded-md border border-green-100 w-full">
+                    <p className="text-xs font-medium text-green-700">Ou use o código de pareamento:</p>
+                    <p className="text-sm font-bold text-green-800 tracking-wider">{pairingCode}</p>
+                  </div>
+                )}
               </div>
               
               {attemptCount > 0 && (

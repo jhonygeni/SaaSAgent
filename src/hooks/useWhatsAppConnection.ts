@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from 'react';
 import { ConnectionStatus } from '../types';
 import { whatsappService } from '../services/whatsappService';
@@ -183,9 +182,9 @@ export function useWhatsAppConnection() {
       console.log("QR code response:", qrData);
       updateDebugInfo({ qrData });
       
-      // Extract QR code based on the API response structure
-      // Different APIs might use different field names
-      const qrCode = qrData?.qrcode || qrData?.base64 || qrData?.code || qrData?.qr;
+      // Extract QR code based on the updated API response structure
+      // This could be in various fields depending on the API version
+      const qrCode = qrData?.qrcode || qrData?.base64 || qrData?.code || qrData?.pairingCode;
       
       if (qrCode) {
         setQrCodeData(qrCode);
@@ -203,7 +202,7 @@ export function useWhatsAppConnection() {
     }
   }, [startStatusPolling, updateDebugInfo]);
 
-  // Initialize WhatsApp instance
+  // Initialize WhatsApp instance - simplified to use the new direct connect/QR endpoint
   const initializeWhatsAppInstance = useCallback(async () => {
     const instanceName = getInstanceName();
     console.log(`Starting WhatsApp connection for instance: ${instanceName}`);
@@ -218,13 +217,16 @@ export function useWhatsAppConnection() {
       setInstanceData(createData);
       updateDebugInfo({ createData });
       
-      // After creation, connect to the instance
-      const connectData = await whatsappService.connectToInstance(instanceName);
-      console.log("Instance connection response:", connectData);
-      updateDebugInfo({ connectData });
-      
-      // Check if we need to generate a QR code
-      return await fetchQrCode(instanceName);
+      // After creation, directly connect to get the QR code using the updated endpoint
+      try {
+        return await fetchQrCode(instanceName);
+      } catch (qrError) {
+        console.error("Error getting QR code after instance creation:", qrError);
+        updateDebugInfo({
+          qrError: qrError instanceof Error ? qrError.message : String(qrError)
+        });
+        throw qrError;
+      }
     } catch (error: any) {
       console.error("Error initializing WhatsApp instance:", error);
       updateDebugInfo({ 
@@ -232,16 +234,11 @@ export function useWhatsAppConnection() {
       });
       
       // If we get a specific error about instance already existing, try to connect directly
-      if (error.message && error.message.includes("Conflict")) {
+      if (error.message && (error.message.includes("Conflict") || error.message.includes("already in use"))) {
         console.log("Instance already exists, attempting to connect directly");
         
         try {
-          // Try to connect to existing instance
-          const connectData = await whatsappService.connectToInstance(instanceName);
-          console.log("Connection to existing instance:", connectData);
-          updateDebugInfo({ connectData });
-          
-          // Get QR code for the existing instance
+          // Get QR code for the existing instance using the updated endpoint
           return await fetchQrCode(instanceName);
         } catch (connectError) {
           console.error("Error connecting to existing instance:", connectError);

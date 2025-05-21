@@ -1,4 +1,3 @@
-
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState } from "react";
 
@@ -7,6 +6,7 @@ interface QrCodeDisplayProps {
   size?: number;
   level?: "L" | "M" | "Q" | "H";
   includeMargin?: boolean;
+  pairingCode?: string; // Added to support pairing code if available
 }
 
 export function QrCodeDisplay({
@@ -14,6 +14,7 @@ export function QrCodeDisplay({
   size = 200,
   level = "M",
   includeMargin = true,
+  pairingCode, // New prop for pairing code
 }: QrCodeDisplayProps) {
   const [qrValue, setQrValue] = useState<string>("");
   const [isBase64, setIsBase64] = useState<boolean>(false);
@@ -56,6 +57,13 @@ export function QrCodeDisplay({
           height={size}
           className="max-w-full"
         />
+        {/* Show pairing code if available */}
+        {pairingCode && (
+          <div className="mt-2 text-center">
+            <p className="text-sm font-medium">Pairing Code:</p>
+            <p className="text-lg font-bold tracking-wider">{pairingCode}</p>
+          </div>
+        )}
       </div>
     );
   }
@@ -71,6 +79,13 @@ export function QrCodeDisplay({
         bgColor={"#FFFFFF"}
         fgColor={"#000000"}
       />
+      {/* Show pairing code if available */}
+      {pairingCode && (
+        <div className="mt-2 text-center">
+          <p className="text-sm font-medium">Pairing Code:</p>
+          <p className="text-lg font-bold tracking-wider">{pairingCode}</p>
+        </div>
+      )}
     </div>
   );
 }

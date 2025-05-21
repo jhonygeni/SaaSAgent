@@ -1,4 +1,3 @@
-
 import { createContext, useContext, ReactNode, useState, useEffect } from 'react';
 import { whatsappService } from '../services/whatsappService';
 import { ConnectionStatus } from '../types';
@@ -175,12 +174,25 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
       
       // Get QR code for instance
       let qrCode = instanceResult.qrcode;
+      let pairingCode = instanceResult.pairingCode;
       
       if (!qrCode) {
         console.log("QR code not in instance creation response, fetching it separately");
         try {
           const qrResult = await whatsappService.getQrCode(instanceResult.instance.instanceName);
-          qrCode = qrResult.qrcode || qrResult.base64 || qrResult.qr;
+          qrCode = qrResult.qrcode || qrResult.base64 || qrResult.code || null;
+          pairingCode = qrResult.pairingCode;
+          
+          // Update debug info with pairing code if available
+          if (pairingCode) {
+            setDebugInfo(prev => {
+              const prevObj = JSON.parse(prev || '{}');
+              return JSON.stringify({
+                ...prevObj,
+                pairingCode
+              });
+            });
+          }
         } catch (qrError) {
           console.error("Error getting QR code:", qrError);
         }

@@ -231,11 +231,12 @@ export const whatsappService = {
         headers['apikey'] = EVOLUTION_API_KEY;
       }
       
+      // Use the updated endpoint for direct connection which also returns QR code
       const endpoint = formatEndpoint(ENDPOINTS.instanceConnect, { instanceName });
       console.log("Connect instance URL:", `${EVOLUTION_API_URL}${endpoint}`);
       
       const response = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
-        method: 'POST',
+        method: 'GET', // Changed to GET for the new endpoint
         headers: headers
       });
       
@@ -283,7 +284,8 @@ export const whatsappService = {
         headers['apikey'] = EVOLUTION_API_KEY;
       }
       
-      const endpoint = formatEndpoint(ENDPOINTS.qrCode, { instanceName });
+      // Use the updated endpoint for connecting and getting QR code
+      const endpoint = formatEndpoint(ENDPOINTS.instanceConnect, { instanceName });
       
       console.log("QR code request URL:", `${EVOLUTION_API_URL}${endpoint}`);
       console.log("Using headers:", JSON.stringify(headers, null, 2));
@@ -309,7 +311,14 @@ export const whatsappService = {
       const data = await response.json();
       console.log("QR Code retrieved successfully (data):", data);
       
-      return data;
+      // Normalize response based on the new Evolution API structure
+      // It might return qrcode, base64, code, or pairingCode fields
+      const result = {
+        ...data,
+        qrcode: data.qrcode || data.base64 || data.code || data.pairingCode || null
+      };
+      
+      return result;
     } catch (error) {
       console.error("Error getting QR code:", error);
       throw error;
