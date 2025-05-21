@@ -14,10 +14,10 @@ const logStep = (step: string, details?: any) => {
   console.log(`[CREATE-CHECKOUT] ${step}${detailsStr}`);
 };
 
-// Price IDs for our plans
-const PRICES = {
-  starter: "prod_SLsz6ya1H1FqXU",
-  growth: "prod_SLt0kcMFbYQtwh"
+// Price IDs for our plans - these should be the product IDs from your Stripe dashboard
+const PRICE_IDS = {
+  starter: "price_1QobZcP1QgGAc8KHgWEgcfUi", // Replace with your actual Starter plan price ID
+  growth: "price_1QobbTP1QgGAc8KHhBRHGH2O"  // Replace with your actual Growth plan price ID
 };
 
 serve(async (req) => {
@@ -80,20 +80,13 @@ serve(async (req) => {
       logStep("Created new customer", { customerId });
     }
     
-    // Create a checkout session
+    // Create a checkout session with the proper price ID
     const origin = req.headers.get("origin") || "http://localhost:3000";
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       line_items: [
         {
-          price_data: {
-            currency: "brl",
-            product: PRICES[planId as keyof typeof PRICES],
-            recurring: {
-              interval: "month",
-            },
-            unit_amount: planId === "starter" ? 19900 : 24900, // R$199 or R$249
-          },
+          price: PRICE_IDS[planId as keyof typeof PRICE_IDS],
           quantity: 1,
         },
       ],

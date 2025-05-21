@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { useUser } from "@/context/UserContext";
+import { supabase } from "@/integrations/supabase/client";
 
 export function Register() {
   const [email, setEmail] = useState("");
@@ -21,10 +22,10 @@ export function Register() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const { login } = useUser();
+  const { checkSubscriptionStatus } = useUser();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!email || !name || !password || !confirmPassword) {
@@ -47,20 +48,40 @@ export function Register() {
     
     setLoading(true);
     
-    // Simulate signup request
-    setTimeout(() => {
-      // Register and login the user
-      login(email, name);
+    try {
+      // Register with Supabase
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name: name,
+          }
+        }
+      });
+      
+      if (error) {
+        throw error;
+      }
       
       toast({
         title: "Conta criada com sucesso",
         description: "Bem-vindo à plataforma!",
       });
       
-      navigate("/planos");
+      // Check subscription status after registration
+      await checkSubscriptionStatus();
       
+      navigate("/planos");
+    } catch (error: any) {
+      toast({
+        title: "Erro ao criar conta",
+        description: error.message || "Ocorreu um erro ao criar sua conta. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
       setLoading(false);
-    }, 1500);
+    }
   };
 
   return (

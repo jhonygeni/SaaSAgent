@@ -14,15 +14,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { useUser } from "@/context/UserContext";
+import { supabase } from "@/integrations/supabase/client";
 
 export function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const { login } = useUser();
+  const { checkSubscriptionStatus } = useUser();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!email || !password) {
@@ -36,20 +37,34 @@ export function Login() {
     
     setLoading(true);
     
-    // Simulate login request
-    setTimeout(() => {
-      // Login the user
-      login(email, "Usuário Exemplo");
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (error) {
+        throw error;
+      }
       
       toast({
         title: "Login realizado com sucesso",
         description: "Bem-vindo de volta!",
       });
       
-      navigate("/dashboard");
+      // Check subscription status after login
+      await checkSubscriptionStatus();
       
+      navigate("/dashboard");
+    } catch (error: any) {
+      toast({
+        title: "Erro ao fazer login",
+        description: error.message || "E-mail ou senha inválidos. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
       setLoading(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -58,7 +73,7 @@ export function Login() {
         <CardHeader className="space-y-1">
           <CardTitle className="text-3xl font-bold">Entrar</CardTitle>
           <CardDescription>
-            Entre na sua conta para continuar usando nossa plataforma.
+            Entre com sua conta para continuar na plataforma.
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -84,14 +99,6 @@ export function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
-              <div className="text-right text-sm">
-                <Button variant="link" className="p-0 h-auto" onClick={() => toast({
-                  title: "Funcionalidade em desenvolvimento",
-                  description: "Esta funcionalidade será implementada em breve.",
-                })}>
-                  Esqueceu a senha?
-                </Button>
-              </div>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col">
@@ -99,7 +106,7 @@ export function Login() {
               {loading ? "Processando..." : "Entrar"}
             </Button>
             <div className="mt-4 text-center text-sm">
-              Não tem uma conta?{" "}
+              Não possui uma conta?{" "}
               <Button variant="link" className="p-0 h-auto" onClick={() => navigate("/registrar")}>
                 Crie agora
               </Button>
