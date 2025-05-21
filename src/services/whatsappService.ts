@@ -98,6 +98,63 @@ export const whatsappService = {
     }
   },
   
+  // Connect to an existing WhatsApp instance
+  connectToInstance: async (instanceName: string): Promise<any> => {
+    try {
+      console.log(`Connecting to WhatsApp instance: ${instanceName}`);
+      
+      if (USE_MOCK_DATA) {
+        console.warn("MOCK MODE IS ACTIVE - This should never be used in production!");
+        return {
+          status: "success",
+          message: "Connected to instance successfully (mock)",
+          instance: {
+            instanceName,
+            connected: true
+          }
+        };
+      }
+      
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (USE_BEARER_AUTH) {
+        headers['Authorization'] = `Bearer ${EVOLUTION_API_KEY}`;
+      } else {
+        headers['apikey'] = EVOLUTION_API_KEY;
+      }
+      
+      const endpoint = formatEndpoint(ENDPOINTS.instanceConnect, { instanceName });
+      console.log("Connect instance URL:", `${EVOLUTION_API_URL}${endpoint}`);
+      
+      const response = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
+        method: 'POST',
+        headers: headers
+      });
+      
+      console.log("Instance connection response status:", response.status);
+      
+      if (!response.ok) {
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          errorData = await response.text();
+        }
+        console.error(`Instance connection failed with status ${response.status}:`, errorData);
+        throw new Error(`API responded with status ${response.status}: ${JSON.stringify(errorData)}`);
+      }
+      
+      const data = await response.json();
+      console.log("Instance connection successful:", data);
+      return data;
+    } catch (error) {
+      console.error("Error connecting to WhatsApp instance:", error);
+      throw error;
+    }
+  },
+  
   // Get QR code for WhatsApp connection
   getQrCode: async (instanceName: string): Promise<any> => {
     try {
