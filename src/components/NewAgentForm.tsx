@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Form,
   FormControl,
@@ -44,12 +43,15 @@ interface NewAgentFormProps {
 
 export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
   const { currentAgent, updateAgent, addFAQ, updateFAQ, removeFAQ, resetAgent, addAgent } = useAgent();
-  const { startConnection } = useConnection();
+  const { startConnection, validateInstanceName } = useConnection();
   const { toast } = useToast();
   const { user } = useUser();
   const navigate = useNavigate();
   const { theme } = useTheme();
   const [errors, setErrors] = useState<string[]>([]);
+  const [nameValidated, setNameValidated] = useState<boolean>(false);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [isValidatingName, setIsValidatingName] = useState<boolean>(false);
   
   // Use our custom webhook hooks
   const { 
@@ -68,6 +70,38 @@ export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
   
   const maxRetries = 3;
 
+  // Validate agent name when it changes
+  useEffect(() => {
+    const debounceValidate = setTimeout(async () => {
+      if (currentAgent.nome && currentAgent.nome.trim() !== '') {
+        setIsValidatingName(true);
+        try {
+          // Format the name as it would be for the instance
+          const formattedName = currentAgent.nome.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+          const result = await validateInstanceName(formattedName);
+          
+          setNameValidated(result.valid);
+          setNameError(result.valid ? null : result.message || "Nome inválido");
+          
+          if (!result.valid) {
+            console.log("Name validation failed:", result.message);
+          }
+        } catch (error) {
+          console.error("Error validating agent name:", error);
+          setNameValidated(false);
+          setNameError("Erro ao validar o nome");
+        } finally {
+          setIsValidatingName(false);
+        }
+      } else {
+        setNameValidated(false);
+        setNameError(null);
+      }
+    }, 500); // Debounce the validation to prevent too many requests
+    
+    return () => clearTimeout(debounceValidate);
+  }, [currentAgent.nome, validateInstanceName]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors([]);
@@ -76,6 +110,17 @@ export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
     if (validationErrors.length > 0) {
       setErrors(validationErrors);
       return;
+    }
+    
+    // Final name validation before submission
+    if (currentAgent.nome) {
+      const formattedName = currentAgent.nome.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+      const validation = await validateInstanceName(formattedName);
+      
+      if (!validation.valid) {
+        setErrors([validation.message || "Nome inválido"]);
+        return;
+      }
     }
     
     try {
@@ -249,13 +294,34 @@ export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
                 </Tooltip>
               </TooltipProvider>
             </div>
-            <FormControl>
-              <Input
-                placeholder="Ex: Assistente Virtual"
-                value={currentAgent.nome}
-                onChange={(e) => updateAgent({ nome: e.target.value })}
-              />
-            </FormControl>
+            <div className="relative">
+              <FormControl>
+                <Input
+                  placeholder="Ex: Assistente Virtual"
+                  value={currentAgent.nome}
+                  onChange={(e) => updateAgent({ nome: e.target.value })}
+                  className={nameError ? "border-red-300 pr-10" : ""}
+                />
+              </FormControl>
+              {isValidatingName && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                </div>
+              )}
+              {nameError && !isValidatingName && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <AlertCircle className="h-4 w-4 text-destructive" />
+                </div>
+              )}
+              {nameValidated && !nameError && !isValidatingName && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                </div>
+              )}
+            </div>
+            {nameError && (
+              <p className="text-sm text-destructive mt-1">{nameError}</p>
+            )}
           </FormItem>
 
           <FormItem>
@@ -444,7 +510,12 @@ export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
         </div>
 
         <div className="pt-4 flex justify-end">
-          <Button type="submit" size="lg" disabled={isSubmitting} loading={isSubmitting}>
+          <Button 
+            type="submit" 
+            size="lg" 
+            disabled={isSubmitting || !!nameError || isValidatingName} 
+            loading={isSubmitting}
+          >
             Criar Agente
           </Button>
         </div>

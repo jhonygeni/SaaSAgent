@@ -1,4 +1,3 @@
-
 import { EVOLUTION_API_URL, EVOLUTION_API_KEY, ENDPOINTS, USE_MOCK_DATA, MOCK_QR_CODE, USE_BEARER_AUTH } from '../constants/api';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -47,20 +46,17 @@ const formatEndpoint = (endpoint: string, params: Record<string, string>): strin
 // Store WhatsApp instance data in Supabase
 const storeInstanceData = async (userId: string, instanceData: WhatsAppInstanceResponse): Promise<void> => {
   try {
-    const { error } = await supabase.from('whatsapp_instances').upsert({
+    // Use the new agents table instead of whatsapp_instances
+    const { error } = await supabase.from('agents').upsert({
       user_id: userId,
-      name: instanceData.instance.instanceName,
-      evolution_instance_id: instanceData.instance.instanceId,
+      instance_name: instanceData.instance.instanceName,
+      instance_id: instanceData.instance.instanceId,
+      integration: instanceData.instance.integration,
       status: instanceData.instance.status,
-      session_data: {
-        hash: instanceData.hash,
-        integration: instanceData.instance.integration,
-        settings: instanceData.settings,
-        webhook: instanceData.webhook,
-        websocket: instanceData.websocket,
-        rabbitmq: instanceData.rabbitmq,
-        sqs: instanceData.sqs
-      }
+      hash: instanceData.hash,
+      webhook_wa_business: instanceData.instance.webhookWaBusiness,
+      access_token_wa_business: instanceData.instance.accessTokenWaBusiness,
+      settings: instanceData.settings
     });
 
     if (error) {
@@ -164,6 +160,20 @@ export const whatsappService = {
           errorData = await response.text();
         }
         console.error(`Instance creation failed with status ${response.status}:`, errorData);
+        
+        // More specific error for duplicate names
+        if (response.status === 403 && errorData?.response?.message) {
+          const messages = Array.isArray(errorData.response.message) 
+            ? errorData.response.message 
+            : [errorData.response.message];
+          
+          for (const msg of messages) {
+            if (typeof msg === 'string' && msg.includes('already in use')) {
+              throw new Error(`This name "${formattedInstanceName}" is already in use.`);
+            }
+          }
+        }
+        
         throw new Error(`API responded with status ${response.status}: ${JSON.stringify(errorData)}`);
       }
       

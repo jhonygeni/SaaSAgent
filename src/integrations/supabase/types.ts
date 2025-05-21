@@ -9,6 +9,51 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      agents: {
+        Row: {
+          access_token_wa_business: string | null
+          created_at: string
+          hash: string | null
+          id: string
+          instance_id: string | null
+          instance_name: string
+          integration: string | null
+          settings: Json | null
+          status: string | null
+          updated_at: string
+          user_id: string
+          webhook_wa_business: string | null
+        }
+        Insert: {
+          access_token_wa_business?: string | null
+          created_at?: string
+          hash?: string | null
+          id?: string
+          instance_id?: string | null
+          instance_name: string
+          integration?: string | null
+          settings?: Json | null
+          status?: string | null
+          updated_at?: string
+          user_id: string
+          webhook_wa_business?: string | null
+        }
+        Update: {
+          access_token_wa_business?: string | null
+          created_at?: string
+          hash?: string | null
+          id?: string
+          instance_id?: string | null
+          instance_name?: string
+          integration?: string | null
+          settings?: Json | null
+          status?: string | null
+          updated_at?: string
+          user_id?: string
+          webhook_wa_business?: string | null
+        }
+        Relationships: []
+      }
       contacts: {
         Row: {
           created_at: string | null

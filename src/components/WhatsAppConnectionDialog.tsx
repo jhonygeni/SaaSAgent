@@ -23,6 +23,8 @@ import { useConnection } from "@/context/ConnectionContext";
 import { toast } from "@/hooks/use-toast";
 import { QrCodeDisplay } from "@/components/QrCodeDisplay";
 import { USE_MOCK_DATA } from "@/constants/api";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface WhatsAppConnectionDialogProps {
   open: boolean;
@@ -44,11 +46,43 @@ export function WhatsAppConnectionDialog({
     connectionError,
     getConnectionInfo,
     debugInfo,
-    attemptCount
+    attemptCount,
+    validateInstanceName
   } = useConnection();
   
   const [hasInitiatedConnection, setHasInitiatedConnection] = useState(false);
-  const [showDebugInfo, setShowDebugInfo] = useState(process.env.NODE_ENV !== "production"); 
+  const [showDebugInfo, setShowDebugInfo] = useState(process.env.NODE_ENV !== "production");
+  const [customInstanceName, setCustomInstanceName] = useState("");
+  const [isValidatingName, setIsValidatingName] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [nameValidated, setNameValidated] = useState(false);
+  
+  // Effect to validate instance name when it changes
+  useEffect(() => {
+    if (customInstanceName.trim()) {
+      const validate = async () => {
+        setIsValidatingName(true);
+        try {
+          const formattedName = customInstanceName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+          const result = await validateInstanceName(formattedName);
+          setNameValidated(result.valid);
+          setNameError(result.valid ? null : result.message || "Nome inválido");
+        } catch (error) {
+          console.error("Error validating name:", error);
+          setNameValidated(false);
+          setNameError("Erro na validação");
+        } finally {
+          setIsValidatingName(false);
+        }
+      };
+      
+      const debounceValidate = setTimeout(validate, 500);
+      return () => clearTimeout(debounceValidate);
+    } else {
+      setNameValidated(false);
+      setNameError(null);
+    }
+  }, [customInstanceName, validateInstanceName]);
   
   // Start connection process when dialog opens
   useEffect(() => {
@@ -81,6 +115,9 @@ export function WhatsAppConnectionDialog({
   useEffect(() => {
     if (!open) {
       setHasInitiatedConnection(false);
+      setCustomInstanceName("");
+      setNameValidated(false);
+      setNameError(null);
     }
   }, [open]);
 
@@ -100,6 +137,52 @@ export function WhatsAppConnectionDialog({
       onComplete();
     }
   }, [connectionStatus, onComplete]);
+
+  // Handle custom instance name submit
+  const handleCustomNameSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!customInstanceName.trim()) {
+      setNameError("Por favor, informe um nome para a instância");
+      return;
+    }
+    
+    if (isValidatingName) {
+      return; // Don't proceed if still validating
+    }
+    
+    if (nameError) {
+      toast({
+        title: "Erro de Validação",
+        description: nameError,
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setHasInitiatedConnection(true);
+    try {
+      const formattedName = customInstanceName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+      const result = await startConnection(formattedName);
+      
+      if (result) {
+        console.log("Connection with custom name started successfully");
+      } else {
+        toast({
+          title: "Erro de Conexão",
+          description: "Não foi possível conectar com o nome fornecido. Tente novamente.",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error("Error with custom name connection:", error);
+      toast({
+        title: "Erro de Conexão",
+        description: error.message || "Erro desconhecido ao conectar",
+        variant: "destructive",
+      });
+    }
+  };
 
   // Handle retry button click
   const handleRetry = async () => {
@@ -181,14 +264,60 @@ export function WhatsAppConnectionDialog({
         </DialogHeader>
 
         <div className="flex flex-col items-center justify-center py-6 space-y-6">
+          {connectionStatus === "failed" && connectionError?.includes("already in use") && (
+            <form onSubmit={handleCustomNameSubmit} className="w-full space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="custom-instance-name">Nome da Instância</Label>
+                <div className="relative">
+                  <Input
+                    id="custom-instance-name"
+                    placeholder="Digite um nome único para sua instância"
+                    value={customInstanceName}
+                    onChange={(e) => setCustomInstanceName(e.target.value)}
+                    className={nameError ? "border-red-300 pr-10" : ""}
+                  />
+                  {isValidatingName && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    </div>
+                  )}
+                  {nameError && !isValidatingName && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <AlertCircle className="h-4 w-4 text-destructive" />
+                    </div>
+                  )}
+                  {nameValidated && !nameError && !isValidatingName && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                    </div>
+                  )}
+                </div>
+                {nameError && (
+                  <p className="text-sm text-destructive">{nameError}</p>
+                )}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                <p>O nome da instância anterior já está em uso. Por favor, escolha outro nome para continuar.</p>
+              </div>
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={!nameValidated || isValidatingName || isLoading}
+                loading={isLoading}
+              >
+                Conectar com Novo Nome
+              </Button>
+            </form>
+          )}
+
           {isLoading && (
             <div className="flex flex-col items-center space-y-4 py-8">
               <Loader2 className="h-10 w-10 animate-spin text-primary" />
               <p className="text-center text-sm text-muted-foreground">
-                {connectionStatus === "waiting" ? "Creating WhatsApp instance..." : "Initializing WhatsApp connection..."}
+                {connectionStatus === "waiting" ? "Criando instância WhatsApp..." : "Inicializando conexão WhatsApp..."}
               </p>
               {attemptCount > 0 && (
-                <p className="text-xs text-muted-foreground">Attempt {attemptCount}</p>
+                <p className="text-xs text-muted-foreground">Tentativa {attemptCount}</p>
               )}
             </div>
           )}
@@ -203,17 +332,17 @@ export function WhatsAppConnectionDialog({
               </div>
               <div className="flex flex-col items-center space-y-2 max-w-xs text-center">
                 <Smartphone className="h-6 w-6 text-primary" />
-                <p className="text-sm font-medium">Scan this QR code</p>
+                <p className="text-sm font-medium">Escaneie este código QR</p>
                 <p className="text-xs text-muted-foreground">
-                  Open WhatsApp on your phone, go to Settings &gt; Linked Devices,
-                  and scan the QR code above.
+                  Abra o WhatsApp no seu celular, vá em Configurações &gt; Aparelhos Conectados,
+                  e escaneie o código QR acima.
                 </p>
               </div>
               
               {attemptCount > 0 && (
                 <div className="w-full text-center">
                   <p className="text-xs text-muted-foreground">
-                    Waiting for connection... (Attempt {attemptCount})
+                    Aguardando conexão... (Tentativa {attemptCount})
                   </p>
                 </div>
               )}
@@ -221,24 +350,24 @@ export function WhatsAppConnectionDialog({
               {showDebugInfo && (
                 <div className="w-full border rounded-md p-3 bg-muted/50 mt-4">
                   <div className="flex justify-between items-center mb-1">
-                    <p className="text-sm font-medium">Connection details</p>
+                    <p className="text-sm font-medium">Detalhes da conexão</p>
                     <div className="flex space-x-1">
-                      <Button variant="ghost" size="sm" onClick={toggleDebugInfo} title="Hide debug info">
+                      <Button variant="ghost" size="sm" onClick={toggleDebugInfo} title="Esconder informações de debug">
                         <Bug className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={copyInstanceInfo} title="Copy connection info">
+                      <Button variant="ghost" size="sm" onClick={copyInstanceInfo} title="Copiar informações da conexão">
                         <Copy className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Instance: {getConnectionInfo().instanceName}
+                    Instância: {getConnectionInfo().instanceName}
                   </p>
                   
                   {debugInfo && (
                     <div className="mt-2 p-2 bg-muted rounded-sm">
                       <div className="flex justify-between items-center mb-1">
-                        <p className="text-xs font-medium">Debug Information</p>
+                        <p className="text-xs font-medium">Informações de Debug</p>
                         <Button variant="ghost" size="sm" onClick={copyDebugInfo} className="h-5 w-5 p-0">
                           <Copy className="h-3 w-3" />
                         </Button>
@@ -259,54 +388,54 @@ export function WhatsAppConnectionDialog({
                 <CheckCircle className="h-10 w-10 text-green-600" />
               </div>
               <div className="text-center">
-                <p className="font-medium">WhatsApp connected successfully!</p>
+                <p className="font-medium">WhatsApp conectado com sucesso!</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Your agent can now send and receive messages.
+                  Seu agente agora pode enviar e receber mensagens.
                 </p>
               </div>
               
               {showDebugInfo && (
                 <div className="w-full border rounded-md p-3 bg-green-50 mt-2">
                   <div className="flex justify-between items-center mb-1">
-                    <p className="text-sm font-medium">Connection details</p>
+                    <p className="text-sm font-medium">Detalhes da conexão</p>
                     <div className="flex space-x-1">
-                      <Button variant="ghost" size="sm" onClick={toggleDebugInfo} title="Hide debug info">
+                      <Button variant="ghost" size="sm" onClick={toggleDebugInfo} title="Esconder informações de debug">
                         <Bug className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={copyInstanceInfo} title="Copy connection info">
+                      <Button variant="ghost" size="sm" onClick={copyInstanceInfo} title="Copiar informações da conexão">
                         <Copy className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Instance: {getConnectionInfo().instanceName}
+                    Instância: {getConnectionInfo().instanceName}
                   </p>
                 </div>
               )}
             </div>
           )}
 
-          {!isLoading && connectionStatus === "failed" && (
+          {!isLoading && connectionStatus === "failed" && !connectionError?.includes("already in use") && (
             <div className="flex flex-col items-center space-y-4 py-4">
               <div className="rounded-full bg-red-100 p-3">
                 <AlertCircle className="h-10 w-10 text-red-600" />
               </div>
               <div className="text-center">
-                <p className="font-medium">Connection failed</p>
+                <p className="font-medium">Falha na conexão</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {connectionError || "Could not connect to WhatsApp API. Please try again."}
+                  {connectionError || "Não foi possível conectar à API do WhatsApp. Por favor, tente novamente."}
                 </p>
               </div>
               
               {showDebugInfo && (
                 <div className="w-full border rounded-md p-3 bg-red-50/50 mt-2">
                   <div className="flex justify-between items-center mb-1">
-                    <p className="text-sm font-medium">Error details</p>
+                    <p className="text-sm font-medium">Detalhes do erro</p>
                     <div className="flex space-x-1">
-                      <Button variant="ghost" size="sm" onClick={toggleDebugInfo} title="Hide debug info">
+                      <Button variant="ghost" size="sm" onClick={toggleDebugInfo} title="Esconder informações de debug">
                         <Bug className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={copyDebugInfo} title="Copy debug info">
+                      <Button variant="ghost" size="sm" onClick={copyDebugInfo} title="Copiar informações de debug">
                         <Copy className="h-4 w-4" />
                       </Button>
                     </div>
@@ -315,7 +444,7 @@ export function WhatsAppConnectionDialog({
                   {debugInfo && (
                     <div className="mt-2 p-2 bg-muted rounded-sm">
                       <div className="flex justify-between items-center mb-1">
-                        <p className="text-xs font-medium">Debug Information</p>
+                        <p className="text-xs font-medium">Informações de Debug</p>
                         <Button variant="ghost" size="sm" onClick={copyDebugInfo} className="h-5 w-5 p-0">
                           <Copy className="h-3 w-3" />
                         </Button>
@@ -338,7 +467,7 @@ export function WhatsAppConnectionDialog({
               onClick={() => handleDialogClose(false)}
               className="w-full sm:w-auto mb-3 sm:mb-0"
             >
-              Cancel
+              Cancelar
             </Button>
           )}
           
@@ -349,16 +478,16 @@ export function WhatsAppConnectionDialog({
               className="w-full sm:w-auto"
             >
               <RefreshCw className="h-4 w-4 mr-2" />
-              {isLoading ? "Loading..." : "Generate new code"}
+              {isLoading ? "Carregando..." : "Gerar novo código"}
             </Button>
           )}
           
-          {connectionStatus === "failed" && (
+          {connectionStatus === "failed" && !connectionError?.includes("already in use") && (
             <Button 
               onClick={handleRetry}
               className="w-full sm:w-auto"
             >
-              Try again
+              Tentar novamente
             </Button>
           )}
           
@@ -367,7 +496,7 @@ export function WhatsAppConnectionDialog({
               onClick={() => handleDialogClose(false)}
               className="w-full"
             >
-              Complete <ArrowRight className="ml-2 h-4 w-4" />
+              Continuar <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           )}
         </DialogFooter>

@@ -19,8 +19,8 @@ const NewAgentPage = () => {
     // Show warning if in mock mode
     if (USE_MOCK_DATA) {
       toast({
-        title: "⚠️ Demo Mode Warning",
-        description: "Running in demo mode. No real WhatsApp connections will be made. This should NEVER be used in production!",
+        title: "⚠️ Modo Demo Ativo",
+        description: "Executando em modo de demonstração. Nenhuma conexão real com WhatsApp será feita. NUNCA use isto em produção!",
         variant: "destructive",
         duration: 10000,
       });
@@ -35,28 +35,40 @@ const NewAgentPage = () => {
   };
 
   // For testing in development, can be removed in production
-  const handleTestConnection = () => {
+  const handleTestConnection = async () => {
     console.log("Manual test of connection requested");
-    startConnection().then(qrCode => {
+    try {
+      const qrCode = await startConnection();
       if (qrCode) {
         console.log("QR Code received successfully");
         setShowConnectionDialog(true);
       } else {
         console.error("Failed to get QR code");
         toast({
-          title: "Connection Error",
-          description: "Failed to initialize WhatsApp connection.",
+          title: "Erro de Conexão",
+          description: "Não foi possível inicializar a conexão WhatsApp.",
           variant: "destructive",
         });
       }
-    }).catch(error => {
+    } catch (error: any) {
       console.error("Error starting connection:", error);
-      toast({
-        title: "Connection Error",
-        description: `Failed to connect to WhatsApp API: ${error.message}`,
-        variant: "destructive",
-      });
-    });
+      
+      // Special handling for duplicate name errors
+      if (error.message && error.message.includes("already in use")) {
+        toast({
+          title: "Nome Duplicado",
+          description: "Este nome já está em uso. Abra o diálogo de conexão para usar um nome diferente.",
+          variant: "warning",
+        });
+        setShowConnectionDialog(true);
+      } else {
+        toast({
+          title: "Erro de Conexão",
+          description: `Falha ao conectar à API do WhatsApp: ${error.message}`,
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   return (
@@ -71,24 +83,24 @@ const NewAgentPage = () => {
         {/* Debug section for development, can be removed in production */}
         {process.env.NODE_ENV !== "production" && (
           <div className="container mx-auto mt-8 p-4 border border-dashed rounded-md">
-            <h3 className="text-lg font-medium mb-2">Development Tools</h3>
+            <h3 className="text-lg font-medium mb-2">Ferramentas de Desenvolvimento</h3>
             <div className="flex flex-wrap gap-2">
               <button 
                 onClick={handleTestConnection}
                 className="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded text-sm"
               >
-                Test WhatsApp Connection
+                Testar Conexão WhatsApp
               </button>
               <button 
                 onClick={() => setShowConnectionDialog(true)}
                 className="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded text-sm"
               >
-                Show Connection Dialog
+                Mostrar Diálogo de Conexão
               </button>
             </div>
             <div className="mt-2 text-xs text-gray-500">
-              <p><strong>API Mode:</strong> {USE_MOCK_DATA ? "⚠️ Mock Data (Demo)" : "✓ Real API Calls"}</p>
-              <p><strong>API URL:</strong> {EVOLUTION_API_URL}</p>
+              <p><strong>Modo API:</strong> {USE_MOCK_DATA ? "⚠️ Dados Simulados (Demo)" : "✓ Chamadas de API Reais"}</p>
+              <p><strong>URL da API:</strong> {EVOLUTION_API_URL}</p>
             </div>
           </div>
         )}
