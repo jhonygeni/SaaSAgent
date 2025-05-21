@@ -1,4 +1,5 @@
 
+
 import { useState, useEffect } from "react";
 import { NewAgentForm } from "@/components/NewAgentForm";
 import { WhatsAppConnectionDialog } from "@/components/WhatsAppConnectionDialog";
@@ -21,7 +22,7 @@ const NewAgentPage = () => {
       toast({
         title: "⚠️ Modo Demo Ativo",
         description: "Executando em modo de demonstração. Nenhuma conexão real com WhatsApp será feita. NUNCA use isto em produção!",
-        variant: "destructive",
+        variant: "destructive", // Changed from "warning" to "destructive"
         duration: 10000,
       });
     }
