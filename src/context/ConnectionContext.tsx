@@ -22,7 +22,7 @@ interface ConnectionContextType {
 
 // Create a default context value to prevent errors when used outside provider
 const defaultConnectionContext: ConnectionContextType = {
-  connectionStatus: "idle",
+  connectionStatus: "waiting", // Changed from "idle" to "waiting" to match ConnectionStatus type
   startConnection: async () => null,
   cancelConnection: () => {},
   completeConnection: () => {},
