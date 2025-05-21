@@ -14,7 +14,7 @@ import {
 export const formatEndpoint = (endpoint: string, params: Record<string, string>): string => {
   let formattedEndpoint = endpoint;
   Object.entries(params).forEach(([key, value]) => {
-    formattedEndpoint = formattedEndpoint.replace(`{${key}}`, value);
+    formattedEndpoint = formattedEndpoint.replace(`{${key}}`, encodeURIComponent(value));
   });
   return formattedEndpoint;
 };

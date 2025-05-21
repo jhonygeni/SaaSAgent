@@ -8,6 +8,9 @@ interface ErrorStateProps {
 }
 
 export const ErrorState: React.FC<ErrorStateProps> = ({ errorMessage, isAuthError }) => {
+  // Extract specific error message for 404 connect errors
+  const isConnectError = errorMessage?.includes('/instance/connect') || errorMessage?.includes('Cannot GET');
+  
   return (
     <div className="flex flex-col items-center space-y-4 py-4">
       <div className="rounded-full bg-red-100 p-3">
@@ -16,7 +19,9 @@ export const ErrorState: React.FC<ErrorStateProps> = ({ errorMessage, isAuthErro
       <div className="text-center">
         <p className="font-medium">Falha na conexão</p>
         <p className="text-sm text-muted-foreground mt-1">
-          {errorMessage || "Não foi possível conectar à API do WhatsApp. Por favor, tente novamente."}
+          {isConnectError 
+            ? "O endpoint de conexão para o QR code não está disponível. Por favor, verifique a configuração da API."
+            : errorMessage || "Não foi possível conectar à API do WhatsApp. Por favor, tente novamente."}
         </p>
       </div>
       
@@ -25,6 +30,15 @@ export const ErrorState: React.FC<ErrorStateProps> = ({ errorMessage, isAuthErro
           <p className="font-medium">Erro de autenticação</p>
           <p className="text-xs mt-1">
             Verifique se a chave de API está configurada corretamente no servidor.
+          </p>
+        </div>
+      )}
+      
+      {isConnectError && (
+        <div className="w-full bg-red-50 p-3 rounded-md text-sm text-red-800">
+          <p className="font-medium">Erro no endpoint de conexão</p>
+          <p className="text-xs mt-1">
+            O endpoint para obter o código QR não está configurado corretamente ou não está disponível no servidor.
           </p>
         </div>
       )}

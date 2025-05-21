@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { ConnectionStatus } from '../types';
 import { whatsappService } from '../services/whatsappService';
@@ -298,7 +297,7 @@ export function useWhatsAppConnection() {
     setPollingInterval(interval);
   }, [handleSuccessfulConnection, clearPolling, connectionStatus, updateDebugInfo]);
 
-  // Fetch QR code for WhatsApp instance - USING GET METHOD
+  // Fetch QR code for WhatsApp instance with correct endpoint
   const fetchQrCode = useCallback(async (instanceName: string): Promise<string | null> => {
     try {
       // First check if the API is accessible
@@ -307,7 +306,7 @@ export function useWhatsAppConnection() {
         throw new Error("API server not accessible or authentication failed. Please check your API key and try again.");
       }
       
-      // Use GET method to connect and get QR code (IMPORTANT!)
+      // Use the updated QR code endpoint
       console.log(`Fetching QR code for instance: ${instanceName}`);
       const qrData = await whatsappService.getQrCode(instanceName);
       console.log("QR code response:", qrData);
@@ -409,6 +408,7 @@ export function useWhatsAppConnection() {
     try {
       // Initialize instance and get QR code
       console.log(`Starting WhatsApp connection process for instance: ${instanceId}`);
+      console.log(`Using API endpoint: ${ENDPOINTS.instanceConnectQR.replace("{instanceName}", instanceId)}`);
       const qrCode = await initializeWhatsAppInstance(instanceId);
       
       console.log("Connection process started successfully");
