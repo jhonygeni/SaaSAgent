@@ -10,24 +10,22 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { 
-  Loader2, 
-  Smartphone, 
-  CheckCircle, 
-  AlertCircle, 
-  Copy, 
   RefreshCw,
-  Bug,
   ArrowRight,
-  AlertTriangle
 } from "lucide-react";
 import { useConnection } from "@/context/ConnectionContext";
-import { toast } from "@/hooks/use-toast";
-import { QrCodeDisplay } from "@/components/QrCodeDisplay";
 import { USE_MOCK_DATA, EVOLUTION_API_URL } from "@/constants/api";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { whatsappService } from "@/services/whatsappService";
-import { Badge } from "@/components/ui/badge";
+
+// Import our refactored components
+import { LoadingState } from "./whatsapp/LoadingState";
+import { QrCodeState } from "./whatsapp/QrCodeState";
+import { SuccessState } from "./whatsapp/SuccessState";
+import { ErrorState } from "./whatsapp/ErrorState";
+import { DebugPanel } from "./whatsapp/DebugPanel";
+import { CustomNameForm } from "./whatsapp/CustomNameForm";
+import { ApiHealthBadge } from "./whatsapp/ApiHealthBadge";
+import { ApiHealthWarning } from "./whatsapp/ApiHealthWarning";
 
 interface WhatsAppConnectionDialogProps {
   open: boolean;
@@ -58,10 +56,6 @@ export function WhatsAppConnectionDialog({
   
   const [hasInitiatedConnection, setHasInitiatedConnection] = useState(false);
   const [showDebugInfo, setShowDebugInfo] = useState(process.env.NODE_ENV !== "production");
-  const [customInstanceName, setCustomInstanceName] = useState("");
-  const [isValidatingName, setIsValidatingName] = useState(false);
-  const [nameError, setNameError] = useState<string | null>(null);
-  const [nameValidated, setNameValidated] = useState(false);
   const [apiHealthStatus, setApiHealthStatus] = useState<"unknown" | "healthy" | "unhealthy">("unknown");
   const [retryCount, setRetryCount] = useState(0);
   
@@ -83,33 +77,6 @@ export function WhatsAppConnectionDialog({
       setApiHealthStatus("unhealthy");
     }
   };
-  
-  // Effect to validate instance name when it changes
-  useEffect(() => {
-    if (customInstanceName.trim()) {
-      const validate = async () => {
-        setIsValidatingName(true);
-        try {
-          const formattedName = customInstanceName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-          const result = await validateInstanceName(formattedName);
-          setNameValidated(result.valid);
-          setNameError(result.valid ? null : result.message || "Nome inválido");
-        } catch (error) {
-          console.error("Error validating name:", error);
-          setNameValidated(false);
-          setNameError("Erro na validação");
-        } finally {
-          setIsValidatingName(false);
-        }
-      };
-      
-      const debounceValidate = setTimeout(validate, 500);
-      return () => clearTimeout(debounceValidate);
-    } else {
-      setNameValidated(false);
-      setNameError(null);
-    }
-  }, [customInstanceName, validateInstanceName]);
   
   // Start connection process when dialog opens
   useEffect(() => {
@@ -135,17 +102,7 @@ export function WhatsAppConnectionDialog({
           
           console.log(`Using dynamic instance name: ${instanceName}`);
           
-          const result = await startConnection(instanceName);
-          if (result) {
-            console.log("Connection started successfully, QR code received");
-          } else {
-            console.error("Failed to start connection - no QR code received");
-            toast({
-              title: "Connection Error",
-              description: "Failed to generate WhatsApp QR code. Please try again.",
-              variant: "destructive",
-            });
-          }
+          await startConnection(instanceName);
         } catch (error) {
           console.error("Failed to start connection:", error);
         }
@@ -161,9 +118,6 @@ export function WhatsAppConnectionDialog({
   useEffect(() => {
     if (!open) {
       setHasInitiatedConnection(false);
-      setCustomInstanceName("");
-      setNameValidated(false);
-      setNameError(null);
       setRetryCount(0);
     }
   }, [open]);
@@ -194,49 +148,10 @@ export function WhatsAppConnectionDialog({
   }, [connectionStatus, onComplete, onOpenChange]);
 
   // Handle custom instance name submit
-  const handleCustomNameSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!customInstanceName.trim()) {
-      setNameError("Por favor, informe um nome para a instância");
-      return;
-    }
-    
-    if (isValidatingName) {
-      return; // Don't proceed if still validating
-    }
-    
-    if (nameError) {
-      toast({
-        title: "Erro de Validação",
-        description: nameError,
-        variant: "destructive",
-      });
-      return;
-    }
-    
+  const handleCustomNameSubmit = async (customInstanceName: string) => {
     setHasInitiatedConnection(true);
-    try {
-      const formattedName = customInstanceName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-      const result = await startConnection(formattedName);
-      
-      if (result) {
-        console.log("Connection with custom name started successfully");
-      } else {
-        toast({
-          title: "Erro de Conexão",
-          description: "Não foi possível conectar com o nome fornecido. Tente novamente.",
-          variant: "destructive",
-        });
-      }
-    } catch (error: any) {
-      console.error("Error with custom name connection:", error);
-      toast({
-        title: "Erro de Conexão",
-        description: error.message || "Erro desconhecido ao conectar",
-        variant: "destructive",
-      });
-    }
+    const formattedName = customInstanceName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+    await startConnection(formattedName);
   };
 
   // Handle retry button click with incremental retry counter
@@ -259,64 +174,15 @@ export function WhatsAppConnectionDialog({
       
       console.log(`Retry #${retryNum}: Using dynamic instance name: ${instanceName}`);
       
-      const result = await startConnection(instanceName);
-      if (result) {
-        console.log("Connection retry initiated successfully");
-      } else {
-        toast({
-          title: "Connection Error",
-          description: "Failed to generate WhatsApp QR code. Please try again.",
-          variant: "destructive",
-        });
-      }
+      await startConnection(instanceName);
     } catch (error) {
       console.error("Failed to retry connection:", error);
-      toast({
-        title: "Connection Error",
-        description: "Failed to initiate connection. Please try again.",
-        variant: "destructive",
-      });
     }
   };
 
-  // Copy instance info to clipboard
-  const copyInstanceInfo = () => {
-    const { instanceName, instanceData } = getConnectionInfo();
-    const infoText = `Instance Name: ${instanceName}\nInstance Data: ${JSON.stringify(instanceData || {}, null, 2)}`;
-    
-    navigator.clipboard.writeText(infoText)
-      .then(() => {
-        toast({
-          title: "Copied!",
-          description: "Instance information copied to clipboard.",
-          variant: "default",
-        });
-      })
-      .catch((err) => {
-        console.error("Failed to copy instance info:", err);
-      });
-  };
-  
   // Toggle debug information
   const toggleDebugInfo = () => {
     setShowDebugInfo(!showDebugInfo);
-  };
-
-  // Copy debug info to clipboard
-  const copyDebugInfo = () => {
-    if (debugInfo) {
-      navigator.clipboard.writeText(debugInfo)
-        .then(() => {
-          toast({
-            title: "Debug Info Copied",
-            description: "Debug information copied to clipboard.",
-            variant: "default",
-          });
-        })
-        .catch((err) => {
-          console.error("Failed to copy debug info:", err);
-        });
-    }
   };
 
   // Get dialog title based on whether we're connecting a specific agent
@@ -335,39 +201,13 @@ export function WhatsAppConnectionDialog({
     return "Conecte seu WhatsApp para que o agente possa enviar e receber mensagens.";
   };
 
-  // Render API health status badge
-  const renderApiHealthBadge = () => {
-    if (apiHealthStatus === "unknown") {
-      return (
-        <Badge variant="outline" className="ml-2">
-          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-          Verificando API
-        </Badge>
-      );
-    } else if (apiHealthStatus === "healthy") {
-      return (
-        <Badge variant="outline" className="ml-2 bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800">
-          <CheckCircle className="h-3 w-3 mr-1" />
-          API Conectada
-        </Badge>
-      );
-    } else {
-      return (
-        <Badge variant="outline" className="ml-2 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800">
-          <AlertCircle className="h-3 w-3 mr-1" />
-          API Offline
-        </Badge>
-      );
-    }
-  };
-
   return (
     <Dialog open={open} onOpenChange={handleDialogClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <div className="flex items-center">
             <DialogTitle>{getDialogTitle()}</DialogTitle>
-            {renderApiHealthBadge()}
+            <ApiHealthBadge status={apiHealthStatus} />
           </div>
           <DialogDescription>
             {getDialogDescription()}
@@ -380,254 +220,49 @@ export function WhatsAppConnectionDialog({
         </DialogHeader>
 
         {apiHealthStatus === "unhealthy" && (
-          <div className="bg-red-50 border border-red-200 rounded p-3 mb-4">
-            <div className="flex items-start">
-              <AlertTriangle className="h-5 w-5 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-red-800">API Não Acessível</p>
-                <p className="text-xs text-red-700 mt-1">
-                  Não foi possível estabelecer conexão com o servidor WhatsApp. Verifique:
-                </p>
-                <ul className="text-xs text-red-700 mt-1 list-disc list-inside">
-                  <li>Sua chave de API está configurada corretamente</li>
-                  <li>O servidor WhatsApp está online ({EVOLUTION_API_URL})</li>
-                  <li>Sua rede tem acesso ao servidor</li>
-                </ul>
-                <div className="mt-2">
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    className="bg-white text-red-700 border-red-300"
-                    onClick={checkApiHealth}
-                  >
-                    <RefreshCw className="h-3 w-3 mr-2" /> Verificar Novamente
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
+          <ApiHealthWarning onRetryClick={checkApiHealth} />
         )}
 
         <div className="flex flex-col items-center justify-center py-6 space-y-6">
           {connectionStatus === "failed" && connectionError?.includes("already in use") && (
-            <form onSubmit={handleCustomNameSubmit} className="w-full space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="custom-instance-name">Nome da Instância</Label>
-                <div className="relative">
-                  <Input
-                    id="custom-instance-name"
-                    placeholder="Digite um nome único para sua instância"
-                    value={customInstanceName}
-                    onChange={(e) => setCustomInstanceName(e.target.value)}
-                    className={nameError ? "border-red-300 pr-10" : ""}
-                  />
-                  {isValidatingName && (
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                    </div>
-                  )}
-                  {nameError && !isValidatingName && (
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                      <AlertCircle className="h-4 w-4 text-destructive" />
-                    </div>
-                  )}
-                  {nameValidated && !nameError && !isValidatingName && (
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                    </div>
-                  )}
-                </div>
-                {nameError && (
-                  <p className="text-sm text-destructive">{nameError}</p>
-                )}
-              </div>
-              <div className="text-sm text-muted-foreground">
-                <p>O nome da instância anterior já está em uso. Por favor, escolha outro nome para continuar.</p>
-              </div>
-              <Button 
-                type="submit" 
-                className="w-full" 
-                disabled={!nameValidated || isValidatingName || isLoading}
-                loading={isLoading}
-              >
-                Conectar com Novo Nome
-              </Button>
-            </form>
+            <CustomNameForm 
+              onSubmit={handleCustomNameSubmit}
+              validateName={validateInstanceName}
+              isLoading={isLoading}
+            />
           )}
 
           {isLoading && (
-            <div className="flex flex-col items-center space-y-4 py-8">
-              <Loader2 className="h-10 w-10 animate-spin text-primary" />
-              <p className="text-center text-sm text-muted-foreground">
-                {connectionStatus === "waiting" ? "Criando instância WhatsApp..." : "Inicializando conexão WhatsApp..."}
-              </p>
-              {attemptCount > 0 && (
-                <p className="text-xs text-muted-foreground">Tentativa {attemptCount}</p>
-              )}
-            </div>
+            <LoadingState status={connectionStatus} attemptCount={attemptCount} />
           )}
 
           {!isLoading && connectionStatus === "waiting" && qrCodeData && (
-            <div className="flex flex-col items-center space-y-4">
-              <div className="bg-white p-4 rounded-lg shadow-sm">
-                <QrCodeDisplay 
-                  value={qrCodeData}
-                  size={200}
-                  pairingCode={pairingCode}
-                />
-              </div>
-              <div className="flex flex-col items-center space-y-2 max-w-xs text-center">
-                <Smartphone className="h-6 w-6 text-primary" />
-                <p className="text-sm font-medium">Escaneie este código QR</p>
-                <p className="text-xs text-muted-foreground">
-                  Abra o WhatsApp no seu celular, vá em Configurações &gt; Aparelhos Conectados,
-                  e escaneie o código QR acima.
-                </p>
-                {pairingCode && (
-                  <div className="mt-1 p-2 bg-green-50 rounded-md border border-green-100 w-full">
-                    <p className="text-xs font-medium text-green-700">Ou use o código de pareamento:</p>
-                    <p className="text-sm font-bold text-green-800 tracking-wider">{pairingCode}</p>
-                  </div>
-                )}
-              </div>
-              
-              {attemptCount > 0 && (
-                <div className="w-full text-center">
-                  <p className="text-xs text-muted-foreground">
-                    Aguardando conexão... (Tentativa {attemptCount})
-                  </p>
-                </div>
-              )}
-              
-              {showDebugInfo && (
-                <div className="w-full border rounded-md p-3 bg-muted/50 mt-4">
-                  <div className="flex justify-between items-center mb-1">
-                    <p className="text-sm font-medium">Detalhes da conexão</p>
-                    <div className="flex space-x-1">
-                      <Button variant="ghost" size="sm" onClick={toggleDebugInfo} title="Esconder informações de debug">
-                        <Bug className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={copyInstanceInfo} title="Copiar informações da conexão">
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Instância: {getConnectionInfo().instanceName}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Status API: {apiHealthStatus}
-                  </p>
-                  
-                  {debugInfo && (
-                    <div className="mt-2 p-2 bg-muted rounded-sm">
-                      <div className="flex justify-between items-center mb-1">
-                        <p className="text-xs font-medium">Informações de Debug</p>
-                        <Button variant="ghost" size="sm" onClick={copyDebugInfo} className="h-5 w-5 p-0">
-                          <Copy className="h-3 w-3" />
-                        </Button>
-                      </div>
-                      <pre className="text-[10px] overflow-x-auto max-h-40 overflow-y-auto whitespace-pre-wrap break-all">
-                        {debugInfo}
-                      </pre>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+            <QrCodeState 
+              qrCodeData={qrCodeData} 
+              pairingCode={pairingCode} 
+              attemptCount={attemptCount} 
+            />
           )}
 
           {!isLoading && connectionStatus === "connected" && (
-            <div className="flex flex-col items-center space-y-4 py-4">
-              <div className="rounded-full bg-green-100 p-3">
-                <CheckCircle className="h-10 w-10 text-green-600" />
-              </div>
-              <div className="text-center">
-                <p className="font-medium">WhatsApp conectado com sucesso!</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Seu agente agora pode enviar e receber mensagens.
-                </p>
-              </div>
-              
-              {showDebugInfo && (
-                <div className="w-full border rounded-md p-3 bg-green-50 mt-2">
-                  <div className="flex justify-between items-center mb-1">
-                    <p className="text-sm font-medium">Detalhes da conexão</p>
-                    <div className="flex space-x-1">
-                      <Button variant="ghost" size="sm" onClick={toggleDebugInfo} title="Esconder informações de debug">
-                        <Bug className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={copyInstanceInfo} title="Copiar informações da conexão">
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Instância: {getConnectionInfo().instanceName}
-                  </p>
-                </div>
-              )}
-            </div>
+            <SuccessState />
           )}
 
           {!isLoading && connectionStatus === "failed" && !connectionError?.includes("already in use") && (
-            <div className="flex flex-col items-center space-y-4 py-4">
-              <div className="rounded-full bg-red-100 p-3">
-                <AlertCircle className="h-10 w-10 text-red-600" />
-              </div>
-              <div className="text-center">
-                <p className="font-medium">Falha na conexão</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {connectionError || "Não foi possível conectar à API do WhatsApp. Por favor, tente novamente."}
-                </p>
-              </div>
-              
-              {connectionError?.includes("Authentication failed") && (
-                <div className="w-full bg-red-50 p-3 rounded-md text-sm text-red-800">
-                  <p className="font-medium">Erro de autenticação</p>
-                  <p className="text-xs mt-1">
-                    Verifique se a chave de API está configurada corretamente no servidor.
-                  </p>
-                </div>
-              )}
-              
-              {showDebugInfo && (
-                <div className="w-full border rounded-md p-3 bg-red-50/50 mt-2">
-                  <div className="flex justify-between items-center mb-1">
-                    <p className="text-sm font-medium">Detalhes do erro</p>
-                    <div className="flex space-x-1">
-                      <Button variant="ghost" size="sm" onClick={toggleDebugInfo} title="Esconder informações de debug">
-                        <Bug className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={copyDebugInfo} title="Copiar informações de debug">
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  <p className="text-xs text-muted-foreground">
-                    API Status: {apiHealthStatus}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    API URL: {EVOLUTION_API_URL}
-                  </p>
-                  
-                  {debugInfo && (
-                    <div className="mt-2 p-2 bg-muted rounded-sm">
-                      <div className="flex justify-between items-center mb-1">
-                        <p className="text-xs font-medium">Informações de Debug</p>
-                        <Button variant="ghost" size="sm" onClick={copyDebugInfo} className="h-5 w-5 p-0">
-                          <Copy className="h-3 w-3" />
-                        </Button>
-                      </div>
-                      <pre className="text-[10px] overflow-x-auto max-h-40 overflow-y-auto whitespace-pre-wrap break-all">
-                        {debugInfo}
-                      </pre>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+            <ErrorState 
+              errorMessage={connectionError} 
+              isAuthError={!!connectionError?.includes("Authentication failed")} 
+            />
+          )}
+
+          {showDebugInfo && !isLoading && connectionStatus === "waiting" && qrCodeData && (
+            <DebugPanel 
+              debugInfo={debugInfo}
+              connectionInfo={getConnectionInfo()}
+              showDebugInfo={showDebugInfo}
+              toggleDebugInfo={toggleDebugInfo}
+              apiHealthStatus={apiHealthStatus}
+            />
           )}
         </div>
 
