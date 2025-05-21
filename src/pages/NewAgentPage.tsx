@@ -5,12 +5,14 @@ import { WhatsAppConnectionDialog } from "@/components/WhatsAppConnectionDialog"
 import { useConnection } from "@/context/ConnectionContext";
 import { USE_MOCK_DATA, EVOLUTION_API_URL } from "@/constants/api";
 import { toast } from "@/hooks/use-toast";
+import { useAgent } from "@/context/AgentContext";
+import { useNavigate } from "react-router-dom";
 
 const NewAgentPage = () => {
   const [showConnectionDialog, setShowConnectionDialog] = useState(false);
-  // We're using useConnection here which requires ConnectionProvider
-  // This works because App.tsx wraps the Routes with ConnectionProvider
-  const { connectionStatus, qrCodeData, startConnection } = useConnection();
+  const { connectionStatus, qrCodeData, startConnection, cancelConnection } = useConnection();
+  const { addAgent } = useAgent();
+  const navigate = useNavigate();
 
   // Log important connection state changes
   useEffect(() => {
@@ -21,17 +23,56 @@ const NewAgentPage = () => {
       toast({
         title: "⚠️ Modo Demo Ativo",
         description: "Executando em modo de demonstração. Nenhuma conexão real com WhatsApp será feita. NUNCA use isto em produção!",
-        variant: "destructive", // Changed from "warning" to "destructive"
+        variant: "destructive",
         duration: 10000,
       });
     }
   }, [connectionStatus, qrCodeData]);
 
-  const handleAgentCreated = () => {
+  const handleAgentCreated = (agent) => {
     console.log("Agent created, showing connection dialog");
     // Log API connection details
     console.log(`Using Evolution API at: ${EVOLUTION_API_URL}, Mock mode: ${USE_MOCK_DATA ? 'ON' : 'OFF'}`);
+    
+    // Save the agent first, regardless of connection status
+    const savedAgent = {
+      ...agent,
+      connected: false,
+      status: "pendente"
+    };
+    
+    // Add the agent to the agent context
+    addAgent(savedAgent);
+    
+    // Show the connection dialog
     setShowConnectionDialog(true);
+  };
+
+  // Handle connection dialog close
+  const handleConnectionDialogClose = (isOpen) => {
+    setShowConnectionDialog(isOpen);
+    
+    if (!isOpen) {
+      // Dialog was closed, navigate to dashboard regardless of connection state
+      if (connectionStatus !== "connected") {
+        // Connection was not successful, but we proceed anyway
+        toast({
+          title: "Agente criado sem conexão WhatsApp",
+          description: "Você pode conectar o WhatsApp posteriormente no painel de controle.",
+          variant: "default",
+        });
+        cancelConnection();
+      } else {
+        toast({
+          title: "Agente criado com sucesso!",
+          description: "Seu agente está pronto para usar com o WhatsApp conectado.",
+          variant: "default",
+        });
+      }
+      
+      // Navigate to dashboard in both cases
+      navigate("/dashboard");
+    }
   };
 
   // For testing in development, can be removed in production
@@ -77,7 +118,7 @@ const NewAgentPage = () => {
         <NewAgentForm onAgentCreated={handleAgentCreated} />
         <WhatsAppConnectionDialog 
           open={showConnectionDialog} 
-          onOpenChange={setShowConnectionDialog} 
+          onOpenChange={handleConnectionDialogClose}
         />
         
         {/* Debug section for development, can be removed in production */}

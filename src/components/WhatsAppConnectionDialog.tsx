@@ -30,12 +30,14 @@ interface WhatsAppConnectionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onComplete?: () => void;
+  agentId?: string | null;
 }
 
 export function WhatsAppConnectionDialog({
   open,
   onOpenChange,
   onComplete,
+  agentId
 }: WhatsAppConnectionDialogProps) {
   const { 
     connectionStatus, 
@@ -91,7 +93,9 @@ export function WhatsAppConnectionDialog({
         console.log("Starting WhatsApp connection process automatically");
         setHasInitiatedConnection(true);
         try {
-          const result = await startConnection();
+          // If we have an agentId, use it for the instance name
+          const instanceNameSuffix = agentId ? `_${agentId.substring(0, 8)}` : '';
+          const result = await startConnection(`agent${instanceNameSuffix}`);
           if (result) {
             console.log("Connection started successfully, QR code received");
           } else {
@@ -109,7 +113,7 @@ export function WhatsAppConnectionDialog({
     };
     
     initiateConnection();
-  }, [open, hasInitiatedConnection, connectionStatus, qrCodeData, isLoading, startConnection]);
+  }, [open, hasInitiatedConnection, connectionStatus, qrCodeData, isLoading, startConnection, agentId]);
 
   // Reset state when dialog closes
   useEffect(() => {
@@ -188,7 +192,9 @@ export function WhatsAppConnectionDialog({
   const handleRetry = async () => {
     setHasInitiatedConnection(true);
     try {
-      const result = await startConnection();
+      // If we have an agentId, use it for the instance name
+      const instanceNameSuffix = agentId ? `_${agentId.substring(0, 8)}` : '';
+      const result = await startConnection(`agent${instanceNameSuffix}`);
       if (result) {
         console.log("Connection retry initiated successfully");
       } else {
@@ -248,13 +254,29 @@ export function WhatsAppConnectionDialog({
     }
   };
 
+  // Get dialog title based on whether we're connecting a specific agent
+  const getDialogTitle = () => {
+    if (agentId) {
+      return "Conectar Agente ao WhatsApp";
+    }
+    return "Conectar WhatsApp";
+  };
+
+  // Get dialog description based on whether we're connecting a specific agent
+  const getDialogDescription = () => {
+    if (agentId) {
+      return "Conecte seu agente ao WhatsApp para que ele possa enviar e receber mensagens.";
+    }
+    return "Conecte seu WhatsApp para que o agente possa enviar e receber mensagens.";
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleDialogClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Connect WhatsApp</DialogTitle>
+          <DialogTitle>{getDialogTitle()}</DialogTitle>
           <DialogDescription>
-            Connect your WhatsApp so the agent can send and receive messages.
+            {getDialogDescription()}
             {USE_MOCK_DATA && (
               <div className="mt-1 text-xs p-1 bg-yellow-50 text-yellow-700 rounded">
                 WARNING: Running in mock mode - real API calls are disabled

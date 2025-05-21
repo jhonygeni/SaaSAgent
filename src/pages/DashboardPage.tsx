@@ -11,7 +11,7 @@ import { useConnection } from "@/context/ConnectionContext";
 declare global {
   interface Window {
     editAgent: (agentId: string) => void;
-    showWhatsAppConnect: () => void;
+    showWhatsAppConnect: (agentId?: string) => void;
   }
 }
 
@@ -19,6 +19,7 @@ const DashboardPage = () => {
   const [editAgentId, setEditAgentId] = useState<string | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [connectDialogOpen, setConnectDialogOpen] = useState(false);
+  const [connectingAgentId, setConnectingAgentId] = useState<string | null>(null);
   const { setSelectedAgentForEdit, updateAgentById, agents } = useAgent();
   const { connectionStatus } = useConnection();
   const { toast } = useToast();
@@ -31,7 +32,13 @@ const DashboardPage = () => {
       setEditDialogOpen(true);
     };
     
-    window.showWhatsAppConnect = () => {
+    window.showWhatsAppConnect = (agentId?: string) => {
+      console.log("Show WhatsApp connect dialog called", agentId ? `for agent ${agentId}` : "generally");
+      if (agentId) {
+        setConnectingAgentId(agentId);
+      } else {
+        setConnectingAgentId(null);
+      }
       setConnectDialogOpen(true);
     };
 
@@ -45,11 +52,15 @@ const DashboardPage = () => {
   // Check if there are any agents that need WhatsApp connection
   useEffect(() => {
     const checkForAgentsNeedingConnection = () => {
-      if (agents && agents.length > 0 && connectionStatus !== "connected") {
-        const needsConnection = agents.some(agent => !agent.connected && 
-          (agent.status === "pendente" || agent.status === "ativo"));
-        if (needsConnection) {
-          setConnectDialogOpen(true);
+      // Don't automatically show dialog when connectionStatus is failed or waiting
+      // Only check for auto-connect when no connection attempt is in progress
+      if (connectionStatus !== "connected" && connectionStatus !== "failed" && connectionStatus !== "waiting") {
+        if (agents && agents.length > 0) {
+          const needsConnection = agents.some(agent => !agent.connected && 
+            (agent.status === "pendente" || agent.status === "ativo"));
+          if (needsConnection) {
+            setConnectDialogOpen(true);
+          }
         }
       }
     };
@@ -68,8 +79,17 @@ const DashboardPage = () => {
     if (editAgentId) {
       const agent = agents.find(a => a.id === editAgentId);
       if (agent && !agent.connected) {
+        setConnectingAgentId(editAgentId);
         setConnectDialogOpen(true);
       }
+    }
+  };
+
+  const handleConnectionComplete = () => {
+    // Update agent with connected status if needed
+    if (connectingAgentId) {
+      updateAgentById(connectingAgentId, { connected: true, status: "ativo" });
+      setConnectingAgentId(null);
     }
   };
 
@@ -91,12 +111,8 @@ const DashboardPage = () => {
       <WhatsAppConnectionDialog
         open={connectDialogOpen}
         onOpenChange={setConnectDialogOpen}
-        onComplete={() => {
-          // Update agent with connected status if needed
-          if (editAgentId) {
-            updateAgentById(editAgentId, { connected: true });
-          }
-        }}
+        onComplete={handleConnectionComplete}
+        agentId={connectingAgentId}
       />
     </div>
   );

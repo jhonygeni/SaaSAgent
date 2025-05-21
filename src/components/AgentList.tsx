@@ -1,11 +1,12 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAgent } from "@/context/AgentContext";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/button-extensions";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash, MessageSquare, Smartphone, Plus } from "lucide-react";
+import { Edit, Trash, MessageSquare, Smartphone, Plus, WifiOff, AlertTriangle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { formatLimit, getAgentLimitByPlan } from "@/lib/utils";
 import { useUser } from "@/context/UserContext";
@@ -74,6 +75,16 @@ export function AgentList() {
     }
   };
 
+  const handleConnectWhatsApp = (id: string) => {
+    if (typeof window.showWhatsAppConnect === "function") {
+      window.showWhatsAppConnect(id);
+    } else {
+      console.error("WhatsApp connect function is not available");
+      // Fallback in case the function is not available
+      navigate("/conectar");
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
@@ -128,7 +139,7 @@ export function AgentList() {
                     <p className="text-sm text-muted-foreground line-clamp-1">{agent.site}</p>
                   </div>
                   <Badge variant={agent.status === "ativo" ? "default" : "secondary"}>
-                    {agent.status === "ativo" ? "Ativo" : "Inativo"}
+                    {agent.status === "ativo" ? "Ativo" : agent.status === "pendente" ? "Pendente" : "Inativo"}
                   </Badge>
                 </div>
               </CardHeader>
@@ -142,12 +153,22 @@ export function AgentList() {
                   <div>
                     <p className="text-sm font-medium mb-1">Status da Conexão</p>
                     <div className="flex items-center gap-2">
-                      <div className={`h-2 w-2 rounded-full ${agent.connected ? "bg-success-500" : "bg-muted"}`} />
-                      <p className="text-sm text-muted-foreground">
-                        {agent.connected 
-                          ? `Conectado (${agent.phoneNumber})` 
-                          : "Não conectado"}
-                      </p>
+                      {agent.connected ? (
+                        <>
+                          <div className="h-2 w-2 rounded-full bg-success-500" />
+                          <p className="text-sm text-muted-foreground">
+                            Conectado {agent.phoneNumber ? `(${agent.phoneNumber})` : ''}
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <div className="h-2 w-2 rounded-full bg-red-500" />
+                          <div className="flex items-center gap-1">
+                            <WifiOff className="h-3 w-3 text-muted" />
+                            <p className="text-sm text-muted-foreground">Não conectado</p>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                   
@@ -198,7 +219,11 @@ export function AgentList() {
                 </div>
                 
                 {!agent.connected && (
-                  <Button variant="outline" className="w-full" onClick={() => navigate("/conectar")}>
+                  <Button 
+                    variant="outline" 
+                    className="w-full flex items-center justify-center" 
+                    onClick={() => handleConnectWhatsApp(agent.id!)}
+                  >
                     <Smartphone className="h-4 w-4 mr-2" />
                     Conectar WhatsApp
                   </Button>
