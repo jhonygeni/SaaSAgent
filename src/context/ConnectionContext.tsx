@@ -1,4 +1,3 @@
-
 import { createContext, useContext, ReactNode, useState, useEffect } from 'react';
 import { whatsappService } from '../services/whatsappService';
 import { ConnectionStatus } from '../types';
@@ -12,6 +11,13 @@ interface ConnectionContextType {
   startConnection: (instanceName?: string) => Promise<string | null>;
   checkConnectionStatus: () => Promise<ConnectionStatus>;
   disconnect: () => Promise<boolean>;
+  isLoading: boolean;
+  cancelConnection: () => Promise<void>;
+  completeConnection: (phoneNumber?: string) => void;
+  connectionError: string | null;
+  getConnectionInfo: () => { instanceName: string; instanceData: any; debugInfo: string | null };
+  debugInfo: string | null;
+  attemptCount: number;
 }
 
 const ConnectionContext = createContext<ConnectionContextType | undefined>(undefined);
@@ -20,6 +26,11 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('waiting');
   const [qrCodeData, setQrCodeData] = useState<string | null>(null);
   const [instanceName, setInstanceName] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string | null>(null);
+  const [instanceData, setInstanceData] = useState<any>(null);
+  const [attemptCount, setAttemptCount] = useState<number>(0);
   const { user } = useUser();
 
   // Check if we already have an instance in Supabase
@@ -61,6 +72,8 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
   };
 
   const startConnection = async (customInstanceName?: string): Promise<string | null> => {
+    setIsLoading(true);
+    setConnectionError(null);
     try {
       setConnectionStatus('waiting');
       
@@ -76,6 +89,7 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
       if (!instanceResult || !instanceResult.instance) {
         console.error("Failed to create instance, response:", instanceResult);
         setConnectionStatus('failed');
+        setConnectionError("Failed to create WhatsApp instance");
         return null;
       }
       
@@ -101,11 +115,13 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
       } else {
         console.error("Failed to get QR code");
         setConnectionStatus('failed');
+        setConnectionError("Failed to get QR code");
         return null;
       }
     } catch (error: any) {
       console.error("Error starting connection:", error);
       setConnectionStatus('failed');
+      setConnectionError(error.message || "Failed to establish WhatsApp connection");
       
       toast({
         title: "Connection Error",
@@ -114,6 +130,8 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
       });
       
       return null;
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -168,6 +186,7 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
       if (logoutResult) {
         setConnectionStatus('waiting');
         setQrCodeData(null);
+        setConnectionError(null);
         
         // Update instance status in Supabase
         if (user?.id) {
@@ -188,6 +207,70 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const cancelConnection = async (): Promise<void> => {
+    try {
+      if (instanceName) {
+        await whatsappService.logout(instanceName);
+      }
+      setConnectionStatus('waiting');
+      setQrCodeData(null);
+      setConnectionError(null);
+    } catch (error) {
+      console.error("Error in cancelConnection:", error);
+    }
+  };
+
+  const completeConnection = (phoneNumber?: string): void => {
+    setConnectionStatus('connected');
+    
+    // Update instance status in Supabase if user exists
+    if (user?.id && instanceName) {
+      supabase
+        .from('whatsapp_instances')
+        .update({ 
+          status: 'connected',
+          phone_number: phoneNumber || null
+        })
+        .eq('name', instanceName)
+        .eq('user_id', user.id)
+        .then(({ error }) => {
+          if (error) {
+            console.error("Error updating instance status:", error);
+          }
+        });
+    }
+    
+    // Show success toast if phone number is available
+    if (phoneNumber) {
+      toast({
+        title: "Connection Successful",
+        description: `Connected to WhatsApp number: ${phoneNumber}`,
+      });
+    }
+  };
+
+  const getConnectionInfo = () => {
+    return {
+      instanceName,
+      instanceData,
+      debugInfo
+    };
+  };
+
+  // Update debug info when relevant state changes
+  useEffect(() => {
+    const newDebugInfo = {
+      connectionStatus,
+      instanceName,
+      hasQrCode: !!qrCodeData,
+      error: connectionError,
+      attemptCount,
+      userId: user?.id || null
+    };
+    
+    setDebugInfo(JSON.stringify(newDebugInfo, null, 2));
+  }, [connectionStatus, instanceName, qrCodeData, connectionError, attemptCount, user?.id]);
+
   return (
     <ConnectionContext.Provider
       value={{
@@ -196,6 +279,13 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
         startConnection,
         checkConnectionStatus,
         disconnect,
+        isLoading,
+        cancelConnection,
+        completeConnection,
+        connectionError,
+        getConnectionInfo,
+        debugInfo,
+        attemptCount
       }}
     >
       {children}
