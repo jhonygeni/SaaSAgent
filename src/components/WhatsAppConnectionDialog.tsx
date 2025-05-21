@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,14 +17,17 @@ import {
   Copy, 
   RefreshCw,
   Bug,
-  ArrowRight
+  ArrowRight,
+  AlertTriangle
 } from "lucide-react";
 import { useConnection } from "@/context/ConnectionContext";
 import { toast } from "@/hooks/use-toast";
 import { QrCodeDisplay } from "@/components/QrCodeDisplay";
-import { USE_MOCK_DATA } from "@/constants/api";
+import { USE_MOCK_DATA, EVOLUTION_API_URL } from "@/constants/api";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { whatsappService } from "@/services/whatsappService";
+import { Badge } from "@/components/ui/badge";
 
 interface WhatsAppConnectionDialogProps {
   open: boolean;
@@ -58,6 +62,27 @@ export function WhatsAppConnectionDialog({
   const [isValidatingName, setIsValidatingName] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
   const [nameValidated, setNameValidated] = useState(false);
+  const [apiHealthStatus, setApiHealthStatus] = useState<"unknown" | "healthy" | "unhealthy">("unknown");
+  const [retryCount, setRetryCount] = useState(0);
+  
+  // Check API health when dialog opens
+  useEffect(() => {
+    if (open) {
+      checkApiHealth();
+    }
+  }, [open]);
+  
+  // Check API health
+  const checkApiHealth = async () => {
+    try {
+      setApiHealthStatus("unknown");
+      const isHealthy = await whatsappService.checkApiHealth();
+      setApiHealthStatus(isHealthy ? "healthy" : "unhealthy");
+    } catch (error) {
+      console.error("API health check failed:", error);
+      setApiHealthStatus("unhealthy");
+    }
+  };
   
   // Effect to validate instance name when it changes
   useEffect(() => {
@@ -90,12 +115,27 @@ export function WhatsAppConnectionDialog({
   useEffect(() => {
     const initiateConnection = async () => {
       if (open && !hasInitiatedConnection && connectionStatus === "waiting" && !qrCodeData && !isLoading) {
+        // Don't auto-start if API is unhealthy
+        if (apiHealthStatus === "unhealthy") {
+          console.log("API is unhealthy, skipping automatic connection start");
+          return;
+        }
+        
         console.log("Starting WhatsApp connection process automatically");
         setHasInitiatedConnection(true);
         try {
+          // Create a more unique instance name to avoid conflicts
+          // Combine agent ID with timestamp and random string
+          const timestamp = Date.now().toString(36);
+          const randomStr = Math.random().toString(36).substring(2, 6);
+          
           // If we have an agentId, use it for the instance name
-          const instanceNameSuffix = agentId ? `_${agentId.substring(0, 8)}` : '';
-          const result = await startConnection(`agent${instanceNameSuffix}`);
+          const instanceBase = agentId ? `a_${agentId.substring(0, 6)}` : 'agent';
+          const instanceName = `${instanceBase}_${timestamp}_${randomStr}`;
+          
+          console.log(`Using dynamic instance name: ${instanceName}`);
+          
+          const result = await startConnection(instanceName);
           if (result) {
             console.log("Connection started successfully, QR code received");
           } else {
@@ -112,8 +152,10 @@ export function WhatsAppConnectionDialog({
       }
     };
     
-    initiateConnection();
-  }, [open, hasInitiatedConnection, connectionStatus, qrCodeData, isLoading, startConnection, agentId]);
+    // Delay slightly to ensure API health check completes first
+    const timer = setTimeout(initiateConnection, 500);
+    return () => clearTimeout(timer);
+  }, [open, hasInitiatedConnection, connectionStatus, qrCodeData, isLoading, startConnection, agentId, apiHealthStatus]);
 
   // Reset state when dialog closes
   useEffect(() => {
@@ -122,6 +164,7 @@ export function WhatsAppConnectionDialog({
       setCustomInstanceName("");
       setNameValidated(false);
       setNameError(null);
+      setRetryCount(0);
     }
   }, [open]);
 
@@ -196,13 +239,27 @@ export function WhatsAppConnectionDialog({
     }
   };
 
-  // Handle retry button click
+  // Handle retry button click with incremental retry counter
   const handleRetry = async () => {
     setHasInitiatedConnection(true);
+    setRetryCount(prevCount => prevCount + 1);
+    
     try {
+      // Check API health first
+      await checkApiHealth();
+      
+      // Create a more unique instance name for the retry to avoid conflict
+      const timestamp = Date.now().toString(36);
+      const randomStr = Math.random().toString(36).substring(2, 6);
+      const retryNum = retryCount + 1;
+      
       // If we have an agentId, use it for the instance name
-      const instanceNameSuffix = agentId ? `_${agentId.substring(0, 8)}` : '';
-      const result = await startConnection(`agent${instanceNameSuffix}`);
+      const instanceBase = agentId ? `a_${agentId.substring(0, 6)}` : 'retry';
+      const instanceName = `${instanceBase}_${timestamp}_${randomStr}_r${retryNum}`;
+      
+      console.log(`Retry #${retryNum}: Using dynamic instance name: ${instanceName}`);
+      
+      const result = await startConnection(instanceName);
       if (result) {
         console.log("Connection retry initiated successfully");
       } else {
@@ -278,11 +335,40 @@ export function WhatsAppConnectionDialog({
     return "Conecte seu WhatsApp para que o agente possa enviar e receber mensagens.";
   };
 
+  // Render API health status badge
+  const renderApiHealthBadge = () => {
+    if (apiHealthStatus === "unknown") {
+      return (
+        <Badge variant="outline" className="ml-2">
+          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+          Verificando API
+        </Badge>
+      );
+    } else if (apiHealthStatus === "healthy") {
+      return (
+        <Badge variant="outline" className="ml-2 bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800">
+          <CheckCircle className="h-3 w-3 mr-1" />
+          API Conectada
+        </Badge>
+      );
+    } else {
+      return (
+        <Badge variant="outline" className="ml-2 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800">
+          <AlertCircle className="h-3 w-3 mr-1" />
+          API Offline
+        </Badge>
+      );
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleDialogClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{getDialogTitle()}</DialogTitle>
+          <div className="flex items-center">
+            <DialogTitle>{getDialogTitle()}</DialogTitle>
+            {renderApiHealthBadge()}
+          </div>
           <DialogDescription>
             {getDialogDescription()}
             {USE_MOCK_DATA && (
@@ -292,6 +378,35 @@ export function WhatsAppConnectionDialog({
             )}
           </DialogDescription>
         </DialogHeader>
+
+        {apiHealthStatus === "unhealthy" && (
+          <div className="bg-red-50 border border-red-200 rounded p-3 mb-4">
+            <div className="flex items-start">
+              <AlertTriangle className="h-5 w-5 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-red-800">API Não Acessível</p>
+                <p className="text-xs text-red-700 mt-1">
+                  Não foi possível estabelecer conexão com o servidor WhatsApp. Verifique:
+                </p>
+                <ul className="text-xs text-red-700 mt-1 list-disc list-inside">
+                  <li>Sua chave de API está configurada corretamente</li>
+                  <li>O servidor WhatsApp está online ({EVOLUTION_API_URL})</li>
+                  <li>Sua rede tem acesso ao servidor</li>
+                </ul>
+                <div className="mt-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="bg-white text-red-700 border-red-300"
+                    onClick={checkApiHealth}
+                  >
+                    <RefreshCw className="h-3 w-3 mr-2" /> Verificar Novamente
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-col items-center justify-center py-6 space-y-6">
           {connectionStatus === "failed" && connectionError?.includes("already in use") && (
@@ -400,6 +515,9 @@ export function WhatsAppConnectionDialog({
                   <p className="text-xs text-muted-foreground">
                     Instância: {getConnectionInfo().instanceName}
                   </p>
+                  <p className="text-xs text-muted-foreground">
+                    Status API: {apiHealthStatus}
+                  </p>
                   
                   {debugInfo && (
                     <div className="mt-2 p-2 bg-muted rounded-sm">
@@ -464,6 +582,15 @@ export function WhatsAppConnectionDialog({
                 </p>
               </div>
               
+              {connectionError?.includes("Authentication failed") && (
+                <div className="w-full bg-red-50 p-3 rounded-md text-sm text-red-800">
+                  <p className="font-medium">Erro de autenticação</p>
+                  <p className="text-xs mt-1">
+                    Verifique se a chave de API está configurada corretamente no servidor.
+                  </p>
+                </div>
+              )}
+              
               {showDebugInfo && (
                 <div className="w-full border rounded-md p-3 bg-red-50/50 mt-2">
                   <div className="flex justify-between items-center mb-1">
@@ -477,6 +604,13 @@ export function WhatsAppConnectionDialog({
                       </Button>
                     </div>
                   </div>
+                  
+                  <p className="text-xs text-muted-foreground">
+                    API Status: {apiHealthStatus}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    API URL: {EVOLUTION_API_URL}
+                  </p>
                   
                   {debugInfo && (
                     <div className="mt-2 p-2 bg-muted rounded-sm">
@@ -523,6 +657,7 @@ export function WhatsAppConnectionDialog({
             <Button 
               onClick={handleRetry}
               className="w-full sm:w-auto"
+              disabled={apiHealthStatus === "unhealthy"}
             >
               Tentar novamente
             </Button>

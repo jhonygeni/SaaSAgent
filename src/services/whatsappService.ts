@@ -1,4 +1,5 @@
-import { EVOLUTION_API_URL, EVOLUTION_API_KEY, ENDPOINTS, USE_MOCK_DATA, MOCK_QR_CODE, USE_BEARER_AUTH } from '../constants/api';
+
+import { EVOLUTION_API_URL, EVOLUTION_API_KEY, ENDPOINTS, USE_MOCK_DATA, MOCK_QR_CODE, USE_BEARER_AUTH, MAX_CONNECTION_RETRIES, RETRY_DELAY_MS } from '../constants/api';
 import { supabase } from '@/integrations/supabase/client';
 
 interface WhatsAppInstanceRequest {
@@ -43,6 +44,24 @@ const formatEndpoint = (endpoint: string, params: Record<string, string>): strin
   return formattedEndpoint;
 };
 
+// Helper function to create API headers with proper authorization
+const createHeaders = (contentType: boolean = false): HeadersInit => {
+  const headers: HeadersInit = {};
+  
+  if (contentType) {
+    headers['Content-Type'] = 'application/json';
+  }
+  
+  // Use apikey header instead of Bearer token based on config
+  if (USE_BEARER_AUTH) {
+    headers['Authorization'] = `Bearer ${EVOLUTION_API_KEY}`;
+  } else {
+    headers['apikey'] = EVOLUTION_API_KEY;
+  }
+  
+  return headers;
+};
+
 // Store WhatsApp instance data in Supabase
 const storeInstanceData = async (userId: string, instanceData: WhatsAppInstanceResponse): Promise<void> => {
   try {
@@ -71,8 +90,88 @@ const storeInstanceData = async (userId: string, instanceData: WhatsAppInstanceR
   }
 };
 
+// Retry function with exponential backoff
+const retryOperation = async <T>(
+  operation: () => Promise<T>, 
+  maxRetries: number = MAX_CONNECTION_RETRIES, 
+  delay: number = RETRY_DELAY_MS,
+  retryCondition?: (error: any) => boolean
+): Promise<T> => {
+  let lastError: any;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      console.log(`Attempt ${attempt + 1}/${maxRetries} failed:`, error);
+      
+      // If retryCondition is provided, check if we should retry
+      if (retryCondition && !retryCondition(error)) {
+        throw error; // Don't retry if condition says not to
+      }
+      
+      lastError = error;
+      
+      // Don't wait on the last attempt
+      if (attempt < maxRetries - 1) {
+        // Exponential backoff with jitter
+        const backoffDelay = delay * Math.pow(1.5, attempt) * (0.9 + Math.random() * 0.2);
+        console.log(`Retrying in ${Math.round(backoffDelay)}ms...`);
+        await new Promise(resolve => setTimeout(resolve, backoffDelay));
+      }
+    }
+  }
+  
+  throw lastError;
+};
+
+// Check if the API is accessible, useful for debugging connection issues
+const checkApiHealth = async (): Promise<boolean> => {
+  try {
+    // First, try the health endpoint if available
+    const healthUrl = `${EVOLUTION_API_URL}${ENDPOINTS.healthCheck}`;
+    const headers = createHeaders();
+    
+    try {
+      const response = await fetch(healthUrl, { 
+        method: 'GET',
+        headers: headers
+      });
+      
+      if (response.ok) {
+        console.log("API health check successful");
+        return true;
+      }
+    } catch (e) {
+      console.log("Health endpoint not available, trying instances endpoint");
+    }
+    
+    // If health endpoint fails, try instances as a fallback
+    const instancesUrl = `${EVOLUTION_API_URL}${ENDPOINTS.instances}`;
+    const instancesResponse = await fetch(instancesUrl, {
+      method: 'GET',
+      headers: headers
+    });
+    
+    // Even a 404 could mean the API is accessible but endpoint not found
+    if (instancesResponse.status !== 403 && instancesResponse.status !== 401) {
+      console.log("API accessibility check successful (instances endpoint)");
+      return true;
+    }
+    
+    console.error("API health check failed, possibly authentication issue");
+    return false;
+  } catch (error) {
+    console.error("API health check failed with exception:", error);
+    return false;
+  }
+};
+
 // WhatsApp connection service
 export const whatsappService = {
+  // Check API health first
+  checkApiHealth,
+  
   // Create a WhatsApp instance
   createInstance: async (instanceName: string, userId?: string): Promise<any> => {
     console.log(`Creating WhatsApp instance: ${instanceName}`);
@@ -122,6 +221,12 @@ export const whatsappService = {
     }
     
     try {
+      // First check API health
+      const isApiHealthy = await checkApiHealth();
+      if (!isApiHealthy) {
+        throw new Error("API server not accessible or authentication failed. Please check your API key and try again.");
+      }
+      
       const requestBody: WhatsAppInstanceRequest = {
         instanceName: formattedInstanceName,
         integration: "WHATSAPP-BAILEYS"
@@ -129,64 +234,58 @@ export const whatsappService = {
       
       console.log("Request payload for instance creation:", JSON.stringify(requestBody));
       
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-      
-      // Use apikey header instead of Bearer token
-      if (USE_BEARER_AUTH) {
-        headers['Authorization'] = `Bearer ${EVOLUTION_API_KEY}`;
-      } else {
-        headers['apikey'] = EVOLUTION_API_KEY;
-      }
+      const headers = createHeaders(true);
       
       console.log("API URL:", `${EVOLUTION_API_URL}${ENDPOINTS.instanceCreate}`);
       console.log("Using headers:", JSON.stringify(headers, null, 2));
       
-      const response = await fetch(`${EVOLUTION_API_URL}${ENDPOINTS.instanceCreate}`, {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify(requestBody)
-      });
-      
-      console.log("Instance creation response status:", response.status);
-      
-      if (!response.ok) {
-        // Try to parse error response
-        let errorData;
-        try {
-          errorData = await response.json();
-        } catch (e) {
-          errorData = await response.text();
-        }
-        console.error(`Instance creation failed with status ${response.status}:`, errorData);
+      // Use retry mechanism for instance creation
+      return await retryOperation(async () => {
+        const response = await fetch(`${EVOLUTION_API_URL}${ENDPOINTS.instanceCreate}`, {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify(requestBody)
+        });
         
-        // More specific error for duplicate names
-        if (response.status === 403 && errorData?.response?.message) {
-          const messages = Array.isArray(errorData.response.message) 
-            ? errorData.response.message 
-            : [errorData.response.message];
+        console.log("Instance creation response status:", response.status);
+        
+        if (!response.ok) {
+          // Try to parse error response
+          let errorData;
+          try {
+            errorData = await response.json();
+          } catch (e) {
+            errorData = await response.text();
+          }
+          console.error(`Instance creation failed with status ${response.status}:`, errorData);
           
-          for (const msg of messages) {
-            if (typeof msg === 'string' && msg.includes('already in use')) {
-              throw new Error(`This name "${formattedInstanceName}" is already in use.`);
+          // More specific error for duplicate names
+          if (response.status === 403 && errorData?.response?.message) {
+            const messages = Array.isArray(errorData.response.message) 
+              ? errorData.response.message 
+              : [errorData.response.message];
+            
+            for (const msg of messages) {
+              if (typeof msg === 'string' && msg.includes('already in use')) {
+                throw new Error(`This name "${formattedInstanceName}" is already in use.`);
+              }
             }
           }
+          
+          throw new Error(`API responded with status ${response.status}: ${JSON.stringify(errorData)}`);
         }
         
-        throw new Error(`API responded with status ${response.status}: ${JSON.stringify(errorData)}`);
-      }
-      
-      const data = await response.json();
-      console.log("Instance creation successful response:", data);
-      
-      // Store the complete instance data in Supabase if userId is provided
-      if (userId) {
-        await storeInstanceData(userId, data);
-      }
-      
-      // Return the data - we'll immediately get the QR code in a separate call
-      return data;
+        const data = await response.json();
+        console.log("Instance creation successful response:", data);
+        
+        // Store the complete instance data in Supabase if userId is provided
+        if (userId) {
+          await storeInstanceData(userId, data);
+        }
+        
+        // Return the data - we'll immediately get the QR code in a separate call
+        return data;
+      }, 3, 2000);
     } catch (error) {
       console.error("Error creating WhatsApp instance:", error);
       throw error;
@@ -212,39 +311,49 @@ export const whatsappService = {
         };
       }
       
-      const headers: HeadersInit = {};
-      
-      if (USE_BEARER_AUTH) {
-        headers['Authorization'] = `Bearer ${EVOLUTION_API_KEY}`;
-      } else {
-        headers['apikey'] = EVOLUTION_API_KEY;
-      }
+      const headers = createHeaders();
       
       // Use the correct endpoint for connection and QR code
       const endpoint = formatEndpoint(ENDPOINTS.instanceConnect, { instanceName });
       console.log("Connect instance URL:", `${EVOLUTION_API_URL}${endpoint}`);
       
-      const response = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
-        method: 'GET',
-        headers: headers
-      });
-      
-      console.log("Instance connection response status:", response.status);
-      
-      if (!response.ok) {
-        let errorData;
-        try {
-          errorData = await response.json();
-        } catch (e) {
-          errorData = await response.text();
+      // Use retry mechanism for connection
+      return await retryOperation(async () => {
+        const response = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
+          method: 'GET',
+          headers: headers
+        });
+        
+        console.log("Instance connection response status:", response.status);
+        
+        if (!response.ok) {
+          let errorData;
+          try {
+            errorData = await response.json();
+          } catch (e) {
+            errorData = await response.text();
+          }
+          console.error(`Instance connection failed with status ${response.status}:`, errorData);
+          
+          // Special handling for authentication errors
+          if (response.status === 403 || response.status === 401) {
+            throw new Error("Authentication failed. Please check your API key and try again.");
+          }
+          
+          throw new Error(`API responded with status ${response.status}: ${JSON.stringify(errorData)}`);
         }
-        console.error(`Instance connection failed with status ${response.status}:`, errorData);
-        throw new Error(`API responded with status ${response.status}: ${JSON.stringify(errorData)}`);
-      }
-      
-      const data = await response.json();
-      console.log("Instance connection successful:", data);
-      return data;
+        
+        const data = await response.json();
+        console.log("Instance connection successful:", data);
+        
+        // Check if we have a QR code or if connection is already established
+        if (data.qrcode || data.pairingCode || (data.instance && data.instance.state === "open")) {
+          return data;
+        } else {
+          // If we don't have what we need, try again
+          throw new Error("QR code or pairing code not received in response");
+        }
+      }, 3, 2000);
     } catch (error) {
       console.error("Error connecting to WhatsApp instance:", error);
       throw error;
@@ -256,7 +365,7 @@ export const whatsappService = {
     return whatsappService.connectToInstance(instanceName);
   },
   
-  // Check connection status - UPDATED to use correct endpoint
+  // Check connection status - UPDATED to use correct endpoint with improved error handling
   getConnectionState: async (instanceName: string): Promise<any> => {
     try {
       console.log(`Checking connection state for instance: ${instanceName}`);
@@ -270,13 +379,7 @@ export const whatsappService = {
         };
       }
       
-      const headers: HeadersInit = {};
-      
-      if (USE_BEARER_AUTH) {
-        headers['Authorization'] = `Bearer ${EVOLUTION_API_KEY}`;
-      } else {
-        headers['apikey'] = EVOLUTION_API_KEY;
-      }
+      const headers = createHeaders();
       
       // Use the corrected endpoint with proper URL path parameter
       const endpoint = formatEndpoint(ENDPOINTS.connectionState, { instanceName });
@@ -284,27 +387,39 @@ export const whatsappService = {
       
       console.log("Connection state URL:", url);
       
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: headers
-      });
-      
-      console.log("Connection state response status:", response.status);
-      
-      if (!response.ok) {
-        let errorData;
-        try {
-          errorData = await response.json();
-        } catch (e) {
-          errorData = await response.text();
+      // Use retry for getting connection state
+      return await retryOperation(async () => {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: headers
+        });
+        
+        console.log("Connection state response status:", response.status);
+        
+        if (!response.ok) {
+          let errorData;
+          try {
+            errorData = await response.json();
+          } catch (e) {
+            errorData = await response.text();
+          }
+          
+          // Special handling for authentication errors
+          if (response.status === 403 || response.status === 401) {
+            throw new Error("Authentication failed. Please check your API key and try again.");
+          }
+          
+          console.error(`Connection state check failed with status ${response.status}:`, errorData);
+          throw new Error(`API responded with status ${response.status}: ${JSON.stringify(errorData)}`);
         }
-        console.error(`Connection state check failed with status ${response.status}:`, errorData);
-        throw new Error(`API responded with status ${response.status}: ${JSON.stringify(errorData)}`);
-      }
-      
-      const data = await response.json();
-      console.log("Connection state retrieved:", data);
-      return data;
+        
+        const data = await response.json();
+        console.log("Connection state retrieved:", data);
+        return data;
+      }, 3, 2000, (error) => {
+        // Only retry on network errors or certain status codes
+        return !(error instanceof Error && error.message.includes("Authentication failed"));
+      });
     } catch (error) {
       console.error("Error checking connection state:", error);
       throw error;
@@ -333,39 +448,36 @@ export const whatsappService = {
         };
       }
       
-      const headers: HeadersInit = {};
-      
-      if (USE_BEARER_AUTH) {
-        headers['Authorization'] = `Bearer ${EVOLUTION_API_KEY}`;
-      } else {
-        headers['apikey'] = EVOLUTION_API_KEY;
-      }
+      const headers = createHeaders();
       
       // Use query parameter for instance info endpoint
       const url = new URL(`${EVOLUTION_API_URL}${ENDPOINTS.instanceInfo}`);
       url.searchParams.append('instanceName', instanceName);
       
-      const response = await fetch(url.toString(), {
-        method: 'GET',
-        headers: headers
-      });
-      
-      console.log("Instance info response status:", response.status);
-      
-      if (!response.ok) {
-        let errorData;
-        try {
-          errorData = await response.json();
-        } catch (e) {
-          errorData = await response.text();
+      // Use retry for getting instance info
+      return await retryOperation(async () => {
+        const response = await fetch(url.toString(), {
+          method: 'GET',
+          headers: headers
+        });
+        
+        console.log("Instance info response status:", response.status);
+        
+        if (!response.ok) {
+          let errorData;
+          try {
+            errorData = await response.json();
+          } catch (e) {
+            errorData = await response.text();
+          }
+          console.error(`Instance info retrieval failed with status ${response.status}:`, errorData);
+          throw new Error(`API responded with status ${response.status}: ${JSON.stringify(errorData)}`);
         }
-        console.error(`Instance info retrieval failed with status ${response.status}:`, errorData);
-        throw new Error(`API responded with status ${response.status}: ${JSON.stringify(errorData)}`);
-      }
-      
-      const data = await response.json();
-      console.log("Instance info retrieved:", data);
-      return data;
+        
+        const data = await response.json();
+        console.log("Instance info retrieved:", data);
+        return data;
+      }, 3, 2000);
     } catch (error) {
       console.error("Error getting instance info:", error);
       throw error;
@@ -390,35 +502,32 @@ export const whatsappService = {
         };
       }
       
-      const headers: HeadersInit = {};
+      const headers = createHeaders();
       
-      if (USE_BEARER_AUTH) {
-        headers['Authorization'] = `Bearer ${EVOLUTION_API_KEY}`;
-      } else {
-        headers['apikey'] = EVOLUTION_API_KEY;
-      }
-      
-      const response = await fetch(`${EVOLUTION_API_URL}${ENDPOINTS.instances}`, {
-        method: 'GET',
-        headers: headers
-      });
-      
-      console.log("List instances response status:", response.status);
-      
-      if (!response.ok) {
-        let errorData;
-        try {
-          errorData = await response.json();
-        } catch (e) {
-          errorData = await response.text();
+      // Use retry for listing instances
+      return await retryOperation(async () => {
+        const response = await fetch(`${EVOLUTION_API_URL}${ENDPOINTS.instances}`, {
+          method: 'GET',
+          headers: headers
+        });
+        
+        console.log("List instances response status:", response.status);
+        
+        if (!response.ok) {
+          let errorData;
+          try {
+            errorData = await response.json();
+          } catch (e) {
+            errorData = await response.text();
+          }
+          console.error(`List instances failed with status ${response.status}:`, errorData);
+          throw new Error(`API responded with status ${response.status}: ${JSON.stringify(errorData)}`);
         }
-        console.error(`List instances failed with status ${response.status}:`, errorData);
-        throw new Error(`API responded with status ${response.status}: ${JSON.stringify(errorData)}`);
-      }
-      
-      const data = await response.json();
-      console.log("Instances list:", data);
-      return data;
+        
+        const data = await response.json();
+        console.log("Instances list:", data);
+        return data;
+      }, 3, 2000);
     } catch (error) {
       console.error("Error listing instances:", error);
       throw error;
@@ -451,13 +560,7 @@ export const whatsappService = {
         };
       }
       
-      const headers: HeadersInit = {};
-      
-      if (USE_BEARER_AUTH) {
-        headers['Authorization'] = `Bearer ${EVOLUTION_API_KEY}`;
-      } else {
-        headers['apikey'] = EVOLUTION_API_KEY;
-      }
+      const headers = createHeaders();
       
       // Build URL with optional query parameters
       const url = new URL(`${EVOLUTION_API_URL}${ENDPOINTS.fetchInstances}`);
@@ -473,27 +576,30 @@ export const whatsappService = {
       
       console.log("Fetch instances URL:", url.toString());
       
-      const response = await fetch(url.toString(), {
-        method: 'GET',
-        headers: headers
-      });
-      
-      console.log("Fetch instances response status:", response.status);
-      
-      if (!response.ok) {
-        let errorData;
-        try {
-          errorData = await response.json();
-        } catch (e) {
-          errorData = await response.text();
+      // Use retry for fetching instances
+      return await retryOperation(async () => {
+        const response = await fetch(url.toString(), {
+          method: 'GET',
+          headers: headers
+        });
+        
+        console.log("Fetch instances response status:", response.status);
+        
+        if (!response.ok) {
+          let errorData;
+          try {
+            errorData = await response.json();
+          } catch (e) {
+            errorData = await response.text();
+          }
+          console.error(`Fetch instances failed with status ${response.status}:`, errorData);
+          throw new Error(`API responded with status ${response.status}: ${JSON.stringify(errorData)}`);
         }
-        console.error(`Fetch instances failed with status ${response.status}:`, errorData);
-        throw new Error(`API responded with status ${response.status}: ${JSON.stringify(errorData)}`);
-      }
-      
-      const data = await response.json();
-      console.log("Instances fetched successfully:", data);
-      return data;
+        
+        const data = await response.json();
+        console.log("Instances fetched successfully:", data);
+        return data;
+      }, 3, 2000);
     } catch (error) {
       console.error("Error fetching instances:", error);
       throw error;
@@ -510,13 +616,7 @@ export const whatsappService = {
         return true;
       }
       
-      const headers: HeadersInit = {};
-      
-      if (USE_BEARER_AUTH) {
-        headers['Authorization'] = `Bearer ${EVOLUTION_API_KEY}`;
-      } else {
-        headers['apikey'] = EVOLUTION_API_KEY;
-      }
+      const headers = createHeaders();
       
       // Use query parameter for logout endpoint
       const url = new URL(`${EVOLUTION_API_URL}${ENDPOINTS.instanceLogout}`);

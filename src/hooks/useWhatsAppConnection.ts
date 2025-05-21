@@ -1,9 +1,9 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { ConnectionStatus } from '../types';
 import { whatsappService } from '../services/whatsappService';
 import { useToast } from './use-toast';
 import { useUser } from '../context/UserContext';
-import { USE_MOCK_DATA } from '../constants/api';
+import { USE_MOCK_DATA, PREVENT_CREDIT_CONSUMPTION_ON_FAILURE, MAX_CONNECTION_RETRIES } from '../constants/api';
 
 export function useWhatsAppConnection() {
   const { user } = useUser();
@@ -17,6 +17,11 @@ export function useWhatsAppConnection() {
   const [attemptCount, setAttemptCount] = useState(0);
   const [debugInfo, setDebugInfo] = useState<string | null>(null);
   const [pairingCode, setPairingCode] = useState<string | null>(null);
+  const [creditsConsumed, setCreditsConsumed] = useState(false);
+  
+  // Track connection attempts to avoid consuming credits on retries
+  const connectionAttemptsRef = useRef<Record<string, number>>({});
+  const createdInstancesRef = useRef<Set<string>>(new Set());
 
   // Clean up polling on unmount
   useEffect(() => {
@@ -39,7 +44,9 @@ export function useWhatsAppConnection() {
       return "default_instance";
     }
 
-    return `user_${user.id}`;
+    // Add random suffix to avoid conflicts
+    const randomSuffix = Math.random().toString(36).substring(2, 7);
+    return `user_${user.id.substring(0, 8)}_${randomSuffix}`;
   }, [user]);
 
   // Validate if an instance name is available and valid
@@ -60,6 +67,12 @@ export function useWhatsAppConnection() {
         return { valid: false, message: "Nome não pode ter mais de 20 caracteres" };
       }
       
+      // First check API health to avoid unnecessary API calls
+      const isApiHealthy = await whatsappService.checkApiHealth();
+      if (!isApiHealthy) {
+        return { valid: false, message: "API não está acessível. Verifique sua conexão." };
+      }
+      
       // Check if name is already in use by listing all instances
       try {
         const instances = await whatsappService.listInstances();
@@ -72,6 +85,7 @@ export function useWhatsAppConnection() {
       } catch (error) {
         console.error("Error checking instance name availability:", error);
         // Continue anyway, we'll deal with conflicts later if they happen
+        return { valid: false, message: "Erro ao verificar disponibilidade do nome" };
       }
       
       return { valid: true };
@@ -120,16 +134,40 @@ export function useWhatsAppConnection() {
       attemptCount,
       mockMode: USE_MOCK_DATA,
       pairingCode,
+      creditsConsumed,
+      apiHealth: "checking...",
       ...newInfo
     };
-    setDebugInfo(JSON.stringify(debugData, null, 2));
+    
+    // Check API health in background
+    whatsappService.checkApiHealth().then(isHealthy => {
+      const updatedDebugData = {
+        ...debugData,
+        apiHealth: isHealthy ? "healthy" : "unhealthy"
+      };
+      setDebugInfo(JSON.stringify(updatedDebugData, null, 2));
+    }).catch(error => {
+      const updatedDebugData = {
+        ...debugData,
+        apiHealth: "error checking",
+        apiHealthError: error instanceof Error ? error.message : String(error)
+      };
+      setDebugInfo(JSON.stringify(updatedDebugData, null, 2));
+    });
+    
     console.log("Debug info updated:", debugData);
-  }, [getInstanceName, instanceData, connectionStatus, qrCodeData, connectionError, attemptCount, pairingCode]);
+  }, [getInstanceName, instanceData, connectionStatus, qrCodeData, connectionError, attemptCount, pairingCode, creditsConsumed]);
 
   // Handle successful connection
   const handleSuccessfulConnection = useCallback(async (instanceName: string) => {
     setConnectionStatus("connected");
     clearPolling();
+    
+    // Mark credits as consumed only on successful connection
+    if (PREVENT_CREDIT_CONSUMPTION_ON_FAILURE && !creditsConsumed) {
+      setCreditsConsumed(true);
+      console.log("Credits consumed on successful connection");
+    }
     
     try {
       const instanceInfo = await whatsappService.getInstanceInfo(instanceName);
@@ -153,7 +191,7 @@ export function useWhatsAppConnection() {
       // Still mark as connected even if we can't get the phone info
       completeConnection();
     }
-  }, [clearPolling, updateDebugInfo]);
+  }, [clearPolling, updateDebugInfo, creditsConsumed]);
 
   // Start polling for connection status - IMPROVED with proper status check
   const startStatusPolling = useCallback(async (instanceName: string) => {
@@ -200,6 +238,25 @@ export function useWhatsAppConnection() {
           }
         } else if (state === "close" || state === "disconnected") {
           console.log("Connection is closed or disconnected");
+          
+          // If it's disconnected for more than a few attempts, refresh the QR code
+          if (pollAttempts > 5 && pollAttempts % 5 === 0) {
+            try {
+              console.log("Refreshing QR code due to disconnected state");
+              const freshQrData = await whatsappService.getQrCode(instanceName);
+              
+              if (freshQrData?.qrcode) {
+                console.log("New QR code received");
+                setQrCodeData(freshQrData.qrcode);
+                
+                if (freshQrData.pairingCode) {
+                  setPairingCode(freshQrData.pairingCode);
+                }
+              }
+            } catch (error) {
+              console.error("Error refreshing QR code:", error);
+            }
+          }
         }
         
         // Stop polling after max attempts to avoid infinite polling
@@ -217,6 +274,16 @@ export function useWhatsAppConnection() {
         updateDebugInfo({ 
           pollError: error instanceof Error ? error.message : String(error) 
         });
+        
+        // On authentication errors, stop polling immediately
+        if (error instanceof Error && 
+            (error.message.includes("Authentication failed") || 
+             error.message.includes("403") || 
+             error.message.includes("401"))) {
+          clearPolling();
+          setConnectionError("Authentication failed. Please check your API key and try again.");
+          setConnectionStatus("failed");
+        }
       }
     }, 3000);
     
@@ -226,6 +293,12 @@ export function useWhatsAppConnection() {
   // Fetch QR code for WhatsApp instance - using the correct endpoint
   const fetchQrCode = useCallback(async (instanceName: string): Promise<string | null> => {
     try {
+      // First check if the API is accessible
+      const isApiHealthy = await whatsappService.checkApiHealth();
+      if (!isApiHealthy) {
+        throw new Error("API server not accessible or authentication failed. Please check your API key and try again.");
+      }
+      
       // Use the updated connect/instanceName endpoint that returns QR code
       const qrData = await whatsappService.getQrCode(instanceName);
       console.log("QR code response:", qrData);
@@ -260,15 +333,55 @@ export function useWhatsAppConnection() {
     console.log(`Starting WhatsApp connection for instance: ${instanceName}`);
     updateDebugInfo({ action: "initialize", instanceName });
     
+    // Track connection attempts to prevent credit consumption on retries
+    if (!connectionAttemptsRef.current[instanceName]) {
+      connectionAttemptsRef.current[instanceName] = 0;
+    }
+    connectionAttemptsRef.current[instanceName]++;
+    
+    // Only consume credits on the first attempt if enabled
+    const shouldConsumeCredits = !PREVENT_CREDIT_CONSUMPTION_ON_FAILURE || 
+                               connectionAttemptsRef.current[instanceName] <= 1;
+    
+    console.log(`Attempt #${connectionAttemptsRef.current[instanceName]} for instance ${instanceName}. Credits will${shouldConsumeCredits ? '' : ' not'} be consumed on failure.`);
+    
     try {
-      // 1. First, create a new instance using POST to /instance/create
-      console.log("Step 1: Creating instance...");
-      const createData = await whatsappService.createInstance(instanceName);
-      console.log("Instance creation response:", createData);
+      // First check if the API is accessible
+      const isApiHealthy = await whatsappService.checkApiHealth();
+      if (!isApiHealthy) {
+        throw new Error("API server not accessible or authentication failed. Please check your API key and try again.");
+      }
       
-      // Save instance data
-      setInstanceData(createData);
-      updateDebugInfo({ createData });
+      // Check if we've already created this instance to avoid duplicate creation
+      const isNewInstance = !createdInstancesRef.current.has(instanceName);
+      
+      // 1. First, create a new instance using POST to /instance/create (only if it's a new instance)
+      let createData;
+      if (isNewInstance) {
+        console.log("Step 1: Creating instance...");
+        try {
+          createData = await whatsappService.createInstance(instanceName);
+          console.log("Instance creation response:", createData);
+          
+          // Add to our tracking set
+          createdInstancesRef.current.add(instanceName);
+          
+          // Save instance data
+          setInstanceData(createData);
+          updateDebugInfo({ createData });
+        } catch (createError: any) {
+          console.error("Error creating instance:", createError);
+          
+          // If instance already exists, we can proceed to get QR code
+          if (createError.message && createError.message.includes("already in use")) {
+            console.log("Instance already exists, will proceed to get QR code");
+          } else {
+            throw createError;
+          }
+        }
+      } else {
+        console.log("Instance already created in this session, skipping creation step");
+      }
       
       // 2. After creation, immediately connect to get the QR code
       console.log("Step 2: Getting QR code...");
@@ -286,6 +399,13 @@ export function useWhatsAppConnection() {
       updateDebugInfo({ 
         initError: error instanceof Error ? error.message : String(error)
       });
+      
+      // Special handling for authentication errors
+      if (error.message && (error.message.includes("Authentication failed") || 
+                           error.message.includes("403") || 
+                           error.message.includes("401"))) {
+        throw new Error("Authentication failed. Please check your API key and try again.");
+      }
       
       // If we get a specific error about instance already existing, try to connect directly
       if (error.message && (error.message.includes("Conflict") || error.message.includes("already in use"))) {
@@ -315,31 +435,65 @@ export function useWhatsAppConnection() {
     setQrCodeData(null);
     setPairingCode(null);
     setAttemptCount(0);
+    setCreditsConsumed(false); // Reset credit consumption tracking
     updateDebugInfo({ action: "startConnection", providedName });
     
-    try {
-      const qrCode = await initializeWhatsAppInstance(providedName);
-      if (!qrCode) {
-        throw new Error("Failed to generate QR code");
-      }
-      return qrCode;
-    } catch (error) {
-      const errorMessage = error instanceof Error 
-        ? error.message 
-        : "Unknown error occurred";
+    // Limit retries to prevent excessive API calls
+    let attempts = 0;
+    const maxAttempts = MAX_CONNECTION_RETRIES;
+    
+    while (attempts < maxAttempts) {
+      attempts++;
+      console.log(`Connection attempt ${attempts}/${maxAttempts}`);
+      
+      try {
+        const qrCode = await initializeWhatsAppInstance(providedName);
+        if (!qrCode) {
+          throw new Error("Failed to generate QR code");
+        }
+        return qrCode;
+      } catch (error) {
+        const errorMessage = error instanceof Error 
+          ? error.message 
+          : "Unknown error occurred";
+          
+        console.error(`Error connecting to WhatsApp (attempt ${attempts}/${maxAttempts}):`, error);
         
-      console.error("Error connecting to WhatsApp:", error);
-      setConnectionError(errorMessage);
-      setConnectionStatus("failed");
-      showErrorToast("Could not initiate connection with WhatsApp. Please try again later.");
-      updateDebugInfo({ 
-        connectionError: errorMessage,
-        connectionStatus: "failed"
-      });
-      return null;
-    } finally {
-      setIsLoading(false);
+        // If it's the last attempt, show the error and mark as failed
+        if (attempts >= maxAttempts) {
+          setConnectionError(errorMessage);
+          setConnectionStatus("failed");
+          showErrorToast("Could not initiate connection with WhatsApp. Please try again later.");
+          updateDebugInfo({ 
+            connectionError: errorMessage,
+            connectionStatus: "failed",
+            attempts
+          });
+          return null;
+        } else {
+          // For authentication errors, fail immediately (no retry)
+          if (errorMessage.includes("Authentication failed") || 
+              errorMessage.includes("403") || 
+              errorMessage.includes("401")) {
+            setConnectionError(errorMessage);
+            setConnectionStatus("failed");
+            showErrorToast("Authentication failed. Please check your API key and try again.");
+            updateDebugInfo({ 
+              connectionError: errorMessage,
+              connectionStatus: "failed",
+              attempts
+            });
+            return null;
+          }
+          
+          // Otherwise wait and retry
+          console.log(`Retrying in ${attempts * 1000}ms...`);
+          await new Promise(resolve => setTimeout(resolve, attempts * 1000));
+        }
+      }
     }
+    
+    return null;
   }, [initializeWhatsAppInstance, showErrorToast, updateDebugInfo]);
 
   // Call API to cancel the connection process - NEVER use during agent creation
@@ -396,6 +550,12 @@ export function useWhatsAppConnection() {
   const fetchUserInstances = useCallback(async () => {
     try {
       setIsLoading(true);
+      // First check if the API is accessible
+      const isApiHealthy = await whatsappService.checkApiHealth();
+      if (!isApiHealthy) {
+        throw new Error("API server not accessible or authentication failed. Please check your API key and try again.");
+      }
+      
       // Use the new fetchInstances method
       const data = await whatsappService.fetchInstances();
       return data?.instances || [];
