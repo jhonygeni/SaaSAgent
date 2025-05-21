@@ -3,7 +3,12 @@ import { ConnectionStatus } from '../types';
 import { whatsappService } from '../services/whatsappService';
 import { useToast } from './use-toast';
 import { useUser } from '../context/UserContext';
-import { USE_MOCK_DATA, PREVENT_CREDIT_CONSUMPTION_ON_FAILURE, MAX_CONNECTION_RETRIES } from '../constants/api';
+import { 
+  USE_MOCK_DATA, 
+  PREVENT_CREDIT_CONSUMPTION_ON_FAILURE, 
+  MAX_CONNECTION_RETRIES,
+  ENDPOINTS 
+} from '../constants/api';
 
 export function useWhatsAppConnection() {
   const { user } = useUser();
