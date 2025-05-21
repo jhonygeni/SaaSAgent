@@ -1,3 +1,4 @@
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useUser } from "@/context/UserContext";
@@ -322,11 +323,14 @@ export function DashboardAnalytics() {
               <CardHeader className="pb-2">
                 <CardTitle className="text-base font-medium">Leads Interessados</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="h-[200px] w-full">
+              <CardContent className="pt-4 pb-6">
+                <div className="h-[220px] w-full">
                   <ChartContainer config={chartConfig}>
                     <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={mockLeadsData}>
+                      <AreaChart 
+                        data={mockLeadsData}
+                        margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                      >
                         <defs>
                           <linearGradient id="leadGradient" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
@@ -334,13 +338,23 @@ export function DashboardAnalytics() {
                           </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                        <XAxis dataKey="dia" className="text-xs" />
-                        <YAxis className="text-xs" />
+                        <XAxis 
+                          dataKey="dia" 
+                          className="text-xs"
+                          padding={{ left: 10, right: 10 }} 
+                        />
+                        <YAxis 
+                          className="text-xs" 
+                          domain={[0, 'dataMax + 1']} 
+                          allowDecimals={false}
+                        />
                         <ChartTooltip content={<ChartTooltipContent />} />
                         <Area 
                           type="monotone" 
                           dataKey="leads" 
+                          name="Leads"
                           stroke="hsl(var(--primary))"
+                          strokeWidth={2}
                           fillOpacity={1}
                           fill="url(#leadGradient)"
                         />
