@@ -85,6 +85,7 @@ export function useInstanceManager() {
       setInstanceData(instanceData);
       
       // Step 2: Immediately configure webhook for this instance
+      console.log("Instance created successfully, now configuring webhook");
       await configureWebhookForInstance(instanceName);
       
       return instanceData;
@@ -143,4 +144,3 @@ export function useInstanceManager() {
     configureWebhookForInstance
   };
 }
-

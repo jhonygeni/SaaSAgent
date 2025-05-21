@@ -1,3 +1,4 @@
+
 import { 
   EVOLUTION_API_URL, 
   EVOLUTION_API_KEY, 
@@ -80,13 +81,15 @@ export const retryOperation = async <T>(
  * Base WhatsApp API client for making requests
  */
 export const apiClient = {
-  baseUrl: EVOLUTION_API_URL,
+  baseUrl: EVOLUTION_API_URL.endsWith('/') ? EVOLUTION_API_URL.slice(0, -1) : EVOLUTION_API_URL,
   
   /**
    * Make a GET request to the API
    */
   async get<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
-    let url = `${this.baseUrl}${endpoint}`;
+    // Ensure endpoint starts with / but remove any trailing / to avoid double slashes
+    const sanitizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    let url = `${this.baseUrl}${sanitizedEndpoint}`;
     
     // Add query parameters if provided
     if (params) {
@@ -154,7 +157,9 @@ export const apiClient = {
    * Make a POST request to the API
    */
   async post<T>(endpoint: string, data: any): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`;
+    // Ensure endpoint starts with / but remove any trailing / to avoid double slashes
+    const sanitizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const url = `${this.baseUrl}${sanitizedEndpoint}`;
     const headers = createHeaders(true);
     console.log(`Making POST request to: ${url}`, { headers, data });
     
@@ -212,7 +217,9 @@ export const apiClient = {
    * Make a DELETE request to the API
    */
   async delete<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
-    let url = `${this.baseUrl}${endpoint}`;
+    // Ensure endpoint starts with / but remove any trailing / to avoid double slashes
+    const sanitizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    let url = `${this.baseUrl}${sanitizedEndpoint}`;
     
     // Add query parameters if provided
     if (params) {

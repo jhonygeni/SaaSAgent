@@ -93,6 +93,7 @@ export function useConnectionPoller(
         // The API returns different field names in different contexts, so we check multiple fields
         const state = stateData?.state || stateData?.status;
         
+        // If state is connected/open/confirmed, stop polling and mark as connected
         if (state === "open" || state === "connected" || state === "confirmed") {
           console.log("Connection detected as CONNECTED!");
           const phoneNumber = await handleSuccessfulConnection(instanceName);
@@ -143,13 +144,17 @@ export function useConnectionPoller(
           pollError: error instanceof Error ? error.message : String(error) 
         });
         
-        // On authentication errors, stop polling immediately
+        // On authentication errors or 404 errors, stop polling immediately
         if (error instanceof Error && 
             (error.message.includes("Authentication failed") || 
              error.message.includes("403") || 
-             error.message.includes("401"))) {
+             error.message.includes("401") ||
+             error.message.includes("404"))) {
           clearPolling();
-          status.setConnectionError("Authentication failed. Please check your API key and try again.");
+          const errorMsg = error.message.includes("404") 
+            ? "Connection endpoint not found. Please check your instance name and try again."
+            : "Authentication failed. Please check your API key and try again.";
+          status.setConnectionError(errorMsg);
           status.setConnectionStatus("failed");
         }
       }

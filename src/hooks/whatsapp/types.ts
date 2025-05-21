@@ -1,4 +1,3 @@
-
 /**
  * Types for the WhatsApp connection functionality
  */
@@ -48,9 +47,8 @@ export interface UseWhatsAppStatus {
   showErrorToast: (message: string) => void;
   showSuccessToast: (phoneNumber?: string) => void;
   clearPolling: () => void;
-  startStatusPolling: (instanceName: string) => NodeJS.Timeout | null;
+  startStatusPolling: (instanceName: string) => void;
   startConnectionTimer: () => void;
-  stopConnectionTimer: () => number | null;
+  stopConnectionTimer: () => void;
   timeTaken: number | null;
 }
-

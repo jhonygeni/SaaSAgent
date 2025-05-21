@@ -1,3 +1,4 @@
+
 import { ENDPOINTS, USE_MOCK_DATA, MOCK_QR_CODE } from '../constants/api';
 import { supabase } from '@/integrations/supabase/client';
 import { apiClient, formatEndpoint } from './whatsapp/apiClient';
@@ -141,7 +142,7 @@ export const whatsappService = {
       }
       
       // Use the endpoint for webhook configuration
-      const endpoint = formatEndpoint(`/webhook/set/{instanceName}`, { instanceName });
+      const endpoint = formatEndpoint(ENDPOINTS.webhookConfig, { instanceName });
       console.log("Webhook configuration URL:", `${apiClient.baseUrl}${endpoint}`);
       
       const webhookConfig = {
