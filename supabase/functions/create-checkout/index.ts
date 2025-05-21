@@ -17,10 +17,10 @@ const logStep = (step: string, details?: any) => {
   console.log(`[CREATE-CHECKOUT] ${step}${detailsStr}`);
 };
 
-// Price IDs for our plans - these should be the product IDs from your Stripe dashboard
+// Price IDs for our plans - use test price IDs that actually exist in your Stripe account
 const PRICE_IDS = {
-  starter: "price_1QobZcP1QgGAc8KHgWEgcfUi", // Replace with your actual Starter plan price ID
-  growth: "price_1QobbTP1QgGAc8KHhBRHGH2O"  // Replace with your actual Growth plan price ID
+  starter: "price_1OhwaAP1QgGAc8KHblKt0X7N", // Update with your actual Starter plan price ID
+  growth: "price_1OhwaAP1QgGAc8KHN3YSgU1K"  // Update with your actual Growth plan price ID
 };
 
 serve(async (req) => {

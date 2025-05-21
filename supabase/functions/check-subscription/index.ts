@@ -17,6 +17,12 @@ const logStep = (step: string, details?: any) => {
   console.log(`[CHECK-SUBSCRIPTION] ${step}${detailsStr}`);
 };
 
+// Price IDs for our plans - use test price IDs that actually exist in your Stripe account
+const PRICE_IDS = {
+  starter: "price_1OhwaAP1QgGAc8KHblKt0X7N", // Update with your actual Starter plan price ID
+  growth: "price_1OhwaAP1QgGAc8KHN3YSgU1K"  // Update with your actual Growth plan price ID
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -82,11 +88,11 @@ serve(async (req) => {
       const priceId = subscription.items.data[0].price.id;
       
       // Check for starter plan
-      if (priceId === "price_1QobZcP1QgGAc8KHgWEgcfUi") {
+      if (priceId === PRICE_IDS.starter) {
         plan = "starter";
       } 
       // Check for growth plan
-      else if (priceId === "price_1QobbTP1QgGAc8KHhBRHGH2O") {
+      else if (priceId === PRICE_IDS.growth) {
         plan = "growth";
       } 
       else {

@@ -23,13 +23,21 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // Check subscription status
   const checkSubscriptionStatus = useCallback(async () => {
     try {
+      console.log("Verificando status da assinatura...");
       // Get current session
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session) {
+        console.log("Sem sessão ativa, não é possível verificar assinatura");
+        return;
+      }
       
       const supabaseUser = session.user;
-      if (!supabaseUser) return;
+      if (!supabaseUser) {
+        console.log("Sem usuário na sessão");
+        return;
+      }
       
+      console.log("Chamando edge function check-subscription");
       // Call check-subscription edge function
       const { data, error } = await supabase.functions.invoke('check-subscription');
       
@@ -37,6 +45,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
         console.error('Error checking subscription:', error);
         return;
       }
+      
+      console.log("Resposta de check-subscription:", data);
       
       if (data) {
         // If we have a user but no data in context yet, create it
@@ -50,10 +60,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
             messageLimit: getMessageLimitByPlan(data.plan || 'free'),
             agents: [],
           };
+          console.log("Criando novo usuário no contexto:", newUser);
           setUser(newUser);
         }
         // If we already have user data, just update the plan
         else if (user && data.plan && data.plan !== user.plan) {
+          console.log(`Atualizando plano de ${user.plan} para ${data.plan}`);
           setPlan(data.plan as SubscriptionPlan);
         }
       }
@@ -65,13 +77,18 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // Listen for auth state changes
   useEffect(() => {
     setIsLoading(true);
+    console.log("Configurando listener de autenticação");
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log("Evento de autenticação:", event, session ? "com sessão" : "sem sessão");
+        
         if (event === 'SIGNED_IN' && session) {
           // Get user data from session
           const supabaseUser = session.user;
           if (!supabaseUser) return;
+          
+          console.log("Usuário logado:", supabaseUser);
           
           // Create new user object
           const newUser: User = {
@@ -93,6 +110,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         }
         
         if (event === 'SIGNED_OUT') {
+          console.log("Usuário deslogado");
           setUser(null);
         }
         
@@ -102,8 +120,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
     
     // Check initial session
     const checkSession = async () => {
+      console.log("Verificando sessão inicial");
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
+        console.log("Sessão existente encontrada");
         const supabaseUser = session.user;
         
         // Create new user object
@@ -117,12 +137,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
           agents: [],
         };
         
+        console.log("Configurando usuário da sessão existente:", newUser);
         setUser(newUser);
         
         // Check subscription status
         setTimeout(() => {
           checkSubscriptionStatus();
         }, 0);
+      } else {
+        console.log("Nenhuma sessão existente encontrada");
       }
       
       setIsLoading(false);
@@ -131,6 +154,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     checkSession();
     
     return () => {
+      console.log("Removendo listener de autenticação");
       subscription.unsubscribe();
     };
   }, []);

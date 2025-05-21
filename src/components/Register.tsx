@@ -49,6 +49,7 @@ export function Register() {
     setLoading(true);
     
     try {
+      console.log("Tentando criar conta com:", { email, name });
       // Register with Supabase
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -56,14 +57,18 @@ export function Register() {
         options: {
           data: {
             name: name,
-          }
+          },
+          // Important: Enable auto-confirm for testing
+          emailRedirectTo: `${window.location.origin}/dashboard`,
         }
       });
       
       if (error) {
+        console.error("Erro ao criar conta:", error);
         throw error;
       }
       
+      console.log("Conta criada com sucesso:", data);
       toast({
         title: "Conta criada com sucesso",
         description: "Bem-vindo à plataforma!",
@@ -72,11 +77,19 @@ export function Register() {
       // Check subscription status after registration
       await checkSubscriptionStatus();
       
+      // After successful registration, redirect to plans page
       navigate("/planos");
     } catch (error: any) {
+      console.error("Erro completo ao criar conta:", error);
+      let errorMessage = "Ocorreu um erro ao criar sua conta. Tente novamente.";
+      
+      if (error.message && error.message.includes("already registered")) {
+        errorMessage = "Este e-mail já está registrado. Por favor, faça login ou use outro e-mail.";
+      }
+      
       toast({
         title: "Erro ao criar conta",
-        description: error.message || "Ocorreu um erro ao criar sua conta. Tente novamente.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

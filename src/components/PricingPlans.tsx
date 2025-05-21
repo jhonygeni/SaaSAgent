@@ -1,4 +1,3 @@
-
 import { useUser } from "@/context/UserContext";
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
@@ -31,28 +30,32 @@ export function PricingPlans() {
     
     try {
       setLoading(plan);
+      console.log("Iniciando checkout para plano:", plan);
       
       // Call Supabase Edge Function to create Stripe checkout
       const { data, error } = await supabase.functions.invoke("create-checkout", {
         body: { planId: plan },
       });
 
+      console.log("Resposta do checkout:", { data, error });
+
       if (error) {
         throw new Error(error.message);
       }
 
-      if (data?.url) {
-        // Redirect to Stripe checkout
-        window.location.href = data.url;
-      } else {
+      if (!data?.url) {
         throw new Error("No checkout URL returned");
       }
-    } catch (err) {
+      
+      console.log("Redirecionando para:", data.url);
+      // Redirect to Stripe checkout
+      window.location.href = data.url;
+    } catch (err: any) {
       console.error("Checkout error:", err);
       toast({
         variant: "destructive",
         title: "Erro ao processar pagamento",
-        description: "Ocorreu um erro ao criar a sessão de pagamento. Por favor, tente novamente.",
+        description: `Ocorreu um erro ao criar a sessão de pagamento: ${err.message}. Por favor, tente novamente.`,
       });
       setLoading(null);
     }
@@ -67,24 +70,27 @@ export function PricingPlans() {
     
     try {
       setLoading("manage");
+      console.log("Abrindo portal do cliente");
       
       const { data, error } = await supabase.functions.invoke("customer-portal", {});
+      console.log("Resposta do portal:", { data, error });
       
       if (error) {
         throw new Error(error.message);
       }
 
-      if (data?.url) {
-        window.location.href = data.url;
-      } else {
+      if (!data?.url) {
         throw new Error("No portal URL returned");
       }
-    } catch (err) {
+      
+      console.log("Redirecionando para portal:", data.url);
+      window.location.href = data.url;
+    } catch (err: any) {
       console.error("Customer portal error:", err);
       toast({
         variant: "destructive",
         title: "Erro ao abrir portal",
-        description: "Não foi possível abrir o portal de gerenciamento. Tente novamente.",
+        description: `Não foi possível abrir o portal de gerenciamento: ${err.message}. Tente novamente.`,
       });
       setLoading(null);
     }
