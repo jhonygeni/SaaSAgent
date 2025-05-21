@@ -9,9 +9,9 @@ export const USE_MOCK_DATA = false; // Disable mock mode to ensure real API call
 
 // API endpoints - following official Evolution API documentation
 export const ENDPOINTS = {
-  // Instance management endpoints with correct paths
+  // Instance management endpoints with correct HTTP methods
   instanceCreate: "/instance/create", // Create new instance (POST)
-  instanceConnect: "/instance/connect", // Connect and get QR code (POST)
+  instanceConnect: "/instance/connect", // Connect and get QR code (GET) - FIXED METHOD
   instanceInfo: "/instance/info", // Get instance info (GET)
   connectionState: "/instance/connectionState", // Check connection status (GET)
   instanceLogout: "/instance/logout", // Disconnect instance (DELETE)

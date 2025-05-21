@@ -1,4 +1,3 @@
-
 import { 
   EVOLUTION_API_URL, 
   EVOLUTION_API_KEY, 
@@ -101,27 +100,43 @@ export const apiClient = {
     console.log(`Making GET request to: ${url}`, { headers });
     
     return retryOperation(async () => {
-      const response = await fetch(url, {
-        method: 'GET',
-        headers
-      });
-      
-      // Parse response regardless of success/failure for debugging
-      let responseData;
       try {
-        responseData = await response.json();
-        console.log(`GET response from ${url}:`, responseData);
-      } catch (e) {
-        const text = await response.text();
-        console.log(`GET response (non-JSON) from ${url}:`, text);
-        responseData = text;
+        const response = await fetch(url, {
+          method: 'GET',
+          headers
+        });
+        
+        // Parse response regardless of success/failure for debugging
+        let responseData;
+        try {
+          responseData = await response.json();
+          console.log(`GET response from ${url}:`, responseData);
+        } catch (e) {
+          const text = await response.text();
+          console.log(`GET response (non-JSON) from ${url}:`, text);
+          responseData = text;
+        }
+        
+        if (!response.ok) {
+          // Enhanced error message with more details
+          const errorMsg = `API responded with status ${response.status}: ${
+            typeof responseData === 'object' ? JSON.stringify(responseData) : responseData
+          }`;
+          console.error(errorMsg);
+          throw new Error(errorMsg);
+        }
+        
+        return responseData;
+      } catch (error) {
+        // Improved error logging with request details
+        console.error(`Request failed for GET ${url}:`, error);
+        throw error;
       }
-      
-      if (!response.ok) {
-        throw new Error(`API responded with status ${response.status}: ${JSON.stringify(responseData)}`);
-      }
-      
-      return responseData;
+    }, undefined, undefined, (error) => {
+      // Don't retry on authentication errors
+      return !(error instanceof Error && (
+        error.message.includes("403") || error.message.includes("401")
+      ));
     });
   },
   

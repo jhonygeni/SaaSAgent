@@ -126,6 +126,7 @@ export const whatsappService = {
   
   /**
    * Connect to an existing WhatsApp instance and get QR code
+   * FIXED: Now using GET method with query parameters instead of POST
    */
   connectToInstance: async (instanceName: string): Promise<any> => {
     try {
@@ -145,11 +146,11 @@ export const whatsappService = {
         };
       }
       
-      // Use the correct endpoint for connection with the instance name in the query
-      const endpoint = `${ENDPOINTS.instanceConnect}`;
-      console.log("Connect instance URL:", `${apiClient.baseUrl}${endpoint}?instanceName=${instanceName}`);
+      // FIXED: Use GET method with query parameters instead of POST with body
+      const endpoint = `${ENDPOINTS.instanceConnect}?instanceName=${encodeURIComponent(instanceName)}`;
+      console.log("Connect instance URL:", `${apiClient.baseUrl}${endpoint}`);
       
-      const data = await apiClient.post(endpoint, { instanceName });
+      const data = await apiClient.get(endpoint);
       console.log("Instance connection successful:", data);
       
       return data;

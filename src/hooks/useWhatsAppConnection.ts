@@ -76,16 +76,23 @@ export function useWhatsAppConnection() {
       // Check if name is already in use by listing all instances
       try {
         const instances = await whatsappService.listInstances();
-        const existingInstance = Array.isArray(instances.instances) && 
-          instances.instances.find((i: any) => i.name === formattedName || i.instanceName === formattedName);
-          
-        if (existingInstance) {
-          return { valid: false, message: "Este nome já está em uso" };
+        
+        // Fix: Better handling of response format - check if instances exists and is an array
+        if (instances && instances.instances && Array.isArray(instances.instances)) {
+          const existingInstance = instances.instances.find((i: any) => 
+            i.name === formattedName || i.instanceName === formattedName
+          );
+            
+          if (existingInstance) {
+            return { valid: false, message: "Este nome já está em uso" };
+          }
+        } else {
+          console.log("Unexpected instances response format:", instances);
+          // Continue anyway if we can't determine instances
         }
       } catch (error) {
         console.error("Error checking instance name availability:", error);
         // Continue anyway, we'll deal with conflicts later if they happen
-        return { valid: false, message: "Erro ao verificar disponibilidade do nome" };
       }
       
       return { valid: true };
@@ -290,7 +297,7 @@ export function useWhatsAppConnection() {
     setPollingInterval(interval);
   }, [handleSuccessfulConnection, clearPolling, connectionStatus, updateDebugInfo]);
 
-  // Fetch QR code for WhatsApp instance - using the correct endpoint
+  // Fetch QR code for WhatsApp instance - FIXED to use GET method
   const fetchQrCode = useCallback(async (instanceName: string): Promise<string | null> => {
     try {
       // First check if the API is accessible
@@ -299,10 +306,9 @@ export function useWhatsAppConnection() {
         throw new Error("API server not accessible or authentication failed. Please check your API key and try again.");
       }
       
-      // Use the updated connect/instanceName endpoint that returns QR code
+      // Use GET method to connect and get QR code
       const qrData = await whatsappService.getQrCode(instanceName);
       console.log("QR code response:", qrData);
-      updateDebugInfo({ qrData });
       
       // Extract QR code and pairing code from the response
       const qrCode = qrData?.qrcode || qrData?.base64 || qrData?.code;
@@ -320,12 +326,9 @@ export function useWhatsAppConnection() {
       }
     } catch (error) {
       console.error("Error getting QR code:", error);
-      updateDebugInfo({ 
-        qrError: error instanceof Error ? error.message : String(error)
-      });
       throw error;
     }
-  }, [startStatusPolling, updateDebugInfo]);
+  }, [startStatusPolling]);
 
   // Initialize WhatsApp instance with the correct sequence
   const initializeWhatsAppInstance = useCallback(async (providedName?: string) => {
