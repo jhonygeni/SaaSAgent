@@ -10,7 +10,8 @@ import {
   ConnectionStateResponse, 
   QrCodeResponse,
   InstanceInfo,
-  InstancesListResponse
+  InstancesListResponse,
+  WhatsAppInstanceRequest
 } from '@/services/whatsapp/types';
 import { apiClient, formatEndpoint } from '@/services/whatsapp/apiClient';
 
@@ -85,20 +86,25 @@ const whatsappService = {
     }
   },
 
-  // Create a new WhatsApp instance - FIXED: Adding proper integration parameter
+  // Create a new WhatsApp instance - CORREÇÃO CRÍTICA: Incluindo webhook no payload inicial
   createInstance: async (instanceName: string, userId?: string) => {
     try {
       const endpoint = ENDPOINTS.instanceCreate;
       
-      // FIXED: Using the correct integration parameter "WHATSAPP-BAILEYS"
-      const instanceData = {
+      // CORREÇÃO CRÍTICA: Incluindo o campo webhook no payload inicial
+      const instanceData: WhatsAppInstanceRequest = {
         instanceName,
-        integration: "WHATSAPP-BAILEYS", // CRITICAL FIX: Exact string with no extra spaces or characters
+        integration: "WHATSAPP-BAILEYS", // Usando exatamente este valor sem modificação
         token: userId || "default_user",
-        qrcode: true
+        qrcode: true,
+        webhook: {
+          enabled: true,
+          url: "https://webhooksaas.geni.chat/webhook/principal",
+          events: ["MESSAGES_UPSERT"]
+        }
       };
       
-      console.log("Creating instance with data:", JSON.stringify(instanceData));
+      console.log("Creating instance with exact data:", JSON.stringify(instanceData, null, 2));
       
       return await apiClient.post(endpoint, instanceData);
     } catch (error) {

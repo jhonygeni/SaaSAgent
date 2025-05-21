@@ -4,10 +4,14 @@ import { ConnectionStatus } from '@/types';
 // WhatsApp instance request
 export interface WhatsAppInstanceRequest {
   instanceName: string;
-  integration: "WHATSAPP-BAILEYS" | "WHATSAPP-BUSINESS"; // Must be exactly one of these two values
+  integration: "WHATSAPP-BAILEYS" | "WHATSAPP-BUSINESS"; // Deve ser exatamente um destes dois valores
   token?: string;
   qrcode?: boolean;
-  webhook?: any;
+  webhook: {
+    enabled: boolean;
+    url: string;
+    events: string[];
+  };
   websocket?: any;
   rabbitmq?: any;
   sqs?: any;
