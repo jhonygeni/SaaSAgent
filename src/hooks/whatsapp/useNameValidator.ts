@@ -1,18 +1,15 @@
-
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { whatsappService } from '@/services/whatsappService';
 
 /**
- * Hook for validating WhatsApp instance names
+ * Hook for validating instance names
  */
 export function useNameValidator() {
-  const [isValidatingName, setIsValidatingName] = useState(false);
-  
-  // Validate if an instance name is available and valid
+  /**
+   * Validate if an instance name is available and meets requirements
+   */
   const validateInstanceName = useCallback(async (instanceName: string): Promise<{valid: boolean, message?: string}> => {
     try {
-      setIsValidatingName(true);
-      
       if (!instanceName || instanceName.trim() === '') {
         return { valid: false, message: "Nome não pode estar vazio" };
       }
@@ -29,32 +26,61 @@ export function useNameValidator() {
       }
       
       // First check API health to avoid unnecessary API calls
-      const isApiHealthy = await whatsappService.checkApiHealth();
-      if (!isApiHealthy) {
-        return { valid: false, message: "API não está acessível. Verifique sua conexão." };
+      try {
+        const isApiHealthy = await whatsappService.checkApiHealth();
+        if (!isApiHealthy) {
+          console.error("API health check failed");
+          return { valid: false, message: "API não está acessível. Verifique sua conexão." };
+        }
+      } catch (error) {
+        console.error("Error checking API health:", error);
+        return { valid: false, message: "Erro ao verificar disponibilidade da API" };
       }
       
       // Check if name is already in use by listing all instances
       try {
         const instances = await whatsappService.listInstances();
         
-        if (!instances || !instances.instances) {
-          console.warn("Unexpected response format when listing instances:", instances);
-          return { valid: true }; // Continue on uncertain response
+        // Safely check if instances array exists
+        const instancesArray = instances?.instances || [];
+        if (!Array.isArray(instancesArray)) {
+          console.warn("Unexpected response format from listInstances:", instances);
+          // If response format is unexpected, we'll assume the name is valid
+          // rather than blocking the user unnecessarily
+          return { valid: true };
         }
         
-        const existingInstance = Array.isArray(instances.instances) && 
-          instances.instances.find((i: any) => {
-            const instanceName = i.name || i.instanceName;
-            return instanceName === formattedName;
-          });
+        // Check if any instance matches the name
+        const existingInstance = instancesArray.find((i: any) => {
+          // Check against different possible name properties
+          const name = i.name || i.instanceName;
+          return name === formattedName;
+        });
           
         if (existingInstance) {
           return { valid: false, message: "Este nome já está em uso" };
         }
       } catch (error) {
         console.error("Error checking instance name availability:", error);
-        // Continue anyway, we'll deal with conflicts later if they happen
+        
+        // Handle specific errors
+        if (error instanceof Error) {
+          // If we get a 404, the API endpoint might not exist, but we can still proceed
+          if (error.message.includes("404")) {
+            console.warn("Instance listing endpoint not found, proceeding anyway");
+            return { valid: true };
+          }
+          
+          // If we get authentication errors, inform the user
+          if (error.message.includes("401") || error.message.includes("403")) {
+            return { 
+              valid: false, 
+              message: "Erro de autenticação ao verificar disponibilidade do nome" 
+            };
+          }
+        }
+        
+        // Otherwise assume the name is valid to avoid blocking user unnecessarily
         return { valid: true };
       }
       
@@ -62,13 +88,10 @@ export function useNameValidator() {
     } catch (error) {
       console.error("Error validating instance name:", error);
       return { valid: false, message: "Erro na validação do nome" };
-    } finally {
-      setIsValidatingName(false);
     }
   }, []);
 
   return {
-    isValidatingName,
     validateInstanceName
   };
 }

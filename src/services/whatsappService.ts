@@ -19,21 +19,19 @@ export const whatsappService = {
    */
   checkApiHealth: async (): Promise<boolean> => {
     try {
-      // First, try the health endpoint if available
+      // Try the health endpoint
       try {
-        const healthResponse = await apiClient.get<any>(ENDPOINTS.healthCheck);
-        if (healthResponse) {
-          console.log("API health check successful");
-          return true;
-        }
+        const healthResponse = await apiClient.get<any>(`${ENDPOINTS.healthCheck}`);
+        console.log("API health check successful", healthResponse);
+        return true;
       } catch (e) {
         console.log("Health endpoint not available, trying instances endpoint");
       }
       
-      // If health endpoint fails, try instances as a fallback
+      // If health endpoint fails, try fetchInstances as a fallback
       try {
-        await apiClient.get<any>(ENDPOINTS.instances);
-        console.log("API accessibility check successful (instances endpoint)");
+        await apiClient.get<any>(`${ENDPOINTS.fetchInstances}`);
+        console.log("API accessibility check successful (fetchInstances endpoint)");
         return true;
       } catch (error) {
         // Check if it's an auth error (which means API is accessible but credentials are wrong)
@@ -147,11 +145,11 @@ export const whatsappService = {
         };
       }
       
-      // Use the correct endpoint for connection and QR code
-      const endpoint = formatEndpoint(ENDPOINTS.instanceConnect, { instanceName });
-      console.log("Connect instance URL:", `${apiClient.baseUrl}${endpoint}`);
+      // Use the correct endpoint for connection with the instance name in the query
+      const endpoint = `${ENDPOINTS.instanceConnect}`;
+      console.log("Connect instance URL:", `${apiClient.baseUrl}${endpoint}?instanceName=${instanceName}`);
       
-      const data = await apiClient.get(endpoint);
+      const data = await apiClient.post(endpoint, { instanceName });
       console.log("Instance connection successful:", data);
       
       return data;
@@ -184,8 +182,7 @@ export const whatsappService = {
         };
       }
       
-      // Use the corrected endpoint with proper URL path parameter
-      const endpoint = formatEndpoint(ENDPOINTS.connectionState, { instanceName });
+      const endpoint = `${ENDPOINTS.connectionState}?instanceName=${instanceName}`;
       
       const data = await apiClient.get<ConnectionStateResponse>(endpoint);
       console.log("Connection state retrieved:", data);
@@ -220,7 +217,7 @@ export const whatsappService = {
         };
       }
       
-      const data = await apiClient.get<InstanceInfo>(ENDPOINTS.instanceInfo, { instanceName });
+      const data = await apiClient.get<InstanceInfo>(`${ENDPOINTS.instanceInfo}?instanceName=${instanceName}`);
       console.log("Instance info retrieved:", data);
       return data;
     } catch (error) {
@@ -249,7 +246,7 @@ export const whatsappService = {
         };
       }
       
-      const data = await apiClient.get(ENDPOINTS.instances);
+      const data = await apiClient.get(ENDPOINTS.fetchInstances);
       console.log("Instances list:", data);
       return data;
     } catch (error) {
@@ -286,7 +283,14 @@ export const whatsappService = {
         };
       }
       
-      const data = await apiClient.get(ENDPOINTS.fetchInstances, options);
+      // Convert options to query parameters
+      const queryParams = new URLSearchParams();
+      if (options.instanceName) queryParams.append('instanceName', options.instanceName);
+      if (options.instanceId) queryParams.append('instanceId', options.instanceId);
+      
+      const endpoint = `${ENDPOINTS.fetchInstances}${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+      
+      const data = await apiClient.get(endpoint);
       console.log("Instances fetched successfully:", data);
       return data;
     } catch (error) {
@@ -308,7 +312,7 @@ export const whatsappService = {
       }
       
       try {
-        await apiClient.delete(ENDPOINTS.instanceLogout, { instanceName });
+        await apiClient.delete(`${ENDPOINTS.instanceLogout}?instanceName=${instanceName}`);
         return true;
       } catch (error) {
         console.error("Error during logout:", error);

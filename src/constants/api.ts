@@ -9,21 +9,18 @@ export const USE_MOCK_DATA = false; // Disable mock mode to ensure real API call
 
 // API endpoints - following official Evolution API documentation
 export const ENDPOINTS = {
-  // Instance management endpoints - CORRECTED to remove /api/ prefix
+  // Instance management endpoints with correct paths
   instanceCreate: "/instance/create", // Create new instance (POST)
-  instanceConnect: "/instance/connect/{instanceName}", // Connect and get QR code (GET)
+  instanceConnect: "/instance/connect", // Connect and get QR code (POST)
   instanceInfo: "/instance/info", // Get instance info (GET)
-  connectionState: "/instance/connectionState/{instanceName}", // Check connection status (GET)
+  connectionState: "/instance/connectionState", // Check connection status (GET)
   instanceLogout: "/instance/logout", // Disconnect instance (DELETE)
   
-  // New endpoint for fetching instances
-  fetchInstances: "/instances", // Get all instances or filter by name/id (GET)
+  // Endpoint for fetching instances
+  fetchInstances: "/instance/fetchInstances", // Get instances with filtering (GET)
   
-  // Health check endpoint to verify API connectivity
-  healthCheck: "/health", // Check API health (GET)
-  
-  // For debugging - list all instances
-  instances: "/instances" 
+  // Health check endpoint
+  healthCheck: "/instance/health", // Check API health (GET)
 };
 
 // Only used when USE_MOCK_DATA is true, which should never be in production

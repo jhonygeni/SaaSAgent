@@ -89,14 +89,16 @@ export const apiClient = {
     
     // Add query parameters if provided
     if (params) {
-      const urlObj = new URL(url);
+      const queryParams = new URLSearchParams();
       Object.entries(params).forEach(([key, value]) => {
-        urlObj.searchParams.append(key, value);
+        queryParams.append(key, value);
       });
-      url = urlObj.toString();
+      url += url.includes('?') ? '&' : '?';
+      url += queryParams.toString();
     }
     
     const headers = createHeaders();
+    console.log(`Making GET request to: ${url}`, { headers });
     
     return retryOperation(async () => {
       const response = await fetch(url, {
@@ -104,18 +106,22 @@ export const apiClient = {
         headers
       });
       
-      if (!response.ok) {
-        // Try to parse error response
-        let errorData;
-        try {
-          errorData = await response.json();
-        } catch (e) {
-          errorData = await response.text();
-        }
-        throw new Error(`API responded with status ${response.status}: ${JSON.stringify(errorData)}`);
+      // Parse response regardless of success/failure for debugging
+      let responseData;
+      try {
+        responseData = await response.json();
+        console.log(`GET response from ${url}:`, responseData);
+      } catch (e) {
+        const text = await response.text();
+        console.log(`GET response (non-JSON) from ${url}:`, text);
+        responseData = text;
       }
       
-      return await response.json();
+      if (!response.ok) {
+        throw new Error(`API responded with status ${response.status}: ${JSON.stringify(responseData)}`);
+      }
+      
+      return responseData;
     });
   },
   
@@ -125,6 +131,7 @@ export const apiClient = {
   async post<T>(endpoint: string, data: any): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const headers = createHeaders(true);
+    console.log(`Making POST request to: ${url}`, { headers, data });
     
     return retryOperation(async () => {
       const response = await fetch(url, {
@@ -133,18 +140,22 @@ export const apiClient = {
         body: JSON.stringify(data)
       });
       
-      if (!response.ok) {
-        // Try to parse error response
-        let errorData;
-        try {
-          errorData = await response.json();
-        } catch (e) {
-          errorData = await response.text();
-        }
-        throw new Error(`API responded with status ${response.status}: ${JSON.stringify(errorData)}`);
+      // Parse response regardless of success/failure for debugging
+      let responseData;
+      try {
+        responseData = await response.json();
+        console.log(`POST response from ${url}:`, responseData);
+      } catch (e) {
+        const text = await response.text();
+        console.log(`POST response (non-JSON) from ${url}:`, text);
+        responseData = text;
       }
       
-      return await response.json();
+      if (!response.ok) {
+        throw new Error(`API responded with status ${response.status}: ${JSON.stringify(responseData)}`);
+      }
+      
+      return responseData;
     });
   },
   
@@ -156,31 +167,37 @@ export const apiClient = {
     
     // Add query parameters if provided
     if (params) {
-      const urlObj = new URL(url);
+      const queryParams = new URLSearchParams();
       Object.entries(params).forEach(([key, value]) => {
-        urlObj.searchParams.append(key, value);
+        queryParams.append(key, value);
       });
-      url = urlObj.toString();
+      url += url.includes('?') ? '&' : '?';
+      url += queryParams.toString();
     }
     
     const headers = createHeaders();
+    console.log(`Making DELETE request to: ${url}`, { headers });
     
     const response = await fetch(url, {
       method: 'DELETE',
       headers
     });
     
-    if (!response.ok) {
-      // Try to parse error response
-      let errorData;
-      try {
-        errorData = await response.json();
-      } catch (e) {
-        errorData = await response.text();
-      }
-      throw new Error(`API responded with status ${response.status}: ${JSON.stringify(errorData)}`);
+    // Parse response regardless of success/failure for debugging
+    let responseData;
+    try {
+      responseData = await response.json();
+      console.log(`DELETE response from ${url}:`, responseData);
+    } catch (e) {
+      const text = await response.text();
+      console.log(`DELETE response (non-JSON) from ${url}:`, text);
+      responseData = text;
     }
     
-    return await response.json();
+    if (!response.ok) {
+      throw new Error(`API responded with status ${response.status}: ${JSON.stringify(responseData)}`);
+    }
+    
+    return responseData;
   }
 };
