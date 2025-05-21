@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import {
   Form,
@@ -306,7 +305,7 @@ export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
               </FormControl>
               {isValidatingName && (
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  <Loader className="h-4 w-4 animate-spin text-muted-foreground" />
                 </div>
               )}
               {nameError && !isValidatingName && (
