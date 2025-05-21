@@ -38,15 +38,18 @@ export function Login() {
     setLoading(true);
     
     try {
+      console.log("Tentando fazer login com:", { email });
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
       
       if (error) {
+        console.error("Erro de login:", error);
         throw error;
       }
       
+      console.log("Login bem-sucedido:", data);
       toast({
         title: "Login realizado com sucesso",
         description: "Bem-vindo de volta!",
@@ -57,9 +60,20 @@ export function Login() {
       
       navigate("/dashboard");
     } catch (error: any) {
+      console.error("Erro completo:", error);
+      
+      // Mensagens de erro mais específicas
+      let errorMessage = "E-mail ou senha inválidos. Tente novamente.";
+      
+      if (error.message.includes("Email not confirmed")) {
+        errorMessage = "E-mail não confirmado. Por favor, verifique sua caixa de entrada.";
+      } else if (error.message.includes("Invalid login credentials")) {
+        errorMessage = "Credenciais de login inválidas. Verifique seu e-mail e senha.";
+      }
+      
       toast({
         title: "Erro ao fazer login",
-        description: error.message || "E-mail ou senha inválidos. Tente novamente.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
