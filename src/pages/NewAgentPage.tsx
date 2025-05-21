@@ -7,6 +7,7 @@ import { USE_MOCK_DATA, EVOLUTION_API_URL } from "@/constants/api";
 import { toast } from "@/hooks/use-toast";
 import { useAgent } from "@/context/AgentContext";
 import { useNavigate } from "react-router-dom";
+import { Agent } from "@/types";
 
 const NewAgentPage = () => {
   const [showConnectionDialog, setShowConnectionDialog] = useState(false);
@@ -29,7 +30,7 @@ const NewAgentPage = () => {
     }
   }, [connectionStatus, qrCodeData]);
 
-  const handleAgentCreated = (agent) => {
+  const handleAgentCreated = (agent: Agent) => {
     console.log("Agent created, showing connection dialog");
     // Log API connection details
     console.log(`Using Evolution API at: ${EVOLUTION_API_URL}, Mock mode: ${USE_MOCK_DATA ? 'ON' : 'OFF'}`);
@@ -99,7 +100,7 @@ const NewAgentPage = () => {
         toast({
           title: "Nome Duplicado",
           description: "Este nome já está em uso. Abra o diálogo de conexão para usar um nome diferente.",
-          variant: "destructive", // Changed from "warning" to "destructive"
+          variant: "destructive",
         });
         setShowConnectionDialog(true);
       } else {
