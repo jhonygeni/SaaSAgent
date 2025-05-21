@@ -1,6 +1,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ComparisonLineChart } from "./ComparisonLineChart";
+import { useEffect, useState } from "react";
 
 interface ComparisonData {
   mes: string;
@@ -18,6 +19,47 @@ interface ComparisonSectionProps {
 }
 
 export function ComparisonSection({ data, chartConfig }: ComparisonSectionProps) {
+  const [averages, setAverages] = useState({
+    iaMessages: 0,
+    humanoMessages: 0,
+    iaResponseTime: 0,
+    humanoResponseTime: 0,
+    iaResolutionTime: 0,
+    humanoResolutionTime: 0
+  });
+
+  // Calculate averages from the data
+  useEffect(() => {
+    if (data && data.length > 0) {
+      const sums = data.reduce((acc, item) => {
+        return {
+          iaMessages: acc.iaMessages + (item.ia || 0),
+          humanoMessages: acc.humanoMessages + (item.humano || 0),
+          iaResponseTime: acc.iaResponseTime + (item.tempoIA || 0),
+          humanoResponseTime: acc.humanoResponseTime + (item.tempoHumano || 0),
+          iaResolutionTime: acc.iaResolutionTime + (item.resolucaoIA || 0),
+          humanoResolutionTime: acc.humanoResolutionTime + (item.resolucaoHumano || 0)
+        };
+      }, {
+        iaMessages: 0,
+        humanoMessages: 0,
+        iaResponseTime: 0,
+        humanoResponseTime: 0,
+        iaResolutionTime: 0,
+        humanoResolutionTime: 0
+      });
+
+      setAverages({
+        iaMessages: parseFloat((sums.iaMessages / data.length).toFixed(1)),
+        humanoMessages: parseFloat((sums.humanoMessages / data.length).toFixed(1)),
+        iaResponseTime: parseFloat((sums.iaResponseTime / data.length).toFixed(1)),
+        humanoResponseTime: parseFloat((sums.humanoResponseTime / data.length).toFixed(1)),
+        iaResolutionTime: parseFloat((sums.iaResolutionTime / data.length).toFixed(1)),
+        humanoResolutionTime: parseFloat((sums.humanoResolutionTime / data.length).toFixed(1))
+      });
+    }
+  }, [data]);
+
   return (
     <Card className="bg-card dark:bg-card border-border">
       <CardHeader>
@@ -42,11 +84,11 @@ export function ComparisonSection({ data, chartConfig }: ComparisonSectionProps)
             />
             <div className="flex justify-between text-sm mt-2">
               <div>
-                <span className="text-blue-500 font-medium">24</span>
+                <span className="text-blue-500 font-medium">{averages.iaMessages}</span>
                 <span className="text-muted-foreground text-xs ml-1">Média IA</span>
               </div>
               <div>
-                <span className="text-orange-500 font-medium">18</span>
+                <span className="text-orange-500 font-medium">{averages.humanoMessages}</span>
                 <span className="text-muted-foreground text-xs ml-1">Média Humano</span>
               </div>
             </div>
@@ -66,11 +108,11 @@ export function ComparisonSection({ data, chartConfig }: ComparisonSectionProps)
             />
             <div className="flex justify-between text-sm mt-2">
               <div>
-                <span className="text-blue-500 font-medium">0.5</span>
+                <span className="text-blue-500 font-medium">{averages.iaResponseTime}</span>
                 <span className="text-muted-foreground text-xs ml-1">Média IA (min)</span>
               </div>
               <div>
-                <span className="text-orange-500 font-medium">16.2</span>
+                <span className="text-orange-500 font-medium">{averages.humanoResponseTime}</span>
                 <span className="text-muted-foreground text-xs ml-1">Média Humano (min)</span>
               </div>
             </div>
@@ -90,11 +132,11 @@ export function ComparisonSection({ data, chartConfig }: ComparisonSectionProps)
             />
             <div className="flex justify-between text-sm mt-2">
               <div>
-                <span className="text-blue-500 font-medium">8.2</span>
+                <span className="text-blue-500 font-medium">{averages.iaResolutionTime}</span>
                 <span className="text-muted-foreground text-xs ml-1">Média IA (min)</span>
               </div>
               <div>
-                <span className="text-orange-500 font-medium">15.2</span>
+                <span className="text-orange-500 font-medium">{averages.humanoResolutionTime}</span>
                 <span className="text-muted-foreground text-xs ml-1">Média Humano (min)</span>
               </div>
             </div>
