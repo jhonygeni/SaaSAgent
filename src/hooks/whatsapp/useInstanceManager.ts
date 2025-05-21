@@ -1,160 +1,94 @@
 
 import { useState, useCallback, useRef } from 'react';
-import { useUser } from '@/context/UserContext';
-import { whatsappService } from '@/services/whatsappService';
+import { nanoid } from 'nanoid';
+import whatsappService from '@/services/whatsappService';
 import { USE_MOCK_DATA } from '@/constants/api';
-import { toast } from '@/hooks/use-toast';
+import { InstancesListResponse } from '@/services/whatsapp/types';
 
 /**
  * Hook for managing WhatsApp instances
  */
 export function useInstanceManager() {
-  const { user } = useUser();
   const [instanceData, setInstanceData] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const createdInstancesRef = useRef<Set<string>>(new Set());
   const currentInstanceNameRef = useRef<string | null>(null);
-  const webhookConfiguredInstancesRef = useRef<Set<string>>(new Set());
+  const createdInstancesRef = useRef<Set<string>>(new Set());
   
-  // Get instance name based on user ID and provided name
-  const getInstanceName = useCallback((providedName?: string) => {
-    // If we already have a current instance name and no new name is provided, return the current one
-    if (currentInstanceNameRef.current && !providedName) {
+  // Generate a unique instance name if none is provided
+  const getInstanceName = useCallback((providedName?: string): string => {
+    if (providedName) {
+      currentInstanceNameRef.current = providedName;
+      return providedName;
+    }
+    
+    if (currentInstanceNameRef.current) {
       return currentInstanceNameRef.current;
     }
     
-    if (providedName) {
-      // Format the name to be valid for instance
-      const formattedName = providedName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-      currentInstanceNameRef.current = formattedName;
-      return formattedName;
-    }
-
-    if (!user?.id) {
-      console.warn("User ID not available, using default instance name");
-      const randomSuffix = Math.random().toString(36).substring(2, 7);
-      const defaultName = `default_${randomSuffix}`;
-      currentInstanceNameRef.current = defaultName;
-      return defaultName;
-    }
-
-    // Add random suffix to avoid conflicts - ensure uniqueness with timestamp
     const timestamp = Date.now().toString(36);
-    const randomSuffix = Math.random().toString(36).substring(2, 7);
-    const uniqueName = `user_${user.id.substring(0, 6)}_${timestamp}_${randomSuffix}`;
-    currentInstanceNameRef.current = uniqueName;
-    return uniqueName;
-  }, [user]);
+    const randomPart = nanoid(4);
+    const newInstanceName = `agent_${timestamp}_${randomPart}`;
+    currentInstanceNameRef.current = newInstanceName;
+    
+    return newInstanceName;
+  }, []);
 
-  // Configure webhook for the instance - FIXED to ensure webhook configuration
-  const configureWebhookForInstance = useCallback(async (instanceName: string) => {
+  // Clear the current instance name
+  const clearCurrentInstanceName = useCallback(() => {
+    currentInstanceNameRef.current = null;
+  }, []);
+
+  // Create a new instance and also configure its webhook
+  const createAndConfigureInstance = useCallback(async (instanceName: string) => {
     try {
-      // Skip if already configured in this session
-      if (webhookConfiguredInstancesRef.current.has(instanceName)) {
-        console.log(`Webhook already configured for instance: ${instanceName}`);
-        return true;
-      }
-
-      console.log(`Configuring webhook for instance: ${instanceName}`);
+      console.log(`Creating new WhatsApp instance: ${instanceName}`);
       
-      // IMPORTANT: Always use the correct endpoint format /webhook/set/{instanceName}
-      const response = await whatsappService.configureWebhook(instanceName);
+      // Step 1: Create the instance
+      const creationResponse = await whatsappService.createInstance(instanceName);
+      console.log("Instance creation response:", creationResponse);
       
-      if (response && (response.status === "success" || response.webhook?.enabled === true)) {
-        console.log(`Webhook successfully configured for instance: ${instanceName}`, response);
-        webhookConfiguredInstancesRef.current.add(instanceName);
-        return true;
-      } else {
-        console.error(`Failed to configure webhook for instance: ${instanceName}`, response);
-        toast({
-          title: "Erro na configuração do webhook",
-          description: "O agente foi criado mas pode ter funcionalidade limitada.",
-          variant: "destructive",
-        });
-        return false;
+      // Step 2: Configure webhook - CRITICAL STEP
+      console.log(`Setting up webhook for new instance: ${instanceName}`);
+      
+      try {
+        const webhookResponse = await whatsappService.configureWebhook(instanceName);
+        console.log("Webhook configuration response:", webhookResponse);
+        
+        if (webhookResponse?.status !== "success") {
+          console.error("Webhook setup failed or returned non-success status:", webhookResponse);
+          throw new Error("Failed to set up webhook for the instance");
+        }
+      } catch (webhookError) {
+        console.error("Error configuring webhook:", webhookError);
+        // Still continue with the process, we don't want to fail the whole connection just 
+        // because webhook setup failed
       }
+      
+      return creationResponse;
     } catch (error) {
-      console.error(`Error configuring webhook for instance: ${instanceName}`, error);
-      toast({
-        title: "Erro na configuração do webhook",
-        description: "O agente foi criado mas pode ter funcionalidade limitada.",
-        variant: "destructive",
-      });
-      return false;
+      console.error(`Error in createAndConfigureInstance for ${instanceName}:`, error);
+      throw error;
     }
   }, []);
 
-  // Create and configure instance with webhook - FIXED to ensure webhook is always configured
-  const createAndConfigureInstance = useCallback(async (instanceName: string, userId?: string) => {
-    try {
-      // Step 1: Create the instance
-      console.log(`Creating instance with name: ${instanceName}`);
-      const instanceData = await whatsappService.createInstance(instanceName, userId);
-      setInstanceData(instanceData);
-      
-      // Step 2: MANDATORY - Immediately configure webhook for this instance
-      console.log("Instance created successfully, now configuring webhook");
-      const webhookConfigured = await configureWebhookForInstance(instanceName);
-      
-      if (!webhookConfigured) {
-        console.warn(`Webhook configuration failed for instance: ${instanceName}, but proceeding with connection`);
-      } else {
-        console.log(`Webhook successfully configured for instance: ${instanceName}`);
-      }
-      
-      return instanceData;
-    } catch (error) {
-      console.error("Failed to create and configure instance:", error);
-      throw error;
-    }
-  }, [configureWebhookForInstance]);
-
-  // Get the instance name and data - useful for the UI
-  const getConnectionInfo = useCallback(() => {
-    return {
-      instanceName: currentInstanceNameRef.current || getInstanceName(),
-      instanceData: instanceData,
-    };
-  }, [getInstanceName, instanceData]);
-
-  // Method to fetch all instances related to the current user
+  // Fetch all instances that belong to the current user
   const fetchUserInstances = useCallback(async () => {
     try {
-      setIsLoading(true);
-      // First check if the API is accessible
-      const isApiHealthy = await whatsappService.checkApiHealth();
-      if (!isApiHealthy) {
-        throw new Error("API server not accessible or authentication failed. Please check your API key and try again.");
-      }
-      
-      // Use the fetchInstances method
-      const data = await whatsappService.fetchInstances();
-      return data?.instances || [];
+      const response: InstancesListResponse = await whatsappService.listInstances();
+      console.log("User instances:", response);
+      return response.instances || [];
     } catch (error) {
       console.error("Error fetching user instances:", error);
       return [];
-    } finally {
-      setIsLoading(false);
     }
-  }, []);
-  
-  // Clear the current instance name - useful for resets
-  const clearCurrentInstanceName = useCallback(() => {
-    currentInstanceNameRef.current = null;
   }, []);
 
   return {
     instanceData,
     setInstanceData,
-    isLoading,
-    setIsLoading,
     getInstanceName,
-    getConnectionInfo,
+    createAndConfigureInstance,
     fetchUserInstances,
     createdInstancesRef,
-    clearCurrentInstanceName,
-    currentInstanceName: currentInstanceNameRef.current,
-    createAndConfigureInstance,
-    configureWebhookForInstance
+    clearCurrentInstanceName
   };
 }

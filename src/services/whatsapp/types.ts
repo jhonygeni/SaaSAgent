@@ -92,3 +92,24 @@ export interface WebhookConfigResponse {
   };
   error?: string;
 }
+
+/**
+ * QR Code response from WhatsApp API
+ */
+export interface QrCodeResponse {
+  qrcode?: string;
+  base64?: string;
+  code?: string;
+  pairingCode?: string;
+}
+
+/**
+ * List instances response from WhatsApp API
+ */
+export interface InstancesListResponse {
+  instances: Array<{
+    instanceName: string;
+    instanceId: string;
+    status: string;
+  }>;
+}

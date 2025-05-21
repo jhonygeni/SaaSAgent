@@ -1,8 +1,9 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { whatsappService } from '@/services/whatsappService';
+import whatsappService from '@/services/whatsappService';
 import { UseWhatsAppStatus } from './types';
 import { USE_MOCK_DATA, PREVENT_CREDIT_CONSUMPTION_ON_FAILURE } from '@/constants/api';
+import { ConnectionStateResponse, QrCodeResponse, InstanceInfo, InstancesListResponse } from '@/services/whatsapp/types';
 
 /**
  * Hook for polling WhatsApp connection status
@@ -42,7 +43,7 @@ export function useConnectionPoller(
     }
     
     try {
-      const instanceInfo = await whatsappService.getInstanceInfo(instanceName);
+      const instanceInfo: InstanceInfo = await whatsappService.getInstanceInfo(instanceName);
       console.log("Instance info response:", instanceInfo);
       
       status.updateDebugInfo({ instanceInfo });
@@ -70,7 +71,7 @@ export function useConnectionPoller(
     
     // Debug: List all instances to verify our instance exists
     try {
-      const instances = await whatsappService.listInstances();
+      const instances: InstancesListResponse = await whatsappService.listInstances();
       console.log("Current instances:", instances);
       status.updateDebugInfo({ instances });
     } catch (error) {
@@ -88,7 +89,7 @@ export function useConnectionPoller(
       
       try {
         console.log(`Polling connection state for instance: ${instanceName} (attempt ${pollAttempts}/${MAX_POLL_ATTEMPTS})`);
-        const stateData = await whatsappService.getConnectionState(instanceName);
+        const stateData: ConnectionStateResponse = await whatsappService.getConnectionState(instanceName);
         console.log("Connection state polling response:", stateData);
         status.updateDebugInfo({ pollAttempts, stateData });
         
@@ -120,7 +121,7 @@ export function useConnectionPoller(
           if (pollAttempts > 5 && pollAttempts % 5 === 0) {
             try {
               console.log("Refreshing QR code due to disconnected state");
-              const freshQrData = await whatsappService.getQrCode(instanceName);
+              const freshQrData: QrCodeResponse = await whatsappService.getQrCode(instanceName);
               
               if (freshQrData?.qrcode) {
                 console.log("New QR code received");
@@ -161,12 +162,12 @@ export function useConnectionPoller(
             
             try {
               // Try to get instance info directly as a fallback
-              const instanceInfo = await whatsappService.getInstanceInfo(instanceName);
+              const instanceInfo: InstanceInfo = await whatsappService.getInstanceInfo(instanceName);
               console.log("Instance info check:", instanceInfo);
               
               // If we get instance info and it shows connected, treat as successful connection
               if (instanceInfo?.instance?.status === "connected" || 
-                  instanceInfo?.instance?.connected === true) {
+                  instanceInfo?.instance?.isConnected === true) {
                 console.log("Instance is actually connected according to instanceInfo!");
                 const phoneNumber = await handleSuccessfulConnection(instanceName);
                 return phoneNumber;

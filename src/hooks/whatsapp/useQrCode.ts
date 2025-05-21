@@ -1,6 +1,7 @@
 
 import { useCallback } from 'react';
-import { whatsappService } from '@/services/whatsappService';
+import whatsappService from '@/services/whatsappService';
+import { QrCodeResponse } from '@/services/whatsapp/types';
 
 /**
  * Hook for QR code management
@@ -17,7 +18,7 @@ export function useQrCode() {
       
       // Use the updated QR code endpoint
       console.log(`Fetching QR code for instance: ${instanceName}`);
-      const qrData = await whatsappService.getQrCode(instanceName);
+      const qrData: QrCodeResponse = await whatsappService.getQrCode(instanceName);
       console.log("QR code response:", qrData);
       
       // Extract QR code and pairing code from the response

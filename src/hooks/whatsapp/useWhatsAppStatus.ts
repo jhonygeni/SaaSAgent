@@ -1,9 +1,10 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { ConnectionStatus } from '@/types';
-import { whatsappService } from '@/services/whatsappService';
+import whatsappService from '@/services/whatsappService';
 import { useToast } from '../use-toast';
 import { USE_MOCK_DATA, MAX_POLLING_ATTEMPTS, STATUS_POLLING_INTERVAL_MS, CONSECUTIVE_SUCCESS_THRESHOLD } from '@/constants/api';
+import { ConnectionStateResponse, QrCodeResponse, InstanceInfo } from '@/services/whatsapp/types';
 
 /**
  * Hook for managing WhatsApp connection status
@@ -150,7 +151,7 @@ export function useWhatsAppStatus() {
         
         // IMPORTANT: This is the ONLY API call we should be making in this polling loop
         // according to the API documentation
-        const stateData = await whatsappService.getConnectionState(instanceName);
+        const stateData: ConnectionStateResponse = await whatsappService.getConnectionState(instanceName);
         console.log(`Connection state for ${instanceName}:`, stateData);
         
         updateDebugInfo({ 
@@ -181,7 +182,7 @@ export function useWhatsAppStatus() {
             
             // Get additional instance info
             try {
-              const instanceInfo = await whatsappService.getInstanceInfo(instanceName);
+              const instanceInfo: InstanceInfo = await whatsappService.getInstanceInfo(instanceName);
               const phoneNumber = instanceInfo?.instance?.user?.id?.split('@')[0];
               return phoneNumber;
             } catch (error) {
@@ -200,7 +201,7 @@ export function useWhatsAppStatus() {
               pollCount > 5 && pollCount % 5 === 0) {
             try {
               console.log("Refreshing QR code for existing instance...");
-              const qrResponse = await whatsappService.getQrCode(instanceName);
+              const qrResponse: QrCodeResponse = await whatsappService.getQrCode(instanceName);
               if (qrResponse?.qrcode || qrResponse?.base64) {
                 setQrCodeData(qrResponse.qrcode || qrResponse.base64);
                 if (qrResponse.pairingCode) {

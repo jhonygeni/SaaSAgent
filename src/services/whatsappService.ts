@@ -5,13 +5,19 @@ import {
   USE_MOCK_DATA,
   ENDPOINTS 
 } from '@/constants/api';
-import { WebhookConfigResponse } from '@/hooks/whatsapp/types';
-import { apiClient, formatEndpoint } from './whatsapp/apiClient';
+import { 
+  WebhookConfigResponse, 
+  ConnectionStateResponse, 
+  QrCodeResponse,
+  InstanceInfo,
+  InstancesListResponse
+} from '@/services/whatsapp/types';
+import { apiClient, formatEndpoint } from '@/services/whatsapp/apiClient';
 
 /**
  * Service for WhatsApp API interactions
  */
-export const whatsappService = {
+const whatsappService = {
   /**
    * Configure webhook for an instance
    * Must be called immediately after successful instance creation
@@ -69,10 +75,10 @@ export const whatsappService = {
   },
 
   // Get connection status for an instance
-  getConnectionState: async (instanceName: string) => {
+  getConnectionState: async (instanceName: string): Promise<ConnectionStateResponse> => {
     try {
       const endpoint = formatEndpoint(ENDPOINTS.connectionState, { instanceName });
-      return await apiClient.get(endpoint);
+      return await apiClient.get<ConnectionStateResponse>(endpoint);
     } catch (error) {
       console.error(`Error getting connection state for ${instanceName}:`, error);
       throw error;
@@ -97,10 +103,10 @@ export const whatsappService = {
   },
 
   // Get the QR code for an instance
-  getQrCode: async (instanceName: string) => {
+  getQrCode: async (instanceName: string): Promise<QrCodeResponse> => {
     try {
       const endpoint = formatEndpoint(ENDPOINTS.instanceConnectQR, { instanceName });
-      return await apiClient.get(endpoint);
+      return await apiClient.get<QrCodeResponse>(endpoint);
     } catch (error) {
       console.error(`Error getting QR code for ${instanceName}:`, error);
       throw error;
@@ -108,10 +114,10 @@ export const whatsappService = {
   },
 
   // Get information about an instance
-  getInstanceInfo: async (instanceName: string) => {
+  getInstanceInfo: async (instanceName: string): Promise<InstanceInfo> => {
     try {
       const endpoint = formatEndpoint(ENDPOINTS.instanceInfo, { instanceName });
-      return await apiClient.get(endpoint);
+      return await apiClient.get<InstanceInfo>(endpoint);
     } catch (error) {
       console.error(`Error getting instance info for ${instanceName}:`, error);
       throw error;
@@ -119,10 +125,10 @@ export const whatsappService = {
   },
 
   // Fetch all instances
-  fetchInstances: async () => {
+  fetchInstances: async (): Promise<InstancesListResponse> => {
     try {
       const endpoint = ENDPOINTS.fetchInstances;
-      return await apiClient.get(endpoint);
+      return await apiClient.get<InstancesListResponse>(endpoint);
     } catch (error) {
       console.error("Error fetching instances:", error);
       throw error;
@@ -141,7 +147,7 @@ export const whatsappService = {
   },
 
   // List all instances
-  listInstances: async () => {
+  listInstances: async (): Promise<InstancesListResponse> => {
     try {
       return await whatsappService.fetchInstances();
     } catch (error) {
@@ -152,3 +158,4 @@ export const whatsappService = {
 };
 
 export default whatsappService;
+export { whatsappService };

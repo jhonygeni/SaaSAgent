@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,7 +19,8 @@ import {
   AUTO_CLOSE_AFTER_SUCCESS, 
   AUTO_CLOSE_DELAY_MS 
 } from "@/constants/api";
-import { whatsappService } from "@/services/whatsappService";
+import whatsappService from "@/services/whatsappService";
+import { InstancesListResponse } from "@/services/whatsapp/types";
 
 // Import our refactored components
 import { LoadingState } from "./whatsapp/LoadingState";
@@ -96,7 +96,7 @@ export function WhatsAppConnectionDialog({
   const fetchInstances = async () => {
     try {
       console.log("Fetching instances...");
-      const response = await whatsappService.fetchInstances();
+      const response: InstancesListResponse = await whatsappService.fetchInstances();
       console.log("Instances fetched:", response);
       if (response && response.instances && Array.isArray(response.instances)) {
         setInstances(response.instances);
