@@ -189,6 +189,16 @@ export const whatsappService = {
       
       const data = await apiClient.get<ConnectionStateResponse>(endpoint);
       console.log("Connection state retrieved:", data);
+      
+      // Enriquecer o log para facilitar a depuração dos estados de conexão
+      if (data && data.state) {
+        console.log(`Estado detalhado da conexão para instância ${instanceName}:`, {
+          state: data.state,
+          status: data.status,
+          message: data.message
+        });
+      }
+      
       return data;
     } catch (error) {
       console.error("Error checking connection state:", error);
@@ -318,7 +328,8 @@ export const whatsappService = {
       }
       
       try {
-        await apiClient.delete(`${ENDPOINTS.instanceLogout}?instanceName=${instanceName}`);
+        const endpoint = formatEndpoint(ENDPOINTS.instanceLogout, { instanceName });
+        await apiClient.delete(endpoint);
         return true;
       } catch (error) {
         console.error("Error during logout:", error);

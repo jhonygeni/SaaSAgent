@@ -4,9 +4,10 @@ import { CheckCircle } from 'lucide-react';
 
 interface SuccessStateProps {
   phoneNumber?: string;
+  instanceName?: string;
 }
 
-export const SuccessState: React.FC<SuccessStateProps> = ({ phoneNumber }) => {
+export const SuccessState: React.FC<SuccessStateProps> = ({ phoneNumber, instanceName }) => {
   return (
     <div className="flex flex-col items-center space-y-4 py-4">
       <div className="rounded-full bg-green-100 p-3">
@@ -20,6 +21,11 @@ export const SuccessState: React.FC<SuccessStateProps> = ({ phoneNumber }) => {
         {phoneNumber && (
           <p className="text-sm font-medium text-green-600 mt-2">
             Conectado ao número: {phoneNumber}
+          </p>
+        )}
+        {instanceName && (
+          <p className="text-xs text-muted-foreground mt-1">
+            Nome da instância: {instanceName}
           </p>
         )}
       </div>

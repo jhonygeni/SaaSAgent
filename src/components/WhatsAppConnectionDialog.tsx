@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,6 +59,7 @@ export function WhatsAppConnectionDialog({
   const [apiHealthStatus, setApiHealthStatus] = useState<"unknown" | "healthy" | "unhealthy">("unknown");
   const [retryCount, setRetryCount] = useState(0);
   const [lastInstanceName, setLastInstanceName] = useState<string | null>(null);
+  const [autoCloseAfterSuccess, setAutoCloseAfterSuccess] = useState(true);
   
   // Check API health when dialog opens
   useEffect(() => {
@@ -139,17 +141,20 @@ export function WhatsAppConnectionDialog({
   useEffect(() => {
     if (connectionStatus === "connected" && onComplete) {
       console.log("Connection complete, calling onComplete callback");
-      // Small delay to allow the UI to show the success state before closing
-      setTimeout(() => {
-        onComplete();
-        
-        // Auto-close the dialog after successful connection
+      
+      // Call onComplete to notify parent component
+      onComplete();
+      
+      // Auto-close the dialog after successful connection with a delay
+      if (autoCloseAfterSuccess) {
+        console.log("Auto-closing dialog after successful connection");
+        // Small delay to allow the UI to show the success state before closing
         setTimeout(() => {
           onOpenChange(false);
         }, 2000);
-      }, 1500);
+      }
     }
-  }, [connectionStatus, onComplete, onOpenChange]);
+  }, [connectionStatus, onComplete, onOpenChange, autoCloseAfterSuccess]);
 
   // Handle custom instance name submit
   const handleCustomNameSubmit = async (customInstanceName: string) => {
@@ -191,6 +196,11 @@ export function WhatsAppConnectionDialog({
     setShowDebugInfo(!showDebugInfo);
   };
 
+  // Toggle auto-close feature
+  const toggleAutoClose = () => {
+    setAutoCloseAfterSuccess(!autoCloseAfterSuccess);
+  };
+
   // Get dialog title based on whether we're connecting a specific agent
   const getDialogTitle = () => {
     if (agentId) {
@@ -207,12 +217,10 @@ export function WhatsAppConnectionDialog({
     return "Conecte seu WhatsApp para que o agente possa enviar e receber mensagens.";
   };
 
-  // Log when QR code changes
-  useEffect(() => {
-    if (qrCodeData) {
-      console.log("QR code data is available:", qrCodeData ? `${qrCodeData.substring(0, 20)}...` : "none");
-    }
-  }, [qrCodeData]);
+  // Get connection info
+  const connectionInfo = getConnectionInfo();
+  const instanceInfo = connectionInfo?.instanceData;
+  const phoneNumber = instanceInfo?.instance?.user?.id?.split('@')[0];
 
   return (
     <Dialog open={open} onOpenChange={handleDialogClose}>
@@ -258,7 +266,10 @@ export function WhatsAppConnectionDialog({
           )}
 
           {!isLoading && connectionStatus === "connected" && (
-            <SuccessState />
+            <SuccessState 
+              phoneNumber={phoneNumber} 
+              instanceName={lastInstanceName || undefined} 
+            />
           )}
 
           {!isLoading && connectionStatus === "failed" && !connectionError?.includes("already in use") && (

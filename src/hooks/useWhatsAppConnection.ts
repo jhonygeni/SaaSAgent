@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { ConnectionStatus } from '../types';
 import { whatsappService } from '../services/whatsappService';
@@ -7,7 +8,7 @@ import {
   USE_MOCK_DATA, 
   PREVENT_CREDIT_CONSUMPTION_ON_FAILURE, 
   MAX_CONNECTION_RETRIES,
-  ENDPOINTS 
+  ENDPOINTS
 } from '../constants/api';
 
 export function useWhatsAppConnection() {
@@ -27,6 +28,8 @@ export function useWhatsAppConnection() {
   // Track connection attempts to avoid consuming credits on retries
   const connectionAttemptsRef = useRef<Record<string, number>>({});
   const createdInstancesRef = useRef<Set<string>>(new Set());
+  const consecutiveConnectedStatesRef = useRef<number>(0);
+  const lastConnectionStateRef = useRef<string | null>(null);
 
   // Clean up polling on unmount
   useEffect(() => {
@@ -147,6 +150,8 @@ export function useWhatsAppConnection() {
       mockMode: USE_MOCK_DATA,
       pairingCode,
       creditsConsumed,
+      consecutiveConnectedStates: consecutiveConnectedStatesRef.current,
+      lastConnectionState: lastConnectionStateRef.current,
       apiHealth: "checking...",
       ...newInfo
     };
@@ -174,6 +179,9 @@ export function useWhatsAppConnection() {
   const handleSuccessfulConnection = useCallback(async (instanceName: string) => {
     setConnectionStatus("connected");
     clearPolling();
+    
+    // Reset consecutive states counter
+    consecutiveConnectedStatesRef.current = 0;
     
     // Mark credits as consumed only on successful connection
     if (PREVENT_CREDIT_CONSUMPTION_ON_FAILURE && !creditsConsumed) {
@@ -236,37 +244,56 @@ export function useWhatsAppConnection() {
         // Enhanced status check to handle different response formats
         // The API returns different field names in different contexts, so we check multiple fields
         const state = stateData?.state || stateData?.status;
+        lastConnectionStateRef.current = state;
         
+        // Check for successful connection states with more certainty
         if (state === "open" || state === "connected" || state === "confirmed") {
           console.log("Connection detected as CONNECTED!");
-          handleSuccessfulConnection(instanceName);
-        } else if (state === "connecting" || state === "loading") {
-          console.log("Still connecting or loading QR code...");
           
-          // If using mock data and this is the 5th attempt, simulate success
-          if (USE_MOCK_DATA && pollAttempts >= 5) {
-            console.log("Mock mode: Simulating successful connection after 5 attempts");
+          // Incrementar o contador de estados "conectado" consecutivos
+          consecutiveConnectedStatesRef.current += 1;
+          
+          // Se tivermos pelo menos 2 respostas consecutivas de "conectado", então consideramos a conexão estabelecida
+          if (consecutiveConnectedStatesRef.current >= 2) {
+            console.log(`Connection confirmed after ${consecutiveConnectedStatesRef.current} consecutive successful responses`);
             handleSuccessfulConnection(instanceName);
+            return;
           }
-        } else if (state === "close" || state === "disconnected") {
-          console.log("Connection is closed or disconnected");
           
-          // If it's disconnected for more than a few attempts, refresh the QR code
-          if (pollAttempts > 5 && pollAttempts % 5 === 0) {
-            try {
-              console.log("Refreshing QR code due to disconnected state");
-              const freshQrData = await whatsappService.getQrCode(instanceName);
-              
-              if (freshQrData?.qrcode) {
-                console.log("New QR code received");
-                setQrCodeData(freshQrData.qrcode);
+          console.log(`Waiting for confirmation... (${consecutiveConnectedStatesRef.current}/2 consecutive connected states)`);
+        } else {
+          // Reset consecutive counter if not in a connected state
+          consecutiveConnectedStatesRef.current = 0;
+          
+          if (state === "connecting" || state === "loading") {
+            console.log("Still connecting or loading QR code...");
+            
+            // If using mock data and this is the 5th attempt, simulate success
+            if (USE_MOCK_DATA && pollAttempts >= 5) {
+              console.log("Mock mode: Simulating successful connection after 5 attempts");
+              handleSuccessfulConnection(instanceName);
+              return;
+            }
+          } else if (state === "close" || state === "disconnected") {
+            console.log("Connection is closed or disconnected");
+            
+            // If it's disconnected for more than a few attempts, refresh the QR code
+            if (pollAttempts > 5 && pollAttempts % 5 === 0) {
+              try {
+                console.log("Refreshing QR code due to disconnected state");
+                const freshQrData = await whatsappService.getQrCode(instanceName);
                 
-                if (freshQrData.pairingCode) {
-                  setPairingCode(freshQrData.pairingCode);
+                if (freshQrData?.qrcode) {
+                  console.log("New QR code received");
+                  setQrCodeData(freshQrData.qrcode);
+                  
+                  if (freshQrData.pairingCode) {
+                    setPairingCode(freshQrData.pairingCode);
+                  }
                 }
+              } catch (error) {
+                console.error("Error refreshing QR code:", error);
               }
-            } catch (error) {
-              console.error("Error refreshing QR code:", error);
             }
           }
         }
@@ -310,6 +337,10 @@ export function useWhatsAppConnection() {
       if (!isApiHealthy) {
         throw new Error("API server not accessible or authentication failed. Please check your API key and try again.");
       }
+      
+      // Reset consecutive connected states counter
+      consecutiveConnectedStatesRef.current = 0;
+      lastConnectionStateRef.current = null;
       
       // Use the updated QR code endpoint
       console.log(`Fetching QR code for instance: ${instanceName}`);
@@ -404,6 +435,8 @@ export function useWhatsAppConnection() {
     setPairingCode(null);
     setCreditsConsumed(false);
     setAttemptCount(0);
+    consecutiveConnectedStatesRef.current = 0;
+    lastConnectionStateRef.current = null;
     updateDebugInfo({
       action: "startConnection",
       instanceId,
@@ -451,6 +484,8 @@ export function useWhatsAppConnection() {
     setQrCodeData(null);
     setConnectionError(null);
     setPairingCode(null);
+    consecutiveConnectedStatesRef.current = 0;
+    lastConnectionStateRef.current = null;
     
     // No need to logout/disconnect instance - it will time out automatically
     console.log("Connection process canceled by user");
@@ -486,6 +521,7 @@ export function useWhatsAppConnection() {
       qrCode: qrCodeData ? "Available" : "Not available",
       error: connectionError,
       attemptCount,
+      consecutiveConnectedStates: consecutiveConnectedStatesRef.current,
     };
   }, [connectionStatus, instanceData, qrCodeData, connectionError, attemptCount]);
 

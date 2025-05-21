@@ -12,6 +12,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({ errorMessage, isAuthErro
   const isConnectError = errorMessage?.includes('/instance/connect') || errorMessage?.includes('Cannot GET');
   const isConnectionEndpointError = errorMessage?.includes('404') && isConnectError;
   const isStateEndpointError = errorMessage?.includes('/instance/connectionState') && errorMessage?.includes('404');
+  const isConnectionTimedOut = errorMessage?.includes('timed out') || errorMessage?.includes('timeout');
   
   return (
     <div className="flex flex-col items-center space-y-4 py-4">
@@ -25,6 +26,8 @@ export const ErrorState: React.FC<ErrorStateProps> = ({ errorMessage, isAuthErro
             ? "O endpoint de conexão para o QR code não está disponível. Por favor, verifique a configuração da API."
             : isStateEndpointError
             ? "O endpoint para verificar o estado da conexão não está disponível."
+            : isConnectionTimedOut
+            ? "Tempo de conexão esgotado. Por favor, tente novamente."
             : errorMessage || "Não foi possível conectar à API do WhatsApp. Por favor, tente novamente."}
         </p>
       </div>
