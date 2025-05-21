@@ -22,6 +22,7 @@ export function useWhatsAppStatus() {
   const connectionStartTime = useRef<number | null>(null);
   const pollingInterval = useRef<NodeJS.Timeout | null>(null);
   const consecutiveSuccessCount = useRef(0);
+  const currentInstanceNameRef = useRef<string | null>(null);
   
   // Cleanup polling on unmount
   useEffect(() => {
@@ -58,6 +59,7 @@ export function useWhatsAppStatus() {
     if (pollingInterval.current) {
       clearInterval(pollingInterval.current);
       pollingInterval.current = null;
+      currentInstanceNameRef.current = null;
     }
   }, []);
 
@@ -91,6 +93,7 @@ export function useWhatsAppStatus() {
         ? `${((Date.now() - connectionStartTime.current) / 1000).toFixed(1)}s` 
         : null,
       apiHealth: "checking...",
+      currentInstance: currentInstanceNameRef.current,
       ...newInfo
     };
     
@@ -113,8 +116,15 @@ export function useWhatsAppStatus() {
     console.log("Debug info updated:", debugData);
   }, [connectionStatus, qrCodeData, connectionError, attemptCount, pairingCode, creditsConsumed]);
 
-  // Start polling for connection status
+  /**
+   * Start polling for connection status following the API docs
+   * This should only poll /instance/connectionState/{instance} endpoint
+   */
   const startStatusPolling = useCallback((instanceName: string) => {
+    // Store the instance name we're polling for
+    currentInstanceNameRef.current = instanceName;
+    
+    // Clear any existing polling
     clearPolling();
     
     console.log(`Starting status polling for instance: ${instanceName}`);
@@ -126,27 +136,39 @@ export function useWhatsAppStatus() {
     }
     
     pollingInterval.current = setInterval(async () => {
+      if (currentInstanceNameRef.current !== instanceName) {
+        // The instance we're polling for has changed, stop this polling
+        clearPolling();
+        return;
+      }
+      
       pollCount++;
       setAttemptCount(pollCount);
       
       try {
         console.log(`Polling connection state (attempt ${pollCount}/${MAX_POLLING_ATTEMPTS})`);
+        
+        // IMPORTANT: This is the ONLY API call we should be making in this polling loop
+        // according to the API documentation
         const stateData = await whatsappService.getConnectionState(instanceName);
-        console.log("Connection state:", stateData);
+        console.log(`Connection state for ${instanceName}:`, stateData);
         
         updateDebugInfo({ 
           pollCount, 
+          instanceName,
           connectionState: stateData?.state || stateData?.status,
           consecutiveSuccessCount: consecutiveSuccessCount.current
         });
         
-        // Check for successful connection states
-        if (stateData?.state === "open" || 
-            stateData?.state === "connected" || 
-            stateData?.state === "confirmed" ||
-            stateData?.status === "connected" ||
-            stateData?.status === "open") {
-          
+        // Check for successful connection states - both state and status fields
+        const isConnected = 
+          stateData?.state === "open" || 
+          stateData?.state === "connected" || 
+          stateData?.state === "confirmed" ||
+          stateData?.status === "connected" ||
+          stateData?.status === "open";
+        
+        if (isConnected) {
           console.log(`Connection appears successful (${consecutiveSuccessCount.current + 1}/${CONSECUTIVE_SUCCESS_THRESHOLD})`);
           consecutiveSuccessCount.current++;
           
@@ -161,21 +183,23 @@ export function useWhatsAppStatus() {
             try {
               const instanceInfo = await whatsappService.getInstanceInfo(instanceName);
               const phoneNumber = instanceInfo?.instance?.user?.id?.split('@')[0];
-              showSuccessToast(phoneNumber);
+              return phoneNumber;
             } catch (error) {
               console.error("Failed to get instance info:", error);
-              showSuccessToast();
+              return null;
             }
           }
         } else {
           // Reset consecutive success count if not connected
           consecutiveSuccessCount.current = 0;
           
-          // If QR code has expired, try to refresh it
-          if ((stateData?.state === "disconnected" || stateData?.state === "close") && 
+          // Only refresh QR code if the connection is actually broken/disconnected
+          // We don't want to create duplicate instances
+          if ((stateData?.state === "disconnected" || 
+              stateData?.state === "close") && 
               pollCount > 5 && pollCount % 5 === 0) {
             try {
-              console.log("Refreshing QR code...");
+              console.log("Refreshing QR code for existing instance...");
               const qrResponse = await whatsappService.getQrCode(instanceName);
               if (qrResponse?.qrcode || qrResponse?.base64) {
                 setQrCodeData(qrResponse.qrcode || qrResponse.base64);
@@ -217,6 +241,8 @@ export function useWhatsAppStatus() {
       }
     }, STATUS_POLLING_INTERVAL_MS);
     
+    // Return the polling interval identifier
+    return pollingInterval.current;
   }, [clearPolling, connectionStatus, showSuccessToast, startConnectionTimer, stopConnectionTimer, updateDebugInfo]);
 
   return {

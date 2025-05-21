@@ -49,6 +49,7 @@ export function WhatsAppConnectionDialog({
     connectionStatus, 
     startConnection, 
     cancelConnection, 
+    completeConnection, 
     isLoading, 
     qrCodeData,
     pairingCode,
@@ -106,32 +107,45 @@ export function WhatsAppConnectionDialog({
   // Start connection process when dialog opens and API is healthy
   useEffect(() => {
     const initiateConnection = async () => {
-      if (open && !hasInitiatedConnection && connectionStatus === "waiting" && !qrCodeData && !isLoading) {
-        // Don't auto-start if API is unhealthy
-        if (apiHealthStatus === "unhealthy") {
-          console.log("API is unhealthy, skipping automatic connection start");
-          return;
-        }
+      // Guard conditions to prevent starting a new connection when one is already in progress
+      if (
+        !open || 
+        hasInitiatedConnection || 
+        connectionStatus !== "waiting" || 
+        qrCodeData || 
+        isLoading
+      ) {
+        return;
+      }
+      
+      // Don't auto-start if API is unhealthy
+      if (apiHealthStatus === "unhealthy") {
+        console.log("API is unhealthy, skipping automatic connection start");
+        return;
+      }
+      
+      console.log("Starting WhatsApp connection process automatically");
+      setHasInitiatedConnection(true);
+      
+      try {
+        // Create a more unique instance name to avoid conflicts
+        // IMPORTANT: only create one unique instance name
+        const timestamp = Date.now().toString(36);
+        const randomStr = Math.random().toString(36).substring(2, 6);
         
-        console.log("Starting WhatsApp connection process automatically");
-        setHasInitiatedConnection(true);
-        try {
-          // Create a more unique instance name to avoid conflicts
-          // Combine agent ID with timestamp and random string
-          const timestamp = Date.now().toString(36);
-          const randomStr = Math.random().toString(36).substring(2, 6);
-          
-          // If we have an agentId, use it for the instance name
-          const instanceBase = agentId ? `a_${agentId.substring(0, 6)}` : 'agent';
-          const instanceName = `${instanceBase}_${timestamp}_${randomStr}`;
-          
-          console.log(`Using dynamic instance name: ${instanceName}`);
-          setLastInstanceName(instanceName);
-          
-          await startConnection(instanceName);
-        } catch (error) {
-          console.error("Failed to start connection:", error);
-        }
+        // If we have an agentId, use it for the instance name
+        const instanceBase = agentId ? `a_${agentId.substring(0, 6)}` : 'agent';
+        const instanceName = `${instanceBase}_${timestamp}_${randomStr}`;
+        
+        console.log(`Using dynamic instance name: ${instanceName}`);
+        setLastInstanceName(instanceName);
+        
+        // Start the connection with the instance name - this follows the correct API flow
+        await startConnection(instanceName);
+      } catch (error) {
+        console.error("Failed to start connection:", error);
+        // Let the error handling in startConnection do its thing
+        // We don't want to retry automatically on errors - require explicit user action
       }
     };
     
@@ -160,9 +174,13 @@ export function WhatsAppConnectionDialog({
 
   // Handle completion - Auto-close dialog after success with delay
   useEffect(() => {
-    if (connectionStatus === "connected" && onComplete) {
-      console.log("Connection complete, calling onComplete callback");
-      onComplete();
+    if (connectionStatus === "connected") {
+      console.log("Connection complete");
+      
+      // Call the onComplete callback if provided
+      if (onComplete) {
+        onComplete();
+      }
       
       // Auto-close the dialog after successful connection with a delay
       if (autoCloseAfterSuccess) {
@@ -185,7 +203,7 @@ export function WhatsAppConnectionDialog({
     await startConnection(formattedName);
   };
 
-  // Handle retry button click with incremental retry counter
+  // Handle retry button click - CRITICAL: Don't reuse instance names
   const handleRetry = async () => {
     setHasInitiatedConnection(true);
     setRetryCount(prevCount => prevCount + 1);
@@ -194,7 +212,8 @@ export function WhatsAppConnectionDialog({
       // Check API health first
       await checkApiHealth();
       
-      // Create a more unique instance name for the retry to avoid conflict
+      // Create a new unique instance name for the retry to avoid conflict
+      // NEVER reuse previous instance names
       const timestamp = Date.now().toString(36);
       const randomStr = Math.random().toString(36).substring(2, 6);
       const retryNum = retryCount + 1;
@@ -203,12 +222,14 @@ export function WhatsAppConnectionDialog({
       const instanceBase = agentId ? `a_${agentId.substring(0, 6)}` : 'retry';
       const instanceName = `${instanceBase}_${timestamp}_${randomStr}_r${retryNum}`;
       
-      console.log(`Retry #${retryNum}: Using dynamic instance name: ${instanceName}`);
+      console.log(`Retry #${retryNum}: Using new instance name: ${instanceName}`);
       setLastInstanceName(instanceName);
       
+      // Start the connection process with the new instance name
       await startConnection(instanceName);
     } catch (error) {
       console.error("Failed to retry connection:", error);
+      // Let the error handling in startConnection show the error
     }
   };
 
@@ -222,22 +243,6 @@ export function WhatsAppConnectionDialog({
     setAutoCloseAfterSuccess(!autoCloseAfterSuccess);
   };
 
-  // Get dialog title based on whether we're connecting a specific agent
-  const getDialogTitle = () => {
-    if (agentId) {
-      return "Conectar Agente ao WhatsApp";
-    }
-    return "Conectar WhatsApp";
-  };
-
-  // Get dialog description based on whether we're connecting a specific agent
-  const getDialogDescription = () => {
-    if (agentId) {
-      return "Conecte seu agente ao WhatsApp para que ele possa enviar e receber mensagens.";
-    }
-    return "Conecte seu WhatsApp para que o agente possa enviar e receber mensagens.";
-  };
-
   // Get connection info
   const connectionInfo = getConnectionInfo();
   const instanceInfo = connectionInfo?.instanceData;
@@ -249,11 +254,11 @@ export function WhatsAppConnectionDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <div className="flex items-center">
-            <DialogTitle>{getDialogTitle()}</DialogTitle>
+            <DialogTitle>Conectar ao WhatsApp</DialogTitle>
             <ApiHealthBadge status={apiHealthStatus} />
           </div>
           <DialogDescription>
-            {getDialogDescription()}
+            Escaneie o QR code com seu WhatsApp para conectar.
             {USE_MOCK_DATA && (
               <div className="mt-1 text-xs p-1 bg-yellow-50 text-yellow-700 rounded">
                 WARNING: Running in mock mode - real API calls are disabled

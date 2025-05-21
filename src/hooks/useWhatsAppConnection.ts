@@ -21,7 +21,7 @@ export function useWhatsAppConnection() {
   const [isLoading, setIsLoading] = useState(false);
   const [creditsConsumed, setCreditsConsumed] = useState(false);
   
-  // Use our new modular hooks
+  // Use our modular hooks
   const {
     connectionStatus,
     setConnectionStatus,
@@ -51,13 +51,14 @@ export function useWhatsAppConnection() {
     setInstanceData,
     getInstanceName,
     fetchUserInstances,
-    createdInstancesRef
+    createdInstancesRef,
+    clearCurrentInstanceName
   } = useInstanceManager();
   
   // Track connection attempts to avoid consuming credits on retries
   const connectionAttemptsRef = useRef<Record<string, number>>({});
-  const consecutiveConnectedStatesRef = useRef<number>(0);
   const lastConnectionStateRef = useRef<string | null>(null);
+  const creationInProgressRef = useRef<boolean>(false);
 
   // Clean up polling on unmount
   useEffect(() => {
@@ -66,32 +67,40 @@ export function useWhatsAppConnection() {
     };
   }, [clearPolling]);
 
-  // Initialize WhatsApp instance with the correct sequence
+  /**
+   * Initialize WhatsApp instance with the correct sequence following API docs
+   * IMPORTANT: This function should only be called once per instance name
+   */
   const initializeWhatsAppInstance = useCallback(async (providedName?: string) => {
-    const instanceName = getInstanceName(providedName);
-    console.log(`Starting WhatsApp connection for instance: ${instanceName}`);
-    updateDebugInfo({ action: "initialize", instanceName });
-    
-    // Track connection attempts to prevent credit consumption on retries
-    if (!connectionAttemptsRef.current[instanceName]) {
-      connectionAttemptsRef.current[instanceName] = 0;
+    // Prevent multiple simultaneous creation requests
+    if (creationInProgressRef.current) {
+      console.log("Instance creation already in progress, skipping duplicate request");
+      throw new Error("Instance creation already in progress. Please wait for the current operation to complete.");
     }
-    connectionAttemptsRef.current[instanceName]++;
     
-    // Only consume credits on the first attempt if enabled
-    const shouldConsumeCredits = !PREVENT_CREDIT_CONSUMPTION_ON_FAILURE || 
-                               connectionAttemptsRef.current[instanceName] <= 1;
-    
-    console.log(`Attempt #${connectionAttemptsRef.current[instanceName]} for instance ${instanceName}. Credits will${shouldConsumeCredits ? '' : ' not'} be consumed on failure.`);
+    creationInProgressRef.current = true;
     
     try {
-      // First check if the API is accessible
+      const instanceName = getInstanceName(providedName);
+      console.log(`Starting WhatsApp connection for instance: ${instanceName}`);
+      updateDebugInfo({ action: "initialize", instanceName });
+      
+      // 1. First check if the API is accessible
       const isApiHealthy = await whatsappService.checkApiHealth();
       if (!isApiHealthy) {
         throw new Error("API server not accessible or authentication failed. Please check your API key and try again.");
       }
       
-      // Create the instance first
+      // Check if we've already created this instance (to prevent duplicates)
+      if (createdInstancesRef.current.has(instanceName)) {
+        console.warn(`Instance ${instanceName} was already created. Skipping creation step.`);
+        
+        // Still need to fetch QR code for an existing instance
+        return await fetchQrCode(instanceName);
+      }
+      
+      // 2. Create the instance first - this is the main API call that should only happen ONCE
+      console.log(`Creating new instance with name: ${instanceName}`);
       const instanceData = await whatsappService.createInstance(instanceName);
       console.log("Instance created successfully:", instanceData);
       
@@ -99,7 +108,7 @@ export function useWhatsAppConnection() {
       setInstanceData(instanceData);
       createdInstancesRef.current.add(instanceName);
       
-      // Get the QR code
+      // 3. Get the QR code - this is a separate API call
       return await fetchQrCode(instanceName);
     } catch (error) {
       // Special handling for duplicate instance name errors
@@ -107,6 +116,7 @@ export function useWhatsAppConnection() {
         console.error("Instance name already in use:", error);
         setConnectionError("Este nome de instância já está em uso. Por favor, escolha outro nome.");
         setConnectionStatus("failed");
+        clearCurrentInstanceName(); // Clear the name so we'll generate a new one next time
         throw error;
       }
       
@@ -115,15 +125,15 @@ export function useWhatsAppConnection() {
       setConnectionError(`Falha ao inicializar instância WhatsApp: ${error instanceof Error ? error.message : String(error)}`);
       setConnectionStatus("failed");
       throw error;
+    } finally {
+      creationInProgressRef.current = false;
     }
-  }, [getInstanceName, updateDebugInfo, fetchQrCode, setInstanceData, setConnectionError, setConnectionStatus]);
+  }, [getInstanceName, updateDebugInfo, fetchQrCode, setInstanceData, setConnectionError, setConnectionStatus, clearCurrentInstanceName]);
 
   /**
-   * Start WhatsApp connection process
+   * Start WhatsApp connection process following the correct API sequence
    */
   const startConnection = useCallback(async (instanceName?: string): Promise<string | null> => {
-    const instanceId = instanceName || getInstanceName();
-    
     // Reset state on new connection
     setConnectionStatus("waiting");
     setIsLoading(true);
@@ -132,11 +142,10 @@ export function useWhatsAppConnection() {
     setPairingCode(null);
     setCreditsConsumed(false);
     setAttemptCount(0);
-    consecutiveConnectedStatesRef.current = 0;
     lastConnectionStateRef.current = null;
     updateDebugInfo({
       action: "startConnection",
-      instanceId,
+      instanceId: instanceName || getInstanceName(),
       startTime: new Date().toISOString(),
     });
     
@@ -145,7 +154,12 @@ export function useWhatsAppConnection() {
       startConnectionTimer();
       
       // Initialize instance and get QR code
+      // IMPORTANT: This does both step 1 (create instance) and step 2 (get QR code)
+      // according to the API documentation
+      const instanceId = instanceName || getInstanceName();
       console.log(`Starting WhatsApp connection process for instance: ${instanceId}`);
+      
+      // This will create the instance AND get the QR code in one flow
       const qrCode = await initializeWhatsAppInstance(instanceId);
       
       if (qrCode) {
@@ -192,12 +206,14 @@ export function useWhatsAppConnection() {
     setQrCodeData(null);
     setConnectionError(null);
     setPairingCode(null);
-    consecutiveConnectedStatesRef.current = 0;
     lastConnectionStateRef.current = null;
+    
+    // Clean up instance tracking
+    clearCurrentInstanceName();
     
     // No need to logout/disconnect instance - it will time out automatically
     console.log("Connection process canceled by user");
-  }, [clearPolling, setConnectionStatus, setIsLoading, setQrCodeData, setConnectionError, setPairingCode]);
+  }, [clearPolling, setConnectionStatus, setIsLoading, setQrCodeData, setConnectionError, setPairingCode, clearCurrentInstanceName]);
 
   /**
    * Handle connection success
@@ -205,6 +221,12 @@ export function useWhatsAppConnection() {
   const completeConnection = useCallback((phoneNumber?: string | null) => {
     setConnectionStatus("connected");
     clearPolling();
+    
+    // Mark credits as consumed only on successful connection
+    if (PREVENT_CREDIT_CONSUMPTION_ON_FAILURE) {
+      setCreditsConsumed(true);
+      console.log("Credits consumed on successful connection");
+    }
     
     // Show a toast notification
     showSuccessToast(phoneNumber || undefined);
@@ -215,7 +237,7 @@ export function useWhatsAppConnection() {
     }
     
     console.log("Connection process completed successfully", phoneNumber ? `for number ${phoneNumber}` : "");
-  }, [clearPolling, showSuccessToast, setConnectionStatus]);
+  }, [clearPolling, showSuccessToast, setConnectionStatus, setCreditsConsumed]);
 
   /**
    * Get current QR code
@@ -234,7 +256,6 @@ export function useWhatsAppConnection() {
       qrCode: qrCodeData ? "Available" : "Not available",
       error: connectionError,
       attemptCount,
-      consecutiveConnectedStates: consecutiveConnectedStatesRef.current,
       timeTaken,
     };
   }, [connectionStatus, instanceData, qrCodeData, connectionError, attemptCount, timeTaken]);

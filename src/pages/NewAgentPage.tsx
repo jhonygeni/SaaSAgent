@@ -12,8 +12,9 @@ import { Agent } from "@/types";
 const NewAgentPage = () => {
   const [showConnectionDialog, setShowConnectionDialog] = useState(false);
   const { connectionStatus, qrCodeData, startConnection, cancelConnection } = useConnection();
-  const { addAgent } = useAgent();
+  const { addAgent, updateAgentById } = useAgent();
   const navigate = useNavigate();
+  const [createdAgent, setCreatedAgent] = useState<Agent | null>(null);
 
   // Log important connection state changes
   useEffect(() => {
@@ -28,7 +29,16 @@ const NewAgentPage = () => {
         duration: 10000,
       });
     }
-  }, [connectionStatus, qrCodeData]);
+    
+    // Update the agent status when connection status changes to connected
+    if (connectionStatus === "connected" && createdAgent?.id) {
+      console.log("WhatsApp connection successful, updating agent status");
+      updateAgentById(createdAgent.id, {
+        connected: true,
+        status: "ativo"
+      });
+    }
+  }, [connectionStatus, qrCodeData, createdAgent, updateAgentById]);
 
   const handleAgentCreated = (agent: Agent) => {
     console.log("Agent created, showing connection dialog");
@@ -38,12 +48,16 @@ const NewAgentPage = () => {
     // Save the agent first, regardless of connection status
     const savedAgent: Agent = {
       ...agent,
+      id: `agent-${Date.now()}`, // Ensure the agent has an ID
       connected: false,
-      status: "pendente" // Fixed: Using a specific string literal that matches the Agent type
+      status: "pendente"
     };
     
     // Add the agent to the agent context
     addAgent(savedAgent);
+    
+    // Store the created agent for reference in the connection flow
+    setCreatedAgent(savedAgent);
     
     // Show the connection dialog
     setShowConnectionDialog(true);
@@ -80,7 +94,11 @@ const NewAgentPage = () => {
   const handleTestConnection = async () => {
     console.log("Manual test of connection requested");
     try {
-      const qrCode = await startConnection();
+      // Generate a unique test instance name
+      const testInstanceName = `test_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 7)}`;
+      console.log(`Using test instance name: ${testInstanceName}`);
+      
+      const qrCode = await startConnection(testInstanceName);
       if (qrCode) {
         console.log("QR Code received successfully");
         setShowConnectionDialog(true);
@@ -120,6 +138,7 @@ const NewAgentPage = () => {
         <WhatsAppConnectionDialog 
           open={showConnectionDialog} 
           onOpenChange={handleConnectionDialogClose}
+          agentId={createdAgent?.id}
         />
         
         {/* Debug section for development, can be removed in production */}
