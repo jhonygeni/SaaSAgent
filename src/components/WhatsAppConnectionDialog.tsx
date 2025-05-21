@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,7 +14,12 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { useConnection } from "@/context/ConnectionContext";
-import { USE_MOCK_DATA, EVOLUTION_API_URL } from "@/constants/api";
+import { 
+  USE_MOCK_DATA, 
+  EVOLUTION_API_URL, 
+  AUTO_CLOSE_AFTER_SUCCESS, 
+  AUTO_CLOSE_DELAY_MS 
+} from "@/constants/api";
 import { whatsappService } from "@/services/whatsappService";
 
 // Import our refactored components
@@ -59,12 +64,14 @@ export function WhatsAppConnectionDialog({
   const [apiHealthStatus, setApiHealthStatus] = useState<"unknown" | "healthy" | "unhealthy">("unknown");
   const [retryCount, setRetryCount] = useState(0);
   const [lastInstanceName, setLastInstanceName] = useState<string | null>(null);
-  const [autoCloseAfterSuccess, setAutoCloseAfterSuccess] = useState(true);
+  const [autoCloseAfterSuccess, setAutoCloseAfterSuccess] = useState(AUTO_CLOSE_AFTER_SUCCESS);
+  const [instances, setInstances] = useState<any[]>([]);
   
   // Check API health when dialog opens
   useEffect(() => {
     if (open) {
       checkApiHealth();
+      fetchInstances();
     }
   }, [open]);
   
@@ -79,6 +86,20 @@ export function WhatsAppConnectionDialog({
     } catch (error) {
       console.error("API health check failed:", error);
       setApiHealthStatus("unhealthy");
+    }
+  };
+  
+  // Fetch existing instances
+  const fetchInstances = async () => {
+    try {
+      console.log("Fetching instances...");
+      const response = await whatsappService.fetchInstances();
+      console.log("Instances fetched:", response);
+      if (response && response.instances && Array.isArray(response.instances)) {
+        setInstances(response.instances);
+      }
+    } catch (error) {
+      console.error("Failed to fetch instances:", error);
     }
   };
   
@@ -129,29 +150,29 @@ export function WhatsAppConnectionDialog({
   }, [open]);
 
   // Handle dialog close
-  const handleDialogClose = (isOpen: boolean) => {
+  const handleDialogClose = useCallback((isOpen: boolean) => {
     if (!isOpen && connectionStatus !== "connected") {
       console.log("Dialog closed, canceling connection");
       cancelConnection();
     }
     onOpenChange(isOpen);
-  };
+  }, [cancelConnection, connectionStatus, onOpenChange]);
 
-  // Handle completion - IMPROVED to better handle connection status changes
+  // Handle completion - Auto-close dialog after success with delay
   useEffect(() => {
     if (connectionStatus === "connected" && onComplete) {
       console.log("Connection complete, calling onComplete callback");
-      
-      // Call onComplete to notify parent component
       onComplete();
       
       // Auto-close the dialog after successful connection with a delay
       if (autoCloseAfterSuccess) {
-        console.log("Auto-closing dialog after successful connection");
-        // Small delay to allow the UI to show the success state before closing
-        setTimeout(() => {
+        console.log(`Auto-closing dialog in ${AUTO_CLOSE_DELAY_MS}ms`);
+        const timer = setTimeout(() => {
+          console.log("Auto-closing dialog now");
           onOpenChange(false);
-        }, 2000);
+        }, AUTO_CLOSE_DELAY_MS);
+        
+        return () => clearTimeout(timer);
       }
     }
   }, [connectionStatus, onComplete, onOpenChange, autoCloseAfterSuccess]);
@@ -221,6 +242,7 @@ export function WhatsAppConnectionDialog({
   const connectionInfo = getConnectionInfo();
   const instanceInfo = connectionInfo?.instanceData;
   const phoneNumber = instanceInfo?.instance?.user?.id?.split('@')[0];
+  const timeTaken = connectionInfo?.timeTaken;
 
   return (
     <Dialog open={open} onOpenChange={handleDialogClose}>
@@ -268,7 +290,8 @@ export function WhatsAppConnectionDialog({
           {!isLoading && connectionStatus === "connected" && (
             <SuccessState 
               phoneNumber={phoneNumber} 
-              instanceName={lastInstanceName || undefined} 
+              instanceName={lastInstanceName || undefined}
+              timeTaken={timeTaken}
             />
           )}
 
@@ -287,20 +310,38 @@ export function WhatsAppConnectionDialog({
               toggleDebugInfo={toggleDebugInfo}
               apiHealthStatus={apiHealthStatus}
               lastInstanceName={lastInstanceName}
+              instances={instances}
             />
           )}
         </div>
 
         <DialogFooter className="flex flex-col sm:flex-row sm:justify-between">
-          {connectionStatus !== "connected" && (
-            <Button 
-              variant="outline" 
-              onClick={() => handleDialogClose(false)}
-              className="w-full sm:w-auto mb-3 sm:mb-0"
-            >
-              Cancelar
-            </Button>
-          )}
+          <div className="flex flex-col space-y-2 w-full sm:w-auto mb-3 sm:mb-0">
+            {connectionStatus !== "connected" && (
+              <Button 
+                variant="outline" 
+                onClick={() => handleDialogClose(false)}
+                className="w-full sm:w-auto"
+              >
+                Cancelar
+              </Button>
+            )}
+            
+            {process.env.NODE_ENV !== "production" && (
+              <div className="flex items-center space-x-2">
+                <input 
+                  type="checkbox" 
+                  id="auto-close" 
+                  checked={autoCloseAfterSuccess} 
+                  onChange={toggleAutoClose}
+                  className="w-4 h-4"
+                />
+                <label htmlFor="auto-close" className="text-xs text-muted-foreground">
+                  Fechar automaticamente
+                </label>
+              </div>
+            )}
+          </div>
           
           {connectionStatus === "waiting" && qrCodeData && (
             <Button 

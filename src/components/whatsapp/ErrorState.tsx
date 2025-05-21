@@ -13,6 +13,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({ errorMessage, isAuthErro
   const isConnectionEndpointError = errorMessage?.includes('404') && isConnectError;
   const isStateEndpointError = errorMessage?.includes('/instance/connectionState') && errorMessage?.includes('404');
   const isConnectionTimedOut = errorMessage?.includes('timed out') || errorMessage?.includes('timeout');
+  const isFetchError = errorMessage?.includes('/instance/fetchInstances');
   
   return (
     <div className="flex flex-col items-center space-y-4 py-4">
@@ -28,6 +29,8 @@ export const ErrorState: React.FC<ErrorStateProps> = ({ errorMessage, isAuthErro
             ? "O endpoint para verificar o estado da conexão não está disponível."
             : isConnectionTimedOut
             ? "Tempo de conexão esgotado. Por favor, tente novamente."
+            : isFetchError
+            ? "Erro ao buscar instâncias. Verifique a configuração da API."
             : errorMessage || "Não foi possível conectar à API do WhatsApp. Por favor, tente novamente."}
         </p>
       </div>
@@ -57,6 +60,16 @@ export const ErrorState: React.FC<ErrorStateProps> = ({ errorMessage, isAuthErro
           <p className="text-xs mt-1">
             O endpoint para verificar o status da conexão não está configurado corretamente.
             Endpoint esperado: <code className="bg-red-100 px-1">/instance/connectionState/{'{nome-da-instancia}'}</code>
+          </p>
+        </div>
+      )}
+      
+      {isFetchError && (
+        <div className="w-full bg-red-50 p-3 rounded-md text-sm text-red-800">
+          <p className="font-medium">Erro ao buscar instâncias</p>
+          <p className="text-xs mt-1">
+            O endpoint para buscar instâncias não está disponível ou não está configurado corretamente.
+            Endpoint esperado: <code className="bg-red-100 px-1">/instance/fetchInstances</code>
           </p>
         </div>
       )}

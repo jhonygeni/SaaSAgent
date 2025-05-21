@@ -25,7 +25,7 @@ export const whatsappService = {
         console.log("API health check successful", healthResponse);
         return true;
       } catch (e) {
-        console.log("Health endpoint not available, trying instances endpoint");
+        console.log("Health endpoint not available, trying fetchInstances endpoint");
       }
       
       // If health endpoint fails, try fetchInstances as a fallback
@@ -176,6 +176,17 @@ export const whatsappService = {
       
       if (USE_MOCK_DATA) {
         console.warn("MOCK MODE IS ACTIVE - This should never be used in production!");
+        
+        // After a few calls, return a successful connection to simulate the flow
+        const mockCalls = Math.floor(Math.random() * 10);
+        if (mockCalls > 7) {
+          return {
+            status: "success",
+            state: "open",
+            message: "WhatsApp connection state: connected (mock)"
+          };
+        }
+        
         return {
           status: "success",
           state: "connecting",
@@ -190,9 +201,9 @@ export const whatsappService = {
       const data = await apiClient.get<ConnectionStateResponse>(endpoint);
       console.log("Connection state retrieved:", data);
       
-      // Enriquecer o log para facilitar a depuração dos estados de conexão
+      // Detailed logging for connection states
       if (data && data.state) {
-        console.log(`Estado detalhado da conexão para instância ${instanceName}:`, {
+        console.log(`Detailed connection state for instance ${instanceName}:`, {
           state: data.state,
           status: data.status,
           message: data.message
@@ -273,6 +284,7 @@ export const whatsappService = {
   
   /**
    * Fetch instances with optional filtering
+   * This properly implements the fetchInstances endpoint with query parameters
    */
   fetchInstances: async (options: { instanceName?: string, instanceId?: string } = {}): Promise<any> => {
     try {
