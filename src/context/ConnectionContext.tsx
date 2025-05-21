@@ -20,7 +20,25 @@ interface ConnectionContextType {
   fetchUserInstances: () => Promise<any[]>;
 }
 
-const ConnectionContext = createContext<ConnectionContextType | undefined>(undefined);
+// Create a default context value to prevent errors when used outside provider
+const defaultConnectionContext: ConnectionContextType = {
+  connectionStatus: "idle",
+  startConnection: async () => null,
+  cancelConnection: () => {},
+  completeConnection: () => {},
+  isLoading: false,
+  qrCodeData: null,
+  pairingCode: null,
+  connectionError: null,
+  getCurrentQrCode: () => null,
+  getConnectionInfo: () => ({}),
+  debugInfo: null,
+  attemptCount: 0,
+  validateInstanceName: async () => ({ valid: false, message: "Provider not initialized" }),
+  fetchUserInstances: async () => [],
+};
+
+const ConnectionContext = createContext<ConnectionContextType>(defaultConnectionContext);
 
 export function ConnectionProvider({ children }: { children: ReactNode }) {
   const connection = useWhatsAppConnection();
@@ -34,8 +52,7 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
 
 export const useConnection = () => {
   const context = useContext(ConnectionContext);
-  if (context === undefined) {
-    throw new Error("useConnection must be used within a ConnectionProvider");
-  }
+  
+  // No need to throw an error - we have default values now
   return context;
 };

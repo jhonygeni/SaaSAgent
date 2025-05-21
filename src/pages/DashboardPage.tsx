@@ -52,9 +52,8 @@ const DashboardPage = () => {
   // Check if there are any agents that need WhatsApp connection
   useEffect(() => {
     const checkForAgentsNeedingConnection = () => {
-      // Don't automatically show dialog when connectionStatus is failed or waiting
-      // Only check for auto-connect when no connection attempt is in progress
-      if (connectionStatus !== "connected" && connectionStatus !== "failed" && connectionStatus !== "waiting") {
+      // Only proceed if we have the connection status and it's not in a pending state
+      if (connectionStatus && connectionStatus !== "connected" && connectionStatus !== "failed" && connectionStatus !== "waiting") {
         if (agents && agents.length > 0) {
           const needsConnection = agents.some(agent => !agent.connected && 
             (agent.status === "pendente" || agent.status === "ativo"));

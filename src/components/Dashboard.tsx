@@ -101,7 +101,7 @@ export function Dashboard() {
           </div>
         </div>
         
-        {/* Connection Status Indicator */}
+        {/* Connection Status Indicator - Only show if connectionStatus is available */}
         {connectionStatus && (
           <div className="grid grid-cols-1 gap-4">
             <Card className={`border-l-4 ${
