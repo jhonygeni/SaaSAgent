@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import whatsappService from '@/services/whatsappService';
 import { InstancesListResponse } from '@/services/whatsapp/types';
 
-// Regular expression for valid instance names
+// Regular expression for valid instance names - only lowercase letters, numbers and underscores
 const VALID_NAME_REGEX = /^[a-z0-9_]+$/;
 
 /**
@@ -46,7 +46,7 @@ export function useNameValidator() {
       // Check if instance with this name already exists
       const existingInstances: InstancesListResponse = await whatsappService.listInstances();
       const alreadyExists = existingInstances.instances?.some(instance => 
-        instance.instanceName === name || instance.instanceName === name
+        instance.instanceName === name
       );
       
       if (alreadyExists) {

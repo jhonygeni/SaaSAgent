@@ -85,15 +85,20 @@ const whatsappService = {
     }
   },
 
-  // Create a new WhatsApp instance
+  // Create a new WhatsApp instance - FIXED: Adding proper integration parameter
   createInstance: async (instanceName: string, userId?: string) => {
     try {
       const endpoint = ENDPOINTS.instanceCreate;
+      
+      // FIXED: Using the correct integration parameter "WHATSAPP-BAILEYS"
       const instanceData = {
         instanceName,
+        integration: "WHATSAPP-BAILEYS", // CRITICAL FIX: Exact string with no extra spaces or characters
         token: userId || "default_user",
         qrcode: true
       };
+      
+      console.log("Creating instance with data:", JSON.stringify(instanceData));
       
       return await apiClient.post(endpoint, instanceData);
     } catch (error) {

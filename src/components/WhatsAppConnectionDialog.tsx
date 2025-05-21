@@ -106,6 +106,11 @@ export function WhatsAppConnectionDialog({
     }
   };
   
+  // CRITICAL FIX: Make sure to format instance names consistently
+  const sanitizeInstanceName = (name: string): string => {
+    return name.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/__+/g, '_');
+  };
+  
   // Start connection process when dialog opens and API is healthy
   useEffect(() => {
     const initiateConnection = async () => {
@@ -138,11 +143,13 @@ export function WhatsAppConnectionDialog({
         const instanceBase = agentId ? `a_${agentId.substring(0, 6)}` : 'agent';
         const instanceName = `${instanceBase}_${timestamp}_${randomStr}`;
         
-        console.log(`Using dynamic instance name: ${instanceName}`);
-        setLastInstanceName(instanceName);
+        // CRITICAL FIX: Make sure to sanitize the instance name before using it
+        const sanitizedName = sanitizeInstanceName(instanceName);
+        console.log(`Using sanitized instance name: ${sanitizedName} (from ${instanceName})`);
+        setLastInstanceName(sanitizedName);
         
-        // Start the connection with the instance name - this follows the correct API flow
-        await startConnection(instanceName);
+        // Start the connection with the sanitized instance name - this follows the correct API flow
+        await startConnection(sanitizedName);
       } catch (error) {
         console.error("Failed to start connection:", error);
       }
@@ -200,9 +207,12 @@ export function WhatsAppConnectionDialog({
   // Handle custom instance name submit
   const handleCustomNameSubmit = async (customInstanceName: string) => {
     setHasInitiatedConnection(true);
-    setLastInstanceName(customInstanceName);
-    const formattedName = customInstanceName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-    await startConnection(formattedName);
+    
+    // CRITICAL FIX: Sanitize the custom name before using it
+    const sanitizedName = sanitizeInstanceName(customInstanceName);
+    setLastInstanceName(sanitizedName);
+    
+    await startConnection(sanitizedName);
   };
 
   // Handle retry button click - CRITICAL: Don't reuse instance names
@@ -224,11 +234,13 @@ export function WhatsAppConnectionDialog({
       const instanceBase = agentId ? `a_${agentId.substring(0, 6)}` : 'retry';
       const instanceName = `${instanceBase}_${timestamp}_${randomStr}_r${retryNum}`;
       
-      console.log(`Retry #${retryNum}: Using new instance name: ${instanceName}`);
-      setLastInstanceName(instanceName);
+      // CRITICAL FIX: Sanitize the instance name
+      const sanitizedName = sanitizeInstanceName(instanceName);
+      console.log(`Retry #${retryNum}: Using new sanitized instance name: ${sanitizedName}`);
+      setLastInstanceName(sanitizedName);
       
-      // Start the connection process with the new instance name
-      await startConnection(instanceName);
+      // Start the connection process with the new sanitized instance name
+      await startConnection(sanitizedName);
     } catch (error) {
       console.error("Failed to retry connection:", error);
       // Let the error handling in startConnection show the error
