@@ -2,7 +2,7 @@
 // Evolution API constants
 export const EVOLUTION_API_URL = "https://cloudsaas.geni.chat"; // API URL
 export const EVOLUTION_API_KEY = "a01d49df66f0b9d8f368d3788a32aea8"; // Global API Key
-export const USE_BEARER_AUTH = true; // Use Bearer token authentication
+export const USE_BEARER_AUTH = false; // Switch to use apikey header instead of Bearer token
 
 // IMPORTANT: Always use real API calls in production
 export const USE_MOCK_DATA = false; // Disable mock mode to ensure real API calls
@@ -10,7 +10,7 @@ export const USE_MOCK_DATA = false; // Disable mock mode to ensure real API call
 // API endpoints - following official Evolution API documentation
 export const ENDPOINTS = {
   // Instance management endpoints
-  instanceCreate: "/api/instances", // Endpoint to create instance
+  instanceCreate: "/instance/create", // Updated endpoint for instance creation (POST)
   instanceConnect: "/api/instances/{instanceName}/connect", // Connect to existing instance 
   qrCode: "/api/instances/{instanceName}/qr", // Get QR code for scanning
   instanceInfo: "/api/instances/{instanceName}", // Get instance info

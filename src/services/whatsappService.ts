@@ -1,8 +1,38 @@
 
 import { EVOLUTION_API_URL, EVOLUTION_API_KEY, ENDPOINTS, USE_MOCK_DATA, MOCK_QR_CODE, USE_BEARER_AUTH } from '../constants/api';
+import { supabase } from '@/integrations/supabase/client';
 
 interface WhatsAppInstanceRequest {
-  name: string; // Instance name for the request
+  instanceName: string; // Instance name for the request
+  integration: string; // Integration type
+}
+
+interface WhatsAppInstance {
+  instanceName: string;
+  instanceId: string;
+  integration: string;
+  webhookWaBusiness: string | null;
+  accessTokenWaBusiness: string;
+  status: string;
+}
+
+interface WhatsAppInstanceResponse {
+  instance: WhatsAppInstance;
+  hash: string;
+  webhook: Record<string, any>;
+  websocket: Record<string, any>;
+  rabbitmq: Record<string, any>;
+  sqs: Record<string, any>;
+  settings: {
+    rejectCall: boolean;
+    msgCall: string;
+    groupsIgnore: boolean;
+    alwaysOnline: boolean;
+    readMessages: boolean;
+    readStatus: boolean;
+    syncFullHistory: boolean;
+    wavoipToken: string;
+  };
 }
 
 // Helper function to replace placeholders in endpoint URLs
@@ -14,29 +44,91 @@ const formatEndpoint = (endpoint: string, params: Record<string, string>): strin
   return formattedEndpoint;
 };
 
+// Store WhatsApp instance data in Supabase
+const storeInstanceData = async (userId: string, instanceData: WhatsAppInstanceResponse): Promise<void> => {
+  try {
+    const { error } = await supabase.from('whatsapp_instances').upsert({
+      user_id: userId,
+      name: instanceData.instance.instanceName,
+      evolution_instance_id: instanceData.instance.instanceId,
+      status: instanceData.instance.status,
+      session_data: {
+        hash: instanceData.hash,
+        integration: instanceData.instance.integration,
+        settings: instanceData.settings,
+        webhook: instanceData.webhook,
+        websocket: instanceData.websocket,
+        rabbitmq: instanceData.rabbitmq,
+        sqs: instanceData.sqs
+      }
+    });
+
+    if (error) {
+      console.error("Error storing instance data in Supabase:", error);
+      throw error;
+    }
+    
+    console.log("Successfully stored instance data in Supabase for instance:", instanceData.instance.instanceName);
+  } catch (error) {
+    console.error("Error in storeInstanceData:", error);
+    throw error;
+  }
+};
+
 // WhatsApp connection service
 export const whatsappService = {
   // Create a WhatsApp instance
-  createInstance: async (instanceName: string): Promise<any> => {
+  createInstance: async (instanceName: string, userId?: string): Promise<any> => {
     console.log(`Creating WhatsApp instance: ${instanceName}`);
+    
+    // Format instance name to be valid (replace spaces with underscores, etc.)
+    const formattedInstanceName = instanceName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
     
     // We're enforcing real API calls for production use
     if (USE_MOCK_DATA) {
       console.warn("MOCK MODE IS ACTIVE - This should never be used in production!");
+      const mockResponse = {
+        instance: {
+          instanceName: formattedInstanceName,
+          instanceId: `mock-${Date.now()}`,
+          integration: "WHATSAPP-BAILEYS",
+          webhookWaBusiness: null,
+          accessTokenWaBusiness: "",
+          status: "close"
+        },
+        hash: `MOCK-${Math.random().toString(36).substring(2, 15)}`,
+        webhook: {},
+        websocket: {},
+        rabbitmq: {},
+        sqs: {},
+        settings: {
+          rejectCall: false,
+          msgCall: "",
+          groupsIgnore: false,
+          alwaysOnline: false,
+          readMessages: false,
+          readStatus: false,
+          syncFullHistory: false,
+          wavoipToken: ""
+        }
+      };
+      
+      // Store mock data in Supabase if userId is provided
+      if (userId) {
+        await storeInstanceData(userId, mockResponse);
+      }
+      
       return {
         status: "success",
         message: "Instance created successfully (mock)",
-        instance: {
-          instanceName,
-          token: "mock-token-12345",
-          qrcode: MOCK_QR_CODE
-        }
+        ...mockResponse
       };
     }
     
     try {
       const requestBody: WhatsAppInstanceRequest = {
-        name: instanceName
+        instanceName: formattedInstanceName,
+        integration: "WHATSAPP-BAILEYS"
       };
       
       console.log("Request payload for instance creation:", JSON.stringify(requestBody));
@@ -45,7 +137,7 @@ export const whatsappService = {
         'Content-Type': 'application/json',
       };
       
-      // Use Bearer token authentication as required
+      // Use apikey header instead of Bearer token
       if (USE_BEARER_AUTH) {
         headers['Authorization'] = `Bearer ${EVOLUTION_API_KEY}`;
       } else {
@@ -78,12 +170,16 @@ export const whatsappService = {
       const data = await response.json();
       console.log("Instance creation successful response:", data);
       
-      // The response should contain the instanceName, token, and QR code
+      // Store the complete instance data in Supabase if userId is provided
+      if (userId) {
+        await storeInstanceData(userId, data);
+      }
+      
       // If QR is not in the initial response, immediately fetch it
-      if (!data.qrcode && data.instance && data.instance.name) {
+      if (!data.qrcode && data.instance && data.instance.instanceName) {
         console.log("QR code not in creation response, fetching it separately");
         try {
-          const qrData = await whatsappService.getQrCode(data.instance.name);
+          const qrData = await whatsappService.getQrCode(data.instance.instanceName);
           // Combine the instance data with the QR code data
           data.qrcode = qrData.qrcode || qrData.base64 || qrData.qr;
         } catch (qrError) {

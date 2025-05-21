@@ -83,10 +83,18 @@ export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
       
       if (result.success) {
         // Add agent to context
-        addAgent(currentAgent);
+        const agentWithId = {
+          ...currentAgent,
+          id: `agent-${Date.now()}`
+        };
+        addAgent(agentWithId);
         
-        // Start connection process
-        startConnection();
+        // Start connection process with the agent name
+        const instanceName = currentAgent.nome
+          ? currentAgent.nome.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
+          : undefined;
+        
+        await startConnection(instanceName);
         
         // Show success toast
         toast({
