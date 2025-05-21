@@ -11,7 +11,7 @@ export const USE_MOCK_DATA = false; // Disable mock mode to ensure real API call
 export const ENDPOINTS = {
   // Instance management endpoints with correct HTTP methods
   instanceCreate: "/instance/create", // Create new instance (POST)
-  instanceConnectQR: "/instance/connect/{instanceName}", // Connect and get QR code
+  instanceConnectQR: "/instance/connect/{instanceName}", // Connect and get QR code - CRITICAL: correct path
   instanceInfo: "/instance/info/{instanceName}", // Get instance info (GET)
   connectionState: "/instance/connectionState/{instanceName}", // Check connection status (GET)
   instanceLogout: "/instance/logout/{instanceName}", // Disconnect instance (DELETE)

@@ -113,13 +113,24 @@ export const apiClient = {
         
         // Parse response regardless of success/failure for debugging
         let responseData;
+        let responseText;
+        
         try {
-          responseData = await response.json();
-          console.log(`GET response from ${url}:`, responseData);
+          responseText = await response.text();
+          console.log(`Raw GET response from ${url}:`, responseText);
+          
+          // Try to parse as JSON
+          try {
+            responseData = JSON.parse(responseText);
+          } catch (jsonError) {
+            console.warn(`Response is not valid JSON: ${jsonError}`);
+            responseData = { message: responseText };
+          }
+          
+          console.log(`Parsed GET response from ${url}:`, responseData);
         } catch (e) {
-          const text = await response.text();
-          console.log(`GET response (non-JSON) from ${url}:`, text);
-          responseData = { message: text };
+          console.error(`Error reading response text: ${e}`);
+          responseData = { error: "Could not read response" };
         }
         
         if (!response.ok) {

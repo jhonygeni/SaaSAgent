@@ -7,7 +7,7 @@ interface QrCodeDisplayProps {
   size?: number;
   level?: "L" | "M" | "Q" | "H";
   includeMargin?: boolean;
-  pairingCode?: string | null; // Added to support pairing code if available
+  pairingCode?: string | null;
 }
 
 export function QrCodeDisplay({
@@ -15,7 +15,7 @@ export function QrCodeDisplay({
   size = 200,
   level = "M",
   includeMargin = true,
-  pairingCode, // New prop for pairing code
+  pairingCode,
 }: QrCodeDisplayProps) {
   const [qrValue, setQrValue] = useState<string>("");
   const [isBase64, setIsBase64] = useState<boolean>(false);
@@ -30,25 +30,31 @@ export function QrCodeDisplay({
     try {
       // Check if we're dealing with a base64 string
       if (typeof value === 'string') {
-        // Log first few characters for debugging
-        console.log(`QR code value (first 20 chars): ${value.substring(0, 20)}...`);
+        // Log complete value for debugging
+        console.log(`QR code value received (length: ${value.length})`);
+        console.log("QR code value sample:", value.substring(0, 100) + (value.length > 100 ? '...' : ''));
         
         // If it looks like it might be base64
-        if (value.length > 100 && !value.startsWith('http') && !value.startsWith('data:')) {
-          console.log("Detected base64 encoded QR code");
-          setQrValue(`data:image/png;base64,${value}`);
-          setIsBase64(true);
-        } else if (value.startsWith('data:')) {
-          console.log("Detected data URL QR code");
+        if (value.indexOf('base64,') !== -1) {
+          console.log("Detected data URL with base64 content");
           setQrValue(value);
           setIsBase64(true);
+        } else if (value.length > 100 && !value.startsWith('http') && !value.match(/^[a-zA-Z0-9+/=]+$/)) {
+          // Non-base64 format long string - probably direct code format
+          console.log("Using raw QR code value (non-base64 format)");
+          setQrValue(value);
+          setIsBase64(false);
+        } else if (value.match(/^[a-zA-Z0-9+/=]+$/)) {
+          // Looks like raw base64 without data:image prefix
+          console.log("Detected raw base64 encoded QR code");
+          setQrValue(`data:image/png;base64,${value}`);
+          setIsBase64(true);
         } else {
-          console.log("Using raw QR code value");
+          console.log("Using standard QR code value");
           setQrValue(value);
           setIsBase64(false);
         }
       } else {
-        // If not a string, convert to string
         console.warn("QR code value is not a string:", value);
         setQrValue(String(value));
         setIsBase64(false);
@@ -63,7 +69,7 @@ export function QrCodeDisplay({
   if (!value) {
     return (
       <div className="bg-white p-4 rounded-lg inline-block w-[200px] h-[200px] flex items-center justify-center">
-        <p className="text-gray-400 text-sm text-center">QR code not available yet</p>
+        <p className="text-gray-400 text-sm text-center">Aguardando código QR...</p>
       </div>
     );
   }
@@ -87,7 +93,7 @@ export function QrCodeDisplay({
         {/* Show pairing code if available */}
         {pairingCode && (
           <div className="mt-2 text-center">
-            <p className="text-sm font-medium">Pairing Code:</p>
+            <p className="text-sm font-medium">Código de Pareamento:</p>
             <p className="text-lg font-bold tracking-wider">{pairingCode}</p>
           </div>
         )}
@@ -109,7 +115,7 @@ export function QrCodeDisplay({
       {/* Show pairing code if available */}
       {pairingCode && (
         <div className="mt-2 text-center">
-          <p className="text-sm font-medium">Pairing Code:</p>
+          <p className="text-sm font-medium">Código de Pareamento:</p>
           <p className="text-lg font-bold tracking-wider">{pairingCode}</p>
         </div>
       )}

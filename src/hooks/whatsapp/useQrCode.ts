@@ -20,22 +20,23 @@ export function useQrCode() {
       const qrResponse: QrCodeResponse = await whatsappService.getQrCode(formattedName);
       console.log("QR code response:", qrResponse);
       
+      // Handle all possible response formats from the API
       if (qrResponse?.code) {
-        console.log("Código QR obtido com sucesso (code)");
+        console.log("QR code obtained successfully (code)");
         return qrResponse.code;
       }
       
       if (qrResponse?.qrcode) {
-        console.log("Código QR obtido com sucesso (qrcode)");
+        console.log("QR code obtained successfully (qrcode)");
         return qrResponse.qrcode;
       }
       
       if (qrResponse?.base64) {
-        console.log("Código QR obtido com sucesso (base64)");
+        console.log("QR code obtained successfully (base64)");
         return qrResponse.base64;
       }
       
-      console.warn("QR code não encontrado na resposta da API");
+      console.warn("QR code not found in API response");
       return null;
     } catch (error) {
       console.error("Error fetching QR code:", error);

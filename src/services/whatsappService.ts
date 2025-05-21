@@ -1,4 +1,3 @@
-
 import { 
   EVOLUTION_API_URL, 
   EVOLUTION_API_KEY, 
@@ -120,7 +119,11 @@ const whatsappService = {
       const endpoint = formatEndpoint(ENDPOINTS.instanceConnectQR, { instanceName });
       console.log(`Getting QR code using connect endpoint: ${endpoint}`);
       
-      return await apiClient.get<QrCodeResponse>(endpoint);
+      // Make the request and log the full response for debugging
+      const response = await apiClient.get<QrCodeResponse>(endpoint);
+      console.log(`QR code response for ${instanceName}:`, JSON.stringify(response, null, 2));
+      
+      return response;
     } catch (error) {
       console.error(`Error getting QR code for ${instanceName}:`, error);
       throw error;
