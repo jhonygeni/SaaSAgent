@@ -126,7 +126,7 @@ export const whatsappService = {
   
   /**
    * Connect to an existing WhatsApp instance and get QR code
-   * FIXED: Using the correct endpoint format for the QR code
+   * Using the correct endpoint format for the QR code
    */
   connectToInstance: async (instanceName: string): Promise<any> => {
     try {
@@ -146,7 +146,7 @@ export const whatsappService = {
         };
       }
       
-      // FIXED: Use the correct endpoint format for connecting
+      // Use the correct endpoint format for connecting with formatEndpoint helper
       const endpoint = formatEndpoint(ENDPOINTS.instanceConnectQR, { instanceName });
       console.log("Connect instance URL:", `${apiClient.baseUrl}${endpoint}`);
       

@@ -8,8 +8,9 @@ interface ErrorStateProps {
 }
 
 export const ErrorState: React.FC<ErrorStateProps> = ({ errorMessage, isAuthError }) => {
-  // Extract specific error message for 404 connect errors
+  // Extract specific error message for connection errors
   const isConnectError = errorMessage?.includes('/instance/connect') || errorMessage?.includes('Cannot GET');
+  const isConnectionEndpointError = errorMessage?.includes('404') && isConnectError;
   
   return (
     <div className="flex flex-col items-center space-y-4 py-4">
@@ -34,11 +35,12 @@ export const ErrorState: React.FC<ErrorStateProps> = ({ errorMessage, isAuthErro
         </div>
       )}
       
-      {isConnectError && (
+      {isConnectionEndpointError && (
         <div className="w-full bg-red-50 p-3 rounded-md text-sm text-red-800">
           <p className="font-medium">Erro no endpoint de conexão</p>
           <p className="text-xs mt-1">
             O endpoint para obter o código QR não está configurado corretamente ou não está disponível no servidor.
+            Endpoint esperado: <code className="bg-red-100 px-1">/instance/connect/[nome-da-instancia]</code>
           </p>
         </div>
       )}
