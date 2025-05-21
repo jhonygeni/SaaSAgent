@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/select";
 import { AREAS_DE_ATUACAO, EXAMPLE_AGENT, validateAgent } from "@/lib/utils";
 import { useAgent } from "@/context/AgentContext";
-import { FAQ } from "@/types";
+import { Agent, FAQ } from "@/types";
 import { useConnection } from "@/context/ConnectionContext";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/context/UserContext";
@@ -38,7 +38,7 @@ import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { useAgentWebhook, usePromptWebhook } from "@/hooks/use-webhook";
 
 interface NewAgentFormProps {
-  onAgentCreated?: () => void;
+  onAgentCreated?: (agent: Agent) => void; // Updated to include agent parameter
 }
 
 export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
@@ -132,14 +132,6 @@ export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
           ...currentAgent,
           id: `agent-${Date.now()}`
         };
-        addAgent(agentWithId);
-        
-        // Start connection process with the agent name
-        const instanceName = currentAgent.nome
-          ? currentAgent.nome.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
-          : undefined;
-        
-        await startConnection(instanceName);
         
         // Show success toast
         toast({
@@ -150,7 +142,7 @@ export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
         
         // Trigger the callback to open connection dialog
         if (onAgentCreated) {
-          onAgentCreated();
+          onAgentCreated(agentWithId);
         }
       } else {
         toast({

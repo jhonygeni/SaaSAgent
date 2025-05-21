@@ -36,10 +36,10 @@ const NewAgentPage = () => {
     console.log(`Using Evolution API at: ${EVOLUTION_API_URL}, Mock mode: ${USE_MOCK_DATA ? 'ON' : 'OFF'}`);
     
     // Save the agent first, regardless of connection status
-    const savedAgent = {
+    const savedAgent: Agent = {
       ...agent,
       connected: false,
-      status: "pendente"
+      status: "pendente" // Fixed: Using a specific string literal that matches the Agent type
     };
     
     // Add the agent to the agent context
@@ -50,7 +50,7 @@ const NewAgentPage = () => {
   };
 
   // Handle connection dialog close
-  const handleConnectionDialogClose = (isOpen) => {
+  const handleConnectionDialogClose = (isOpen: boolean) => {
     setShowConnectionDialog(isOpen);
     
     if (!isOpen) {
