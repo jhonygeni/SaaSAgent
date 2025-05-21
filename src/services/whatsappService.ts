@@ -116,8 +116,8 @@ const whatsappService = {
   // Get the QR code for an instance using the correct connect endpoint
   getQrCode: async (instanceName: string): Promise<QrCodeResponse> => {
     try {
-      // IMPORTANTE: Usando o endpoint correto de conexão
-      const endpoint = formatEndpoint(ENDPOINTS.instanceConnect, { instanceName });
+      // IMPORTANTE: Using the correct endpoint name from ENDPOINTS
+      const endpoint = formatEndpoint(ENDPOINTS.instanceConnectQR, { instanceName });
       console.log(`Getting QR code using connect endpoint: ${endpoint}`);
       
       return await apiClient.get<QrCodeResponse>(endpoint);
