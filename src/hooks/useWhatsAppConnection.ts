@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from 'react';
 import { ConnectionStatus } from '../types';
 import { whatsappService } from '../services/whatsappService';
@@ -156,7 +155,7 @@ export function useWhatsAppConnection() {
     }
   }, [clearPolling, updateDebugInfo]);
 
-  // Start polling for connection status - IMPROVED with correct endpoint handling
+  // Start polling for connection status - IMPROVED with proper status check
   const startStatusPolling = useCallback(async (instanceName: string) => {
     // Clear any existing polling interval
     clearPolling();
@@ -184,11 +183,11 @@ export function useWhatsAppConnection() {
         console.log("Connection state polling response:", stateData);
         updateDebugInfo({ pollAttempts, stateData });
         
-        // Check connection state based on Evolution API response structure
+        // Enhanced status check to handle different response formats
         // The API returns different field names in different contexts, so we check multiple fields
         const state = stateData?.state || stateData?.status;
         
-        if (state === "open" || state === "connected") {
+        if (state === "open" || state === "connected" || state === "confirmed") {
           console.log("Connection detected as CONNECTED!");
           handleSuccessfulConnection(instanceName);
         } else if (state === "connecting" || state === "loading") {
@@ -393,6 +392,22 @@ export function useWhatsAppConnection() {
     };
   }, [getInstanceName, instanceData, debugInfo, pairingCode]);
 
+  // New method to fetch all instances related to the current user
+  const fetchUserInstances = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      // Use the new fetchInstances method
+      const data = await whatsappService.fetchInstances();
+      return data?.instances || [];
+    } catch (error) {
+      console.error("Error fetching user instances:", error);
+      showErrorToast("Could not retrieve WhatsApp instances.");
+      return [];
+    } finally {
+      setIsLoading(false);
+    }
+  }, [showErrorToast]);
+
   return {
     connectionStatus,
     startConnection,
@@ -406,6 +421,7 @@ export function useWhatsAppConnection() {
     getConnectionInfo,
     debugInfo,
     attemptCount,
-    validateInstanceName
+    validateInstanceName,
+    fetchUserInstances
   };
 }

@@ -17,6 +17,7 @@ interface ConnectionContextType {
   debugInfo: string | null;
   attemptCount: number;
   validateInstanceName: (name: string) => Promise<{valid: boolean, message?: string}>;
+  fetchUserInstances: () => Promise<any[]>; // New method to fetch user instances
 }
 
 const ConnectionContext = createContext<ConnectionContextType | undefined>(undefined);

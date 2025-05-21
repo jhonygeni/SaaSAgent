@@ -1,4 +1,3 @@
-
 import { EVOLUTION_API_URL, EVOLUTION_API_KEY, ENDPOINTS, USE_MOCK_DATA, MOCK_QR_CODE, USE_BEARER_AUTH } from '../constants/api';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -422,6 +421,81 @@ export const whatsappService = {
       return data;
     } catch (error) {
       console.error("Error listing instances:", error);
+      throw error;
+    }
+  },
+  
+  // New method to fetch instances with optional filtering
+  fetchInstances: async (options: { instanceName?: string, instanceId?: string } = {}): Promise<any> => {
+    try {
+      console.log("Fetching WhatsApp instances with options:", options);
+      
+      if (USE_MOCK_DATA) {
+        console.warn("MOCK MODE IS ACTIVE - This should never be used in production!");
+        return {
+          status: "success",
+          instances: [
+            {
+              id: "mock-instance-1",
+              instanceName: "mock_instance_1",
+              status: "connected",
+              connected: true
+            },
+            {
+              id: "mock-instance-2",
+              instanceName: "mock_instance_2",
+              status: "disconnected",
+              connected: false
+            }
+          ]
+        };
+      }
+      
+      const headers: HeadersInit = {};
+      
+      if (USE_BEARER_AUTH) {
+        headers['Authorization'] = `Bearer ${EVOLUTION_API_KEY}`;
+      } else {
+        headers['apikey'] = EVOLUTION_API_KEY;
+      }
+      
+      // Build URL with optional query parameters
+      const url = new URL(`${EVOLUTION_API_URL}${ENDPOINTS.fetchInstances}`);
+      
+      // Add query parameters if provided
+      if (options.instanceName) {
+        url.searchParams.append('instanceName', options.instanceName);
+      }
+      
+      if (options.instanceId) {
+        url.searchParams.append('instanceId', options.instanceId);
+      }
+      
+      console.log("Fetch instances URL:", url.toString());
+      
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: headers
+      });
+      
+      console.log("Fetch instances response status:", response.status);
+      
+      if (!response.ok) {
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          errorData = await response.text();
+        }
+        console.error(`Fetch instances failed with status ${response.status}:`, errorData);
+        throw new Error(`API responded with status ${response.status}: ${JSON.stringify(errorData)}`);
+      }
+      
+      const data = await response.json();
+      console.log("Instances fetched successfully:", data);
+      return data;
+    } catch (error) {
+      console.error("Error fetching instances:", error);
       throw error;
     }
   },

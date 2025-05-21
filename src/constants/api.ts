@@ -16,6 +16,9 @@ export const ENDPOINTS = {
   connectionState: "/instance/connectionState/{instanceName}", // Check connection status (GET)
   instanceLogout: "/instance/logout", // Disconnect instance (DELETE)
   
+  // New endpoint for fetching instances
+  fetchInstances: "/instances", // Get all instances or filter by name/id (GET)
+  
   // For debugging - list all instances
   instances: "/instances" 
 };

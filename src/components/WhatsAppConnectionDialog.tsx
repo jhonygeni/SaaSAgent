@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -142,9 +141,14 @@ export function WhatsAppConnectionDialog({
       // Small delay to allow the UI to show the success state before closing
       setTimeout(() => {
         onComplete();
+        
+        // Auto-close the dialog after successful connection
+        setTimeout(() => {
+          onOpenChange(false);
+        }, 2000);
       }, 1500);
     }
-  }, [connectionStatus, onComplete]);
+  }, [connectionStatus, onComplete, onOpenChange]);
 
   // Handle custom instance name submit
   const handleCustomNameSubmit = async (e: React.FormEvent) => {

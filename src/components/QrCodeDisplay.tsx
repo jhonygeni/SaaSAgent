@@ -1,3 +1,4 @@
+
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState } from "react";
 
@@ -25,15 +26,29 @@ export function QrCodeDisplay({
       return;
     }
     
-    // If it looks like it might be base64
-    if (value && value.length > 100 && !value.startsWith('http') && !value.startsWith('data:')) {
-      setQrValue(`data:image/png;base64,${value}`);
-      setIsBase64(true);
-    } else if (value.startsWith('data:')) {
-      setQrValue(value);
-      setIsBase64(true);
-    } else {
-      setQrValue(value);
+    try {
+      // Check if we're dealing with a base64 string
+      if (typeof value === 'string') {
+        // If it looks like it might be base64
+        if (value.length > 100 && !value.startsWith('http') && !value.startsWith('data:')) {
+          setQrValue(`data:image/png;base64,${value}`);
+          setIsBase64(true);
+        } else if (value.startsWith('data:')) {
+          setQrValue(value);
+          setIsBase64(true);
+        } else {
+          setQrValue(value);
+          setIsBase64(false);
+        }
+      } else {
+        // If not a string, convert to string
+        console.warn("QR code value is not a string:", value);
+        setQrValue(String(value));
+        setIsBase64(false);
+      }
+    } catch (error) {
+      console.error("Error processing QR code value:", error);
+      setQrValue("");
       setIsBase64(false);
     }
   }, [value]);
