@@ -1,3 +1,4 @@
+
 /**
  * Types for the WhatsApp connection functionality
  */

@@ -67,16 +67,18 @@ export function WhatsAppConnectionDialog({
   const [lastInstanceName, setLastInstanceName] = useState<string | null>(null);
   const [autoCloseAfterSuccess, setAutoCloseAfterSuccess] = useState(AUTO_CLOSE_AFTER_SUCCESS);
   const [instances, setInstances] = useState<any[]>([]);
+  const [dialogCloseTriggered, setDialogCloseTriggered] = useState(false);
   
   // Check API health when dialog opens
   useEffect(() => {
     if (open) {
       checkApiHealth();
       fetchInstances();
+      setDialogCloseTriggered(false); // Reset the dialog close trigger
     }
   }, [open]);
   
-  // Check API health by using the fetchInstances endpoint instead of /instance/health
+  // Check API health by using the fetchInstances endpoint
   const checkApiHealth = async () => {
     try {
       console.log("Checking API health using fetchInstances endpoint...");
@@ -129,7 +131,6 @@ export function WhatsAppConnectionDialog({
       
       try {
         // Create a more unique instance name to avoid conflicts
-        // IMPORTANT: only create one unique instance name
         const timestamp = Date.now().toString(36);
         const randomStr = Math.random().toString(36).substring(2, 6);
         
@@ -144,8 +145,6 @@ export function WhatsAppConnectionDialog({
         await startConnection(instanceName);
       } catch (error) {
         console.error("Failed to start connection:", error);
-        // Let the error handling in startConnection do its thing
-        // We don't want to retry automatically on errors - require explicit user action
       }
     };
     
@@ -163,28 +162,22 @@ export function WhatsAppConnectionDialog({
     }
   }, [open]);
 
-  // Handle dialog close
-  const handleDialogClose = useCallback((isOpen: boolean) => {
-    if (!isOpen && connectionStatus !== "connected") {
-      console.log("Dialog closed, canceling connection");
-      cancelConnection();
-    }
-    onOpenChange(isOpen);
-  }, [cancelConnection, connectionStatus, onOpenChange]);
-
-  // Handle completion - Auto-close dialog after success with delay
+  // CRITICAL FIX: Handle connection success and auto-close dialog
   useEffect(() => {
-    if (connectionStatus === "connected") {
-      console.log("Connection complete");
+    if (connectionStatus === "connected" && !dialogCloseTriggered) {
+      console.log("Connection successful, completing connection and triggering auto-close");
+      completeConnection();
       
       // Call the onComplete callback if provided
       if (onComplete) {
         onComplete();
       }
       
+      setDialogCloseTriggered(true);
+      
       // Auto-close the dialog after successful connection with a delay
       if (autoCloseAfterSuccess) {
-        console.log(`Auto-closing dialog in ${AUTO_CLOSE_DELAY_MS}ms`);
+        console.log(`Auto-closing dialog in ${AUTO_CLOSE_DELAY_MS}ms after successful connection`);
         const timer = setTimeout(() => {
           console.log("Auto-closing dialog now");
           onOpenChange(false);
@@ -193,7 +186,16 @@ export function WhatsAppConnectionDialog({
         return () => clearTimeout(timer);
       }
     }
-  }, [connectionStatus, onComplete, onOpenChange, autoCloseAfterSuccess]);
+  }, [connectionStatus, completeConnection, onComplete, autoCloseAfterSuccess, onOpenChange, dialogCloseTriggered]);
+
+  // Handle dialog close
+  const handleDialogClose = useCallback((isOpen: boolean) => {
+    if (!isOpen && connectionStatus !== "connected") {
+      console.log("Dialog closed, canceling connection");
+      cancelConnection();
+    }
+    onOpenChange(isOpen);
+  }, [cancelConnection, connectionStatus, onOpenChange]);
 
   // Handle custom instance name submit
   const handleCustomNameSubmit = async (customInstanceName: string) => {
@@ -248,6 +250,12 @@ export function WhatsAppConnectionDialog({
   const instanceInfo = connectionInfo?.instanceData;
   const phoneNumber = instanceInfo?.instance?.user?.id?.split('@')[0];
   const timeTaken = connectionInfo?.timeTaken;
+
+  // Force close dialog button for users if auto-close fails
+  const handleForceClose = () => {
+    console.log("User manually closing dialog");
+    onOpenChange(false);
+  };
 
   return (
     <Dialog open={open} onOpenChange={handleDialogClose}>
@@ -371,7 +379,7 @@ export function WhatsAppConnectionDialog({
           
           {connectionStatus === "connected" && (
             <Button 
-              onClick={() => handleDialogClose(false)}
+              onClick={handleForceClose}
               className="w-full"
             >
               Continuar <ArrowRight className="ml-2 h-4 w-4" />

@@ -46,24 +46,31 @@ export function useInstanceManager() {
     return uniqueName;
   }, [user]);
 
-  // Configure webhook for the instance
+  // Configure webhook for the instance - FIXED to ensure webhook configuration
   const configureWebhookForInstance = useCallback(async (instanceName: string) => {
     try {
-      // Skip if already configured
+      // Skip if already configured in this session
       if (webhookConfiguredInstancesRef.current.has(instanceName)) {
         console.log(`Webhook already configured for instance: ${instanceName}`);
         return true;
       }
 
       console.log(`Configuring webhook for instance: ${instanceName}`);
+      
+      // IMPORTANT: Always use the correct endpoint format /webhook/set/{instanceName}
       const response = await whatsappService.configureWebhook(instanceName);
       
-      if (response && response.status === "success") {
-        console.log(`Webhook successfully configured for instance: ${instanceName}`);
+      if (response && (response.status === "success" || response.webhook?.enabled === true)) {
+        console.log(`Webhook successfully configured for instance: ${instanceName}`, response);
         webhookConfiguredInstancesRef.current.add(instanceName);
         return true;
       } else {
         console.error(`Failed to configure webhook for instance: ${instanceName}`, response);
+        toast({
+          title: "Erro na configuração do webhook",
+          description: "O agente foi criado mas pode ter funcionalidade limitada.",
+          variant: "destructive",
+        });
         return false;
       }
     } catch (error) {
@@ -77,16 +84,23 @@ export function useInstanceManager() {
     }
   }, []);
 
-  // Create and configure instance
+  // Create and configure instance with webhook - FIXED to ensure webhook is always configured
   const createAndConfigureInstance = useCallback(async (instanceName: string, userId?: string) => {
     try {
       // Step 1: Create the instance
+      console.log(`Creating instance with name: ${instanceName}`);
       const instanceData = await whatsappService.createInstance(instanceName, userId);
       setInstanceData(instanceData);
       
-      // Step 2: Immediately configure webhook for this instance
+      // Step 2: MANDATORY - Immediately configure webhook for this instance
       console.log("Instance created successfully, now configuring webhook");
-      await configureWebhookForInstance(instanceName);
+      const webhookConfigured = await configureWebhookForInstance(instanceName);
+      
+      if (!webhookConfigured) {
+        console.warn(`Webhook configuration failed for instance: ${instanceName}, but proceeding with connection`);
+      } else {
+        console.log(`Webhook successfully configured for instance: ${instanceName}`);
+      }
       
       return instanceData;
     } catch (error) {

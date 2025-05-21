@@ -11,6 +11,7 @@ export function useConnectionPoller(
   status: Pick<UseWhatsAppStatus, 'setQrCodeData' | 'setPairingCode' | 'setConnectionStatus' | 'setConnectionError' | 'updateDebugInfo' | 'setAttemptCount' | 'setCreditsConsumed'>
 ) {
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
+  const instanceNotFoundErrorCount = useRef<number>(0);
   
   // Clear polling on unmount
   useEffect(() => {
@@ -65,6 +66,7 @@ export function useConnectionPoller(
   const startStatusPolling = useCallback(async (instanceName: string) => {
     // Clear any existing polling interval
     clearPolling();
+    instanceNotFoundErrorCount.current = 0;
     
     // Debug: List all instances to verify our instance exists
     try {
@@ -77,7 +79,8 @@ export function useConnectionPoller(
     }
     
     let pollAttempts = 0;
-    const MAX_POLL_ATTEMPTS = 30; // Stop polling after this many attempts (90 seconds with 3-second interval)
+    const MAX_POLL_ATTEMPTS = 30; // Stop polling after this many attempts
+    const MAX_NOT_FOUND_ERRORS = 3; // Stop after this many consecutive 404 errors
     
     const interval = setInterval(async () => {
       pollAttempts++;
@@ -88,6 +91,9 @@ export function useConnectionPoller(
         const stateData = await whatsappService.getConnectionState(instanceName);
         console.log("Connection state polling response:", stateData);
         status.updateDebugInfo({ pollAttempts, stateData });
+        
+        // Reset error counter on successful response
+        instanceNotFoundErrorCount.current = 0;
         
         // Enhanced status check to handle different response formats
         // The API returns different field names in different contexts, so we check multiple fields
@@ -144,12 +150,44 @@ export function useConnectionPoller(
           pollError: error instanceof Error ? error.message : String(error) 
         });
         
+        // Count "instance does not exist" errors
+        if (error instanceof Error && error.message.includes("does not exist")) {
+          instanceNotFoundErrorCount.current++;
+          console.warn(`Instance not found error #${instanceNotFoundErrorCount.current}/${MAX_NOT_FOUND_ERRORS}`);
+          
+          // After MAX_NOT_FOUND_ERRORS consecutive "not found" errors, check if connection is actually established
+          if (instanceNotFoundErrorCount.current >= MAX_NOT_FOUND_ERRORS) {
+            console.log("Multiple 'instance not found' errors. Checking instance info directly...");
+            
+            try {
+              // Try to get instance info directly as a fallback
+              const instanceInfo = await whatsappService.getInstanceInfo(instanceName);
+              console.log("Instance info check:", instanceInfo);
+              
+              // If we get instance info and it shows connected, treat as successful connection
+              if (instanceInfo?.instance?.status === "connected" || 
+                  instanceInfo?.instance?.connected === true) {
+                console.log("Instance is actually connected according to instanceInfo!");
+                const phoneNumber = await handleSuccessfulConnection(instanceName);
+                return phoneNumber;
+              }
+            } catch (fallbackError) {
+              // Instance really doesn't exist
+              console.error("Failed in fallback instance check:", fallbackError);
+            }
+            
+            // Stop polling after too many not found errors
+            clearPolling();
+            status.setConnectionError("Instance not found. Please try again with a new instance.");
+            status.setConnectionStatus("failed");
+          }
+        }
+        
         // On authentication errors or 404 errors, stop polling immediately
         if (error instanceof Error && 
             (error.message.includes("Authentication failed") || 
              error.message.includes("403") || 
-             error.message.includes("401") ||
-             error.message.includes("404"))) {
+             error.message.includes("401"))) {
           clearPolling();
           const errorMsg = error.message.includes("404") 
             ? "Connection endpoint not found. Please check your instance name and try again."

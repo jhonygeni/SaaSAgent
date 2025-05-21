@@ -19,7 +19,7 @@ export const ENDPOINTS = {
   // Endpoint for fetching instances
   fetchInstances: "/instance/fetchInstances", // Get instances with filtering (GET)
   
-  // Webhook configuration endpoint
+  // Webhook configuration endpoint - CRITICAL: ensure correct path
   webhookConfig: "/webhook/set/{instanceName}", // Configure webhook (POST)
 };
 
