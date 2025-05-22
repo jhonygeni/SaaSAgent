@@ -68,7 +68,7 @@ export function useInstanceManager() {
       // Persist to Supabase if user ID is provided
       if (userId && creationResponse) {
         try {
-          // Convert the response to a JSON-compatible object
+          // Convert the response to a string for JSON storage
           const sessionData = JSON.stringify(creationResponse);
           
           const { data: userData } = await supabase.auth.getUser();

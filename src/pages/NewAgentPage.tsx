@@ -40,7 +40,7 @@ const NewAgentPage = () => {
         status: "ativo"
       });
     }
-  }, [connectionStatus, qrCodeData, createdAgent, updateAgentById]);
+  }, [connectionStatus, qrCodeData, createdAgent, updateAgentById, toast]);
 
   const handleAgentCreated = async (agent: Agent, connect: boolean = true) => {
     console.log("Agent created, handling persistence and connection");

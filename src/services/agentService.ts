@@ -1,6 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { Agent } from "@/types";
+import { Agent, BusinessSector, FAQ } from "@/types";
 import { nanoid } from "nanoid";
 
 /**
@@ -68,7 +68,7 @@ const agentService = {
   updateAgent: async (id: string, updates: Partial<Agent>): Promise<boolean> => {
     try {
       // Format the data for Supabase
-      const supabaseUpdates: any = {};
+      const supabaseUpdates: Record<string, any> = {};
       
       if (updates.nome) supabaseUpdates.name = updates.nome;
       if (updates.site) supabaseUpdates.website = updates.site;
@@ -127,22 +127,47 @@ const agentService = {
       }
 
       // Transform the data to match our Agent type
-      const agents: Agent[] = data.map(item => ({
-        id: item.id,
-        nome: item.name,
-        site: item.website,
-        areaDeAtuacao: item.business_sector,
-        informacoes: item.information,
-        prompt: item.prompt,
-        faqs: item.faqs ? JSON.parse(item.faqs) : [],
-        createdAt: item.created_at,
-        status: item.status,
-        connected: item.connected,
-        phoneNumber: item.phone_number,
-        messageCount: item.message_count,
-        messageLimit: item.message_limit,
-        instanceName: item.instance_name
-      }));
+      const agents: Agent[] = data.map(item => {
+        // Parse faqs safely
+        let parsedFaqs: FAQ[] = [];
+        try {
+          if (item.faqs) {
+            parsedFaqs = typeof item.faqs === 'string' ? JSON.parse(item.faqs) : item.faqs;
+          }
+        } catch (e) {
+          console.error("Error parsing FAQs:", e);
+        }
+        
+        // Map database status to Agent status type
+        let status: "ativo" | "inativo" | "pendente" = "pendente";
+        if (item.status === "ativo") status = "ativo";
+        else if (item.status === "inativo") status = "inativo";
+        
+        // Map business_sector to BusinessSector type
+        const businessSector: BusinessSector = 
+          ["Varejo", "Saúde", "Educação", "Finanças", "Serviços", "Imobiliária", 
+           "Alimentação", "Tecnologia", "Turismo", "Outro"]
+            .includes(item.business_sector) 
+              ? item.business_sector as BusinessSector 
+              : "Outro";
+
+        return {
+          id: item.id,
+          nome: item.name || "",
+          site: item.website || "",
+          areaDeAtuacao: businessSector,
+          informacoes: item.information || "",
+          prompt: item.prompt,
+          faqs: parsedFaqs,
+          createdAt: item.created_at,
+          status: status,
+          connected: !!item.connected,
+          phoneNumber: item.phone_number,
+          messageCount: item.message_count || 0,
+          messageLimit: item.message_limit || 100,
+          instanceName: item.instance_name
+        };
+      });
 
       return agents;
     } catch (error) {
@@ -189,21 +214,44 @@ const agentService = {
         return null;
       }
 
+      // Parse faqs safely
+      let parsedFaqs: FAQ[] = [];
+      try {
+        if (data.faqs) {
+          parsedFaqs = typeof data.faqs === 'string' ? JSON.parse(data.faqs) : data.faqs;
+        }
+      } catch (e) {
+        console.error("Error parsing FAQs:", e);
+      }
+      
+      // Map database status to Agent status type
+      let status: "ativo" | "inativo" | "pendente" = "pendente";
+      if (data.status === "ativo") status = "ativo";
+      else if (data.status === "inativo") status = "inativo";
+      
+      // Map business_sector to BusinessSector type
+      const businessSector: BusinessSector = 
+        ["Varejo", "Saúde", "Educação", "Finanças", "Serviços", "Imobiliária", 
+         "Alimentação", "Tecnologia", "Turismo", "Outro"]
+          .includes(data.business_sector) 
+            ? data.business_sector as BusinessSector 
+            : "Outro";
+
       // Transform to Agent type
       const agent: Agent = {
         id: data.id,
-        nome: data.name,
-        site: data.website,
-        areaDeAtuacao: data.business_sector,
-        informacoes: data.information,
+        nome: data.name || "",
+        site: data.website || "",
+        areaDeAtuacao: businessSector,
+        informacoes: data.information || "",
         prompt: data.prompt,
-        faqs: data.faqs ? JSON.parse(data.faqs) : [],
+        faqs: parsedFaqs,
         createdAt: data.created_at,
-        status: data.status,
-        connected: data.connected,
+        status: status,
+        connected: !!data.connected,
         phoneNumber: data.phone_number,
-        messageCount: data.message_count,
-        messageLimit: data.message_limit,
+        messageCount: data.message_count || 0,
+        messageLimit: data.message_limit || 100,
         instanceName: data.instance_name
       };
 

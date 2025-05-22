@@ -21,7 +21,7 @@ import {
 } from "@/constants/api";
 import whatsappService from "@/services/whatsappService";
 import { InstancesListResponse } from "@/services/whatsapp/types";
-import { ConnectionStatus } from "@/hooks/whatsapp/types";
+import { ConnectionStatus } from "@/types";
 
 // Import our refactored components
 import { LoadingState } from "./whatsapp/LoadingState";
@@ -61,7 +61,8 @@ export function WhatsAppConnectionDialog({
     pairingCode,
     validateInstanceName,
     fetchUserInstances,
-    debugInfo
+    debugInfo,
+    attemptCount
   } = useConnection();
   
   const { updateAgentById } = useAgent();
@@ -110,7 +111,7 @@ export function WhatsAppConnectionDialog({
     if (open) {
       checkApiAndLoadInstances();
     }
-  }, [open, fetchUserInstances]);
+  }, [open, fetchUserInstances, toast]);
   
   // Handle the connection process when the dialog opens
   useEffect(() => {
@@ -139,7 +140,7 @@ export function WhatsAppConnectionDialog({
       
       initConnection();
     }
-  }, [open, connectionStatus, isLoading, startConnection]);
+  }, [open, connectionStatus, isLoading, startConnection, initialInstanceName, customInstanceName, isSubmitting]);
 
   // Update agent status when connection status changes to connected
   useEffect(() => {
@@ -227,6 +228,31 @@ export function WhatsAppConnectionDialog({
     onOpenChange(false);
   };
 
+  // Handle API health check retry
+  const handleApiHealthRetry = async () => {
+    try {
+      const isHealthy = await whatsappService.checkApiHealth();
+      setApiHealth(isHealthy ? "healthy" : "unhealthy");
+      
+      toast({
+        title: isHealthy ? "API Disponível" : "API Indisponível",
+        description: isHealthy 
+          ? "A API do WhatsApp está online e respondendo corretamente."
+          : "A API do WhatsApp ainda parece estar offline.",
+        variant: isHealthy ? "default" : "destructive",
+      });
+    } catch (error) {
+      console.error("API health check retry failed:", error);
+      setApiHealth("unhealthy");
+      
+      toast({
+        title: "Falha na verificação",
+        description: "Não foi possível verificar o status da API do WhatsApp.",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Add better status display within the component's render method
   const getStatusText = () => {
     switch (connectionStatus) {
@@ -260,12 +286,12 @@ export function WhatsAppConnectionDialog({
     
     // Loading state
     if (isLoading || isSubmitting) {
-      return <LoadingState />;
+      return <LoadingState status={connectionStatus} attemptCount={attemptCount} />;
     }
     
     // QR Code state
     if (qrCodeData && connectionStatus !== "connected") {
-      return <QrCodeState qrCode={qrCodeData} pairingCode={pairingCode} />;
+      return <QrCodeState qrCodeData={qrCodeData} pairingCode={pairingCode} attemptCount={attemptCount} />;
     }
     
     // Error state
@@ -284,7 +310,7 @@ export function WhatsAppConnectionDialog({
     }
     
     // Default waiting state
-    return <LoadingState message="Iniciando processo de conexão..." />;
+    return <LoadingState message="Iniciando processo de conexão..." status="waiting" attemptCount={0} />;
   };
 
   return (
@@ -301,7 +327,7 @@ export function WhatsAppConnectionDialog({
         </DialogHeader>
         
         {/* API Health Warning */}
-        {apiHealth === "unhealthy" && <ApiHealthWarning />}
+        {apiHealth === "unhealthy" && <ApiHealthWarning onRetryClick={handleApiHealthRetry} />}
         
         {/* Current Status */}
         <div className="text-center font-medium mb-4">
@@ -325,7 +351,7 @@ export function WhatsAppConnectionDialog({
             {showDebug ? "Ocultar detalhes técnicos" : "Mostrar detalhes técnicos"}
           </button>
           
-          {showDebug && <DebugPanel debugInfo={debugInfo} />}
+          {showDebug && <DebugPanel debugInfo={debugInfo} showDebugInfo={true} />}
         </div>
         
         {/* Dialog Footer */}

@@ -1,13 +1,19 @@
 
 import React from 'react';
 import { AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button-extensions';
 
 interface ErrorStateProps {
   errorMessage: string | null;
-  isAuthError: boolean;
+  isAuthError?: boolean;
+  onRetry?: () => Promise<void>;
 }
 
-export const ErrorState: React.FC<ErrorStateProps> = ({ errorMessage, isAuthError }) => {
+export const ErrorState: React.FC<ErrorStateProps> = ({ 
+  errorMessage, 
+  isAuthError = false,
+  onRetry 
+}) => {
   // Extract specific error message for connection errors
   const isConnectError = errorMessage?.includes('/instance/connect') || errorMessage?.includes('Cannot GET');
   const isConnectionEndpointError = errorMessage?.includes('404') && isConnectError;
@@ -72,6 +78,17 @@ export const ErrorState: React.FC<ErrorStateProps> = ({ errorMessage, isAuthErro
             Endpoint esperado: <code className="bg-red-100 px-1">/instance/fetchInstances</code>
           </p>
         </div>
+      )}
+
+      {onRetry && (
+        <Button 
+          onClick={() => onRetry()} 
+          variant="outline"
+          size="sm"
+          className="mt-2"
+        >
+          Tentar novamente
+        </Button>
       )}
     </div>
   );

@@ -4,24 +4,29 @@ import { Smartphone } from 'lucide-react';
 import { QrCodeDisplay } from '@/components/QrCodeDisplay';
 
 interface QrCodeStateProps {
-  qrCodeData: string;
+  qrCodeData?: string;
+  qrCode?: string;  // Added for backward compatibility
   pairingCode: string | null;
-  attemptCount: number;
+  attemptCount?: number;
 }
 
 export const QrCodeState: React.FC<QrCodeStateProps> = ({ 
   qrCodeData,
+  qrCode,
   pairingCode,
-  attemptCount
+  attemptCount = 0
 }) => {
+  // Use either qrCodeData or qrCode (for backwards compatibility)
+  const qrValue = qrCodeData || qrCode || '';
+  
   // Log QR code data for debugging
-  console.log(`Rendering QR code state with data available: ${!!qrCodeData}, pairing code available: ${!!pairingCode}`);
+  console.log(`Rendering QR code state with data available: ${!!qrValue}, pairing code available: ${!!pairingCode}`);
   
   return (
     <div className="flex flex-col items-center space-y-4">
       <div className="bg-white p-4 rounded-lg shadow-sm">
         <QrCodeDisplay 
-          value={qrCodeData}
+          value={qrValue}
           size={200}
           pairingCode={pairingCode}
         />

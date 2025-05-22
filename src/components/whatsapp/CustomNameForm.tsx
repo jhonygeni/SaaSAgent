@@ -1,129 +1,134 @@
 
-import React, { useState, useEffect } from 'react';
-import { Label } from "@/components/ui/label";
+import { useState } from 'react';
+import { Button } from "@/components/ui/button-extensions";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
-import { toast } from '@/hooks/use-toast';
+import { AlertCircle } from 'lucide-react';
 
-interface CustomNameFormProps {
-  onSubmit: (name: string) => Promise<void>;
-  validateName: (name: string) => Promise<{valid: boolean, message?: string}>;
-  isLoading: boolean;
+export interface CustomNameFormProps {
+  onSubmit: (name: string) => void | Promise<void>;
+  isLoading?: boolean;
+  validateInstanceName?: (name: string) => Promise<{ valid: boolean; message?: string }>;
+  existingInstances?: any[];
 }
 
-export const CustomNameForm: React.FC<CustomNameFormProps> = ({
-  onSubmit,
-  validateName,
-  isLoading
+export const CustomNameForm: React.FC<CustomNameFormProps> = ({ 
+  onSubmit, 
+  isLoading = false,
+  validateInstanceName,
+  existingInstances = []
 }) => {
-  const [customInstanceName, setCustomInstanceName] = useState("");
-  const [isValidatingName, setIsValidatingName] = useState(false);
+  const [name, setName] = useState('');
   const [nameError, setNameError] = useState<string | null>(null);
-  const [nameValidated, setNameValidated] = useState(false);
-  
-  // Effect to validate instance name when it changes
-  useEffect(() => {
-    if (customInstanceName.trim()) {
-      const validate = async () => {
-        setIsValidatingName(true);
-        try {
-          const formattedName = customInstanceName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-          const result = await validateName(formattedName);
-          setNameValidated(result.valid);
-          setNameError(result.valid ? null : result.message || "Nome inválido");
-        } catch (error) {
-          console.error("Error validating name:", error);
-          setNameValidated(false);
-          setNameError("Erro na validação");
-        } finally {
-          setIsValidatingName(false);
-        }
-      };
-      
-      const debounceValidate = setTimeout(validate, 500);
-      return () => clearTimeout(debounceValidate);
-    } else {
-      setNameValidated(false);
-      setNameError(null);
-    }
-  }, [customInstanceName, validateName]);
-  
+  const [validating, setValidating] = useState(false);
+
+  // Format the name to be valid for WhatsApp API
+  const formatName = (input: string) => {
+    return input.toLowerCase()
+      .replace(/[^a-z0-9_]/g, '_')
+      .replace(/__+/g, '_');
+  };
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawInput = e.target.value;
+    const formattedName = formatName(rawInput);
+    setName(formattedName);
+    
+    // Clear error if user starts typing again
+    if (nameError) setNameError(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!customInstanceName.trim()) {
-      setNameError("Por favor, informe um nome para a instância");
+    if (!name.trim()) {
+      setNameError('Digite um nome para a instância');
       return;
     }
-    
-    if (isValidatingName) {
-      return; // Don't proceed if still validating
+
+    // Validate name if validation function is provided
+    if (validateInstanceName) {
+      setValidating(true);
+      try {
+        const result = await validateInstanceName(name);
+        if (!result.valid) {
+          setNameError(result.message || 'Nome de instância inválido');
+          setValidating(false);
+          return;
+        }
+      } catch (error) {
+        setNameError('Erro ao validar nome de instância');
+        setValidating(false);
+        return;
+      }
+      setValidating(false);
     }
     
-    if (nameError) {
-      toast({
-        title: "Erro de Validação",
-        description: nameError,
-        variant: "destructive",
-      });
-      return;
+    // Check for duplicates in existing instances
+    if (existingInstances && existingInstances.length > 0) {
+      const isDuplicate = existingInstances.some(instance => 
+        instance.name === name || instance.instance_name === name
+      );
+      
+      if (isDuplicate) {
+        setNameError('Este nome já está sendo usado. Escolha outro nome.');
+        return;
+      }
     }
     
-    try {
-      await onSubmit(customInstanceName);
-    } catch (error: any) {
-      toast({
-        title: "Erro de Conexão",
-        description: error.message || "Erro desconhecido ao conectar",
-        variant: "destructive",
-      });
-    }
+    await onSubmit(name);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="w-full space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4 w-full">
+      <div className="text-center mb-4">
+        <h3 className="text-base font-medium">Personalizar nome da instância</h3>
+        <p className="text-sm text-muted-foreground mt-1">
+          Digite um nome único para identificar esta conexão WhatsApp
+        </p>
+      </div>
+      
       <div className="space-y-2">
-        <Label htmlFor="custom-instance-name">Nome da Instância</Label>
-        <div className="relative">
-          <Input
-            id="custom-instance-name"
-            placeholder="Digite um nome único para sua instância"
-            value={customInstanceName}
-            onChange={(e) => setCustomInstanceName(e.target.value)}
-            className={nameError ? "border-red-300 pr-10" : ""}
-          />
-          {isValidatingName && (
-            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-            </div>
-          )}
-          {nameError && !isValidatingName && (
-            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-              <AlertCircle className="h-4 w-4 text-destructive" />
-            </div>
-          )}
-          {nameValidated && !nameError && !isValidatingName && (
-            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-              <CheckCircle className="h-4 w-4 text-green-500" />
-            </div>
-          )}
-        </div>
-        {nameError && (
-          <p className="text-sm text-destructive">{nameError}</p>
+        <label htmlFor="instanceName" className="text-sm font-medium">
+          Nome da Instância
+        </label>
+        <Input
+          id="instanceName"
+          type="text"
+          value={name}
+          onChange={handleNameChange}
+          placeholder="minha_empresa_whatsapp"
+          className={nameError ? "border-red-300" : ""}
+          disabled={isLoading || validating}
+          autoComplete="off"
+          pattern="[a-z0-9_]+"
+          aria-invalid={Boolean(nameError)}
+          minLength={3}
+          maxLength={20}
+        />
+        {name && (
+          <p className="text-xs text-muted-foreground">
+            Nome formatado: <code className="bg-gray-100 px-1 rounded">{name}</code>
+          </p>
         )}
+        {nameError && (
+          <div className="flex items-center gap-1 text-xs text-red-500 mt-1">
+            <AlertCircle className="h-3 w-3" />
+            <span>{nameError}</span>
+          </div>
+        )}
+        <p className="text-xs text-gray-500">
+          Use apenas letras minúsculas, números e underscores (_). Nomes complexos podem causar problemas de conexão.
+        </p>
       </div>
-      <div className="text-sm text-muted-foreground">
-        <p>O nome da instância anterior já está em uso. Por favor, escolha outro nome para continuar.</p>
+      
+      <div className="flex justify-end pt-2">
+        <Button 
+          type="submit" 
+          disabled={isLoading || validating || !name}
+        >
+          {isLoading || validating ? 'Processando...' : 'Continuar'}
+        </Button>
       </div>
-      <Button 
-        type="submit" 
-        className="w-full" 
-        disabled={!nameValidated || isValidatingName || isLoading}
-        loading={isLoading}
-      >
-        Conectar com Novo Nome
-      </Button>
     </form>
   );
 };

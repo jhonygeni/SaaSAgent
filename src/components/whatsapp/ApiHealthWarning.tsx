@@ -1,36 +1,32 @@
 
 import React from 'react';
-import { Button } from "@/components/ui/button";
-import { AlertTriangle, RefreshCw } from 'lucide-react';
-import { EVOLUTION_API_URL } from '@/constants/api';
+import { AlertTriangle } from 'lucide-react';
+import { Button } from '@/components/ui/button-extensions';
 
-interface ApiHealthWarningProps {
-  onRetryClick: () => void;
+export interface ApiHealthWarningProps {
+  onRetryClick?: () => void;
 }
 
-export const ApiHealthWarning: React.FC<ApiHealthWarningProps> = ({ onRetryClick }) => {
+export const ApiHealthWarning: React.FC<ApiHealthWarningProps> = ({ 
+  onRetryClick = () => {} 
+}) => {
   return (
-    <div className="bg-red-50 border border-red-200 rounded p-3 mb-4">
-      <div className="flex items-start">
-        <AlertTriangle className="h-5 w-5 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
-        <div>
-          <p className="text-sm font-medium text-red-800">API Não Acessível</p>
-          <p className="text-xs text-red-700 mt-1">
-            Não foi possível estabelecer conexão com o servidor WhatsApp. Verifique:
+    <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+      <div className="flex items-start gap-3">
+        <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+        <div className="flex-1">
+          <h4 className="text-sm font-medium text-amber-800">API do WhatsApp indisponível</h4>
+          <p className="text-xs text-amber-700 mt-1">
+            A API do WhatsApp parece estar offline ou inacessível. A conexão pode não funcionar corretamente.
           </p>
-          <ul className="text-xs text-red-700 mt-1 list-disc list-inside">
-            <li>Sua chave de API está configurada corretamente</li>
-            <li>O servidor WhatsApp está online ({EVOLUTION_API_URL})</li>
-            <li>Sua rede tem acesso ao servidor</li>
-          </ul>
-          <div className="mt-2">
+          <div className="mt-2 flex justify-end">
             <Button 
-              size="sm" 
               variant="outline" 
-              className="bg-white text-red-700 border-red-300"
+              size="sm" 
+              className="text-xs bg-white hover:bg-amber-50 border-amber-200"
               onClick={onRetryClick}
             >
-              <RefreshCw className="h-3 w-3 mr-2" /> Verificar Novamente
+              Verificar novamente
             </Button>
           </div>
         </div>
