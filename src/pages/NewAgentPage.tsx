@@ -126,18 +126,10 @@ const NewAgentPage = () => {
       const testInstanceName = `test_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 7)}`;
       console.log(`Using test instance name: ${testInstanceName}`);
       
-      const qrCode = await startConnection(testInstanceName);
-      if (qrCode) {
-        console.log("QR Code received successfully");
-        setShowConnectionDialog(true);
-      } else {
-        console.error("Failed to get QR code");
-        toast({
-          title: "Erro de Conexão",
-          description: "Não foi possível inicializar a conexão WhatsApp.",
-          variant: "destructive",
-        });
-      }
+      const qrCodeResult = await startConnection(testInstanceName);
+      // Fix: Don't test void expression for truthiness
+      console.log("QR Code request complete:", qrCodeResult ? "received" : "not received");
+      setShowConnectionDialog(true);
     } catch (error: any) {
       console.error("Error starting connection:", error);
       

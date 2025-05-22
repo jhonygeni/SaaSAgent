@@ -93,7 +93,7 @@ const agentService = {
       }
       
       // Update settings with new values
-      const updatedSettings = { ...settings };
+      const updatedSettings = { ...settings } as Record<string, any>;
       
       if (updates.nome) updatedSettings.name = updates.nome;
       if (updates.site) updatedSettings.website = updates.site;
@@ -217,7 +217,7 @@ const agentService = {
  */
 function convertDbAgentToAppAgent(dbAgent: any): Agent {
   // Parse settings
-  let settings = {};
+  let settings = {} as Record<string, any>;
   try {
     settings = dbAgent.settings ? 
       (typeof dbAgent.settings === 'string' ? 

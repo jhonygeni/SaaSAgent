@@ -123,16 +123,12 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     try {
       setIsLoading(true);
       // Create agent in Supabase
-      const agentId = await agentService.createAgent(agent);
+      const newAgent = await agentService.createAgent(agent);
       
-      if (agentId) {
-        const newAgent = {
-          ...agent,
-          id: agentId,
-          createdAt: new Date().toISOString(),
-        };
-        
+      if (newAgent) {
+        // Fixed: Ensure we're adding an Agent type to the array
         setAgents((prev) => [...prev, newAgent]);
+        
         toast({
           title: "Agente criado com sucesso",
           description: "O agente foi criado e salvo no banco de dados.",

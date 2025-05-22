@@ -123,11 +123,8 @@ export function WhatsAppConnectionDialog({
           setIsSubmitting(true);
           // If we have an initial instance name, use it; otherwise, generate one
           const instanceNameToUse = initialInstanceName || customInstanceName || null;
-          const qrCode = await startConnection(instanceNameToUse);
-          
-          if (qrCode) {
-            console.log("Connection initiated, QR code received");
-          }
+          await startConnection(instanceNameToUse);
+          console.log("Connection initiated");
         } catch (error) {
           console.error("Error initiating connection:", error);
           if (error instanceof Error && error.message.includes("already in use")) {
@@ -194,12 +191,9 @@ export function WhatsAppConnectionDialog({
     try {
       setIsSubmitting(true);
       setCustomInstanceName(name);
-      const qrCode = await startConnection(name);
+      await startConnection(name);
       setShowCustomNameForm(false);
-      
-      if (qrCode) {
-        console.log("Connection initiated with custom name, QR code received");
-      }
+      console.log("Connection initiated with custom name");
     } catch (error) {
       console.error("Error starting connection with custom name:", error);
       
@@ -270,6 +264,15 @@ export function WhatsAppConnectionDialog({
     }
   };
 
+  // Handle retry for error state
+  const handleRetry = async () => {
+    try {
+      await handleCustomNameSubmit(customInstanceName || (initialInstanceName || ""));
+    } catch (error) {
+      console.error("Error during retry:", error);
+    }
+  };
+
   // Render the dialog content based on the current state
   const renderDialogContent = () => {
     // Show custom name form if needed
@@ -278,7 +281,6 @@ export function WhatsAppConnectionDialog({
         <CustomNameForm 
           onSubmit={handleCustomNameSubmit} 
           isLoading={isSubmitting} 
-          validateName={validateInstanceName}
           existingInstances={userInstances}
         />
       );
@@ -286,12 +288,23 @@ export function WhatsAppConnectionDialog({
     
     // Loading state
     if (isLoading || isSubmitting) {
-      return <LoadingState status={connectionStatus} attemptCount={attemptCount} />;
+      return (
+        <LoadingState 
+          status={connectionStatus} 
+          attemptCount={attemptCount} 
+        />
+      );
     }
     
     // QR Code state
     if (qrCodeData && connectionStatus !== "connected") {
-      return <QrCodeState qrCodeData={qrCodeData} pairingCode={pairingCode} attemptCount={attemptCount} />;
+      return (
+        <QrCodeState 
+          qrCodeData={qrCodeData}
+          pairingCode={pairingCode}
+          attemptCount={attemptCount} 
+        />
+      );
     }
     
     // Error state
@@ -299,7 +312,7 @@ export function WhatsAppConnectionDialog({
       return (
         <ErrorState 
           errorMessage={connectionError || "Falha na conexão"} 
-          onRetry={() => handleCustomNameSubmit(customInstanceName || "")}
+          onRetry={handleRetry}
         />
       );
     }
@@ -310,7 +323,13 @@ export function WhatsAppConnectionDialog({
     }
     
     // Default waiting state
-    return <LoadingState message="Iniciando processo de conexão..." status="waiting" attemptCount={0} />;
+    return (
+      <LoadingState 
+        message="Iniciando processo de conexão..." 
+        status="waiting" 
+        attemptCount={0} 
+      />
+    );
   };
 
   return (
@@ -353,7 +372,7 @@ export function WhatsAppConnectionDialog({
           
           {showDebug && (
             <DebugPanel 
-              debugInfo={debugInfo} 
+              debugInfo={debugInfo || ""} 
               showDebugInfo={true} 
               connectionInfo={{connectionStatus, isLoading, hasQrCode: !!qrCodeData}} 
               apiHealthStatus={apiHealth} 

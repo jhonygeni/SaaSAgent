@@ -1,6 +1,6 @@
 
 import React from 'react';
-import QRCode from 'qrcode.react';
+import { QRCodeSVG } from 'qrcode.react';
 
 export interface QrCodeStateProps {
   qrCodeData: string;
@@ -16,7 +16,7 @@ export const QrCodeState: React.FC<QrCodeStateProps> = ({
   return (
     <div className="flex flex-col items-center space-y-6">
       <div className="bg-white p-4 rounded-lg">
-        <QRCode 
+        <QRCodeSVG 
           value={qrCodeData} 
           size={200}
           level="H"
