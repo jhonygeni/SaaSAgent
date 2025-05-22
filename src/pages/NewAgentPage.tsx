@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { NewAgentForm } from "@/components/NewAgentForm";
 import { WhatsAppConnectionDialog } from "@/components/WhatsAppConnectionDialog";
@@ -125,7 +126,7 @@ const NewAgentPage = () => {
       const testInstanceName = `test_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 7)}`;
       console.log(`Using test instance name: ${testInstanceName}`);
       
-      // Fix the issue: Don't check the return value of startConnection
+      // Fix: Call startConnection without checking its return value
       await startConnection(testInstanceName);
       
       // Simply proceed with showing the dialog after the connection attempt
