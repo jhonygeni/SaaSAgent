@@ -21,6 +21,7 @@ import {
 } from "@/constants/api";
 import whatsappService from "@/services/whatsappService";
 import { InstancesListResponse } from "@/services/whatsapp/types";
+import { ConnectionStatus } from "@/hooks/whatsapp/types";
 
 // Import our refactored components
 import { LoadingState } from "./whatsapp/LoadingState";
@@ -283,23 +284,6 @@ export function WhatsAppConnectionDialog({
     console.log("User manually closing dialog");
     onOpenChange(false);
   };
-
-  // Add an update to the WhatsAppConnectionDialog component to show connection status
-  // and auto-close on successful connection
-  // Importantly - make sure we're regularly updating the UI with the latest status
-  // This code would go in the component itself
-
-  // Add better status display and ensure auto-close works correctly
-  useEffect(() => {
-    // Auto-close dialog after successful connection
-    if (connectionStatus === "connected" && AUTO_CLOSE_AFTER_SUCCESS) {
-      console.log("Connection successful, auto-closing dialog...");
-      const timer = setTimeout(() => {
-        if (onOpenChange) onOpenChange(false);
-      }, AUTO_CLOSE_DELAY_MS);
-      return () => clearTimeout(timer);
-    }
-  }, [connectionStatus, onOpenChange]);
 
   // Add better status display within the component's render method
   const getStatusText = () => {

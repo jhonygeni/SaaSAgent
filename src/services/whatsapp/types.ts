@@ -1,5 +1,5 @@
 
-import { ConnectionStatus } from '@/types';
+import { ConnectionStatus } from '@/hooks/whatsapp/types';
 
 // WhatsApp instance request
 export interface WhatsAppInstanceRequest {

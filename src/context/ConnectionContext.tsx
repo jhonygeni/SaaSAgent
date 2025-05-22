@@ -1,6 +1,6 @@
 
 import { createContext, useContext, ReactNode } from "react";
-import { ConnectionStatus } from "@/types";
+import { ConnectionStatus } from "@/hooks/whatsapp/types";
 import { useWhatsAppConnection } from "@/hooks/useWhatsAppConnection";
 
 interface ConnectionContextType {
