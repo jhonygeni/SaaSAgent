@@ -72,7 +72,7 @@ export function useWhatsAppConnection() {
    * Initialize WhatsApp instance with the correct sequence following API docs
    * IMPORTANT: This function should only be called once per instance name
    */
-  const initializeWhatsAppInstance = useCallback(async (providedName?: string) => {
+  const initializeWhatsAppInstance = useCallback(async (providedName?: string): Promise<string | null> => {
     // Prevent multiple simultaneous creation requests
     if (creationInProgressRef.current) {
       console.log("Instance creation already in progress, skipping duplicate request");

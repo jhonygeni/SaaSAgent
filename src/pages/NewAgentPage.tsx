@@ -126,7 +126,7 @@ const NewAgentPage = () => {
       const testInstanceName = `test_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 7)}`;
       console.log(`Using test instance name: ${testInstanceName}`);
       
-      // Fix: Correctly await the Promise without checking its truthiness
+      // Fix: Properly await the Promise without checking its return value
       await startConnection(testInstanceName);
       
       // Show the connection dialog after the connection attempt
