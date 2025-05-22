@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { NewAgentForm } from "@/components/NewAgentForm";
 import { WhatsAppConnectionDialog } from "@/components/WhatsAppConnectionDialog";
@@ -125,7 +126,8 @@ const NewAgentPage = () => {
       const testInstanceName = `test_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 7)}`;
       console.log(`Using test instance name: ${testInstanceName}`);
       
-      // Fixed: Simply await the startConnection without checking its return value
+      // Fixed: Don't check the return value directly as the function returns a Promise
+      // Just await the startConnection function and proceed
       await startConnection(testInstanceName);
       
       // Show the connection dialog after the connection attempt
@@ -134,7 +136,7 @@ const NewAgentPage = () => {
     } catch (error: any) {
       console.error("Error starting connection:", error);
       
-      // Special handling for duplicate name errors
+      // Special handling for duplicate instance name errors
       if (error.message && error.message.includes("already in use")) {
         toast({
           title: "Nome Duplicado",
