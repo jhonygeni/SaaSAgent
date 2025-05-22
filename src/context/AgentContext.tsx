@@ -14,7 +14,7 @@ interface AgentContextType {
   removeFAQ: (index: number) => void;
   resetAgent: () => void;
   agents: Agent[];
-  addAgent: (agent: Agent) => void;
+  addAgent: (agent: Agent) => Promise<Agent | null>;
   updateAgentById: (id: string, updatedAgent: Partial<Agent>) => void;
   removeAgent: (id: string) => void;
   getAgentById: (id: string) => Agent | undefined;
@@ -119,7 +119,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const addAgent = async (agent: Agent) => {
+  const addAgent = async (agent: Agent): Promise<Agent | null> => { ... }
     try {
       setIsLoading(true);
       // Create agent in Supabase
