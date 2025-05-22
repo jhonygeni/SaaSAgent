@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { Agent, BusinessSector, FAQ } from "@/types";
 import { nanoid } from "nanoid";
@@ -24,8 +25,8 @@ const agentService = {
           return null;
         }
 
-        // Generate an ID if not provided
-        const agentId = agent.id || `agent-${nanoid(8)}`;
+        // Generate a custom ID identifier (but don't use it for the primary key)
+        const customId = agent.id || `agent-${nanoid(8)}`;
         
         // Ensure instanceName is set properly
         const instanceName = agent.instanceName || 
@@ -33,7 +34,7 @@ const agentService = {
         
         // Format the agent data for insertion - store most data in the settings field as JSON
         const supabaseAgent = {
-          id: agentId,
+          // REMOVED id field to let Supabase generate UUID automatically
           user_id: user.id,
           instance_name: instanceName,
           status: agent.status || "pendente",
@@ -47,7 +48,8 @@ const agentService = {
             phone_number: agent.phoneNumber,
             message_count: agent.messageCount || 0,
             message_limit: agent.messageLimit || 100,
-            connected: agent.connected || false
+            connected: agent.connected || false,
+            custom_id: customId // Store the custom ID in the settings JSON
           })
         };
 
@@ -57,7 +59,7 @@ const agentService = {
         const { data, error } = await supabase
           .from('agents')
           .insert(supabaseAgent)
-          .select();  // Fixed: removed the parameter from select()
+          .select();
 
         if (error) {
           console.error("Error creating agent in Supabase:", error);
@@ -308,7 +310,7 @@ function convertDbAgentToAppAgent(dbAgent: any): Agent {
 
   // Construct and return the Agent
   return {
-    id: dbAgent.id,
+    id: dbAgent.id, // Use the Supabase-generated UUID as the primary ID
     nome: settings.name || "",
     site: settings.website || "",
     areaDeAtuacao: businessSector,
