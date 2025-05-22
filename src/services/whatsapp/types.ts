@@ -54,6 +54,8 @@ export interface ConnectionStateResponse {
     state?: string;
     status?: string;
   };
+  qrCode?: string;  // Add this missing property
+  error?: boolean;   // Add this missing property
 }
 
 // Instance info response

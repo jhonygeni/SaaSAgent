@@ -22,7 +22,7 @@ import {
 } from "@/constants/api";
 import whatsappService from "@/services/whatsappService";
 import { InstancesListResponse } from "@/services/whatsapp/types";
-import { ConnectionStatus } from "@/types";
+import { ConnectionStatus } from "@/hooks/whatsapp/types";
 
 // Import our refactored components
 import { LoadingState } from "./whatsapp/LoadingState";

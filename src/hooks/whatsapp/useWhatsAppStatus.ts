@@ -176,7 +176,7 @@ export function useWhatsAppStatus() {
         console.log(`Current connection state: ${connectionState}`);
         
         // Check for waiting_qr state
-        if (connectionState === "waiting_qr" || (stateData?.qrCode && stateData.qrCode.length > 0)) {
+        if (connectionState === "waiting_qr" || (stateData.qrCode && stateData.qrCode.length > 0)) {
           console.log("QR code is ready to be scanned");
           clearPolling();
           setConnectionStatus("waiting_qr");
