@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { NewAgentForm } from "@/components/NewAgentForm";
 import { WhatsAppConnectionDialog } from "@/components/WhatsAppConnectionDialog";
@@ -128,6 +127,7 @@ const NewAgentPage = () => {
       
       // Fix the issue: Don't check the return value of startConnection
       await startConnection(testInstanceName);
+      
       // Simply proceed with showing the dialog after the connection attempt
       console.log("QR Code request complete");
       setShowConnectionDialog(true);
