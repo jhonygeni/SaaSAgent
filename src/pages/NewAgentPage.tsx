@@ -126,9 +126,9 @@ const NewAgentPage = () => {
       const testInstanceName = `test_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 7)}`;
       console.log(`Using test instance name: ${testInstanceName}`);
       
-      const qrCodeResult = await startConnection(testInstanceName);
-      // Fix: Don't test void expression for truthiness
-      console.log("QR Code request complete:", qrCodeResult ? "received" : "not received");
+      // Fix: Don't test the return value of startConnection for truthiness
+      await startConnection(testInstanceName);
+      console.log("QR Code request complete");
       setShowConnectionDialog(true);
     } catch (error: any) {
       console.error("Error starting connection:", error);
