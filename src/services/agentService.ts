@@ -10,7 +10,7 @@ const agentService = {
   /**
    * Create a new agent in Supabase
    */
-  createAgent: async (agent: Agent): Promise<string | null> => {
+  createAgent: async (agent: Agent): Promise<Agent | null> => {
     try {
       // First, make sure we have the current user
       const { data: { user } } = await supabase.auth.getUser();
@@ -22,24 +22,24 @@ const agentService = {
       // Generate an ID if not provided
       const agentId = agent.id || `agent-${nanoid(8)}`;
       
-      // Format the agent data for insertion
+      // Format the agent data for insertion - store most data in the settings field as JSON
       const supabaseAgent = {
         id: agentId,
         user_id: user.id,
-        name: agent.nome,
-        website: agent.site,
-        business_sector: agent.areaDeAtuacao,
-        information: agent.informacoes,
-        prompt: agent.prompt,
-        faqs: JSON.stringify(agent.faqs),
+        instance_name: agent.instanceName || agent.nome.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, ''),
         status: agent.status || "pendente",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        instance_name: agent.instanceName,
-        connected: agent.connected || false,
-        phone_number: agent.phoneNumber,
-        message_count: agent.messageCount || 0,
-        message_limit: agent.messageLimit || 100
+        settings: JSON.stringify({
+          name: agent.nome,
+          website: agent.site,
+          business_sector: agent.areaDeAtuacao,
+          information: agent.informacoes,
+          prompt: agent.prompt,
+          faqs: agent.faqs,
+          phone_number: agent.phoneNumber,
+          message_count: agent.messageCount || 0,
+          message_limit: agent.messageLimit || 100,
+          connected: agent.connected || false
+        })
       };
 
       // Insert the agent data
@@ -55,7 +55,9 @@ const agentService = {
       }
 
       console.log("Agent created successfully in Supabase:", data);
-      return data.id;
+      
+      // Convert back to our application Agent type
+      return convertDbAgentToAppAgent(data);
     } catch (error) {
       console.error("Exception creating agent:", error);
       return null;
@@ -67,24 +69,52 @@ const agentService = {
    */
   updateAgent: async (id: string, updates: Partial<Agent>): Promise<boolean> => {
     try {
+      // First get the current agent
+      const { data: currentAgent, error: fetchError } = await supabase
+        .from('agents')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (fetchError) {
+        console.error("Error fetching agent for update:", fetchError);
+        return false;
+      }
+      
+      // Parse current settings
+      let settings = {};
+      try {
+        settings = currentAgent.settings ? 
+          (typeof currentAgent.settings === 'string' ? 
+            JSON.parse(currentAgent.settings) : currentAgent.settings) : {};
+      } catch (e) {
+        console.error("Error parsing agent settings:", e);
+        settings = {};
+      }
+      
+      // Update settings with new values
+      const updatedSettings = { ...settings };
+      
+      if (updates.nome) updatedSettings.name = updates.nome;
+      if (updates.site) updatedSettings.website = updates.site;
+      if (updates.areaDeAtuacao) updatedSettings.business_sector = updates.areaDeAtuacao;
+      if (updates.informacoes) updatedSettings.information = updates.informacoes;
+      if (updates.prompt) updatedSettings.prompt = updates.prompt;
+      if (updates.faqs) updatedSettings.faqs = updates.faqs;
+      if (updates.phoneNumber) updatedSettings.phone_number = updates.phoneNumber;
+      if (updates.messageCount !== undefined) updatedSettings.message_count = updates.messageCount;
+      if (updates.messageLimit !== undefined) updatedSettings.message_limit = updates.messageLimit;
+      if (updates.connected !== undefined) updatedSettings.connected = updates.connected;
+      
       // Format the data for Supabase
-      const supabaseUpdates: Record<string, any> = {};
+      const supabaseUpdates: Record<string, any> = {
+        settings: updatedSettings,
+        updated_at: new Date().toISOString()
+      };
       
-      if (updates.nome) supabaseUpdates.name = updates.nome;
-      if (updates.site) supabaseUpdates.website = updates.site;
-      if (updates.areaDeAtuacao) supabaseUpdates.business_sector = updates.areaDeAtuacao;
-      if (updates.informacoes) supabaseUpdates.information = updates.informacoes;
-      if (updates.prompt) supabaseUpdates.prompt = updates.prompt;
-      if (updates.faqs) supabaseUpdates.faqs = JSON.stringify(updates.faqs);
+      // A few fields that are stored directly in the table
       if (updates.status) supabaseUpdates.status = updates.status;
-      if (updates.connected !== undefined) supabaseUpdates.connected = updates.connected;
-      if (updates.phoneNumber) supabaseUpdates.phone_number = updates.phoneNumber;
-      if (updates.messageCount !== undefined) supabaseUpdates.message_count = updates.messageCount;
-      if (updates.messageLimit !== undefined) supabaseUpdates.message_limit = updates.messageLimit;
       if (updates.instanceName) supabaseUpdates.instance_name = updates.instanceName;
-      
-      // Always update the updated_at timestamp
-      supabaseUpdates.updated_at = new Date().toISOString();
 
       const { error } = await supabase
         .from('agents')
@@ -127,48 +157,7 @@ const agentService = {
       }
 
       // Transform the data to match our Agent type
-      const agents: Agent[] = data.map(item => {
-        // Parse faqs safely
-        let parsedFaqs: FAQ[] = [];
-        try {
-          if (item.faqs) {
-            parsedFaqs = typeof item.faqs === 'string' ? JSON.parse(item.faqs) : item.faqs;
-          }
-        } catch (e) {
-          console.error("Error parsing FAQs:", e);
-        }
-        
-        // Map database status to Agent status type
-        let status: "ativo" | "inativo" | "pendente" = "pendente";
-        if (item.status === "ativo") status = "ativo";
-        else if (item.status === "inativo") status = "inativo";
-        
-        // Map business_sector to BusinessSector type
-        const businessSector: BusinessSector = 
-          ["Varejo", "Saúde", "Educação", "Finanças", "Serviços", "Imobiliária", 
-           "Alimentação", "Tecnologia", "Turismo", "Outro"]
-            .includes(item.business_sector) 
-              ? item.business_sector as BusinessSector 
-              : "Outro";
-
-        return {
-          id: item.id,
-          nome: item.name || "",
-          site: item.website || "",
-          areaDeAtuacao: businessSector,
-          informacoes: item.information || "",
-          prompt: item.prompt,
-          faqs: parsedFaqs,
-          createdAt: item.created_at,
-          status: status,
-          connected: !!item.connected,
-          phoneNumber: item.phone_number,
-          messageCount: item.message_count || 0,
-          messageLimit: item.message_limit || 100,
-          instanceName: item.instance_name
-        };
-      });
-
+      const agents: Agent[] = data.map(convertDbAgentToAppAgent);
       return agents;
     } catch (error) {
       console.error("Exception fetching agents:", error);
@@ -214,53 +203,72 @@ const agentService = {
         return null;
       }
 
-      // Parse faqs safely
-      let parsedFaqs: FAQ[] = [];
-      try {
-        if (data.faqs) {
-          parsedFaqs = typeof data.faqs === 'string' ? JSON.parse(data.faqs) : data.faqs;
-        }
-      } catch (e) {
-        console.error("Error parsing FAQs:", e);
-      }
-      
-      // Map database status to Agent status type
-      let status: "ativo" | "inativo" | "pendente" = "pendente";
-      if (data.status === "ativo") status = "ativo";
-      else if (data.status === "inativo") status = "inativo";
-      
-      // Map business_sector to BusinessSector type
-      const businessSector: BusinessSector = 
-        ["Varejo", "Saúde", "Educação", "Finanças", "Serviços", "Imobiliária", 
-         "Alimentação", "Tecnologia", "Turismo", "Outro"]
-          .includes(data.business_sector) 
-            ? data.business_sector as BusinessSector 
-            : "Outro";
-
       // Transform to Agent type
-      const agent: Agent = {
-        id: data.id,
-        nome: data.name || "",
-        site: data.website || "",
-        areaDeAtuacao: businessSector,
-        informacoes: data.information || "",
-        prompt: data.prompt,
-        faqs: parsedFaqs,
-        createdAt: data.created_at,
-        status: status,
-        connected: !!data.connected,
-        phoneNumber: data.phone_number,
-        messageCount: data.message_count || 0,
-        messageLimit: data.message_limit || 100,
-        instanceName: data.instance_name
-      };
-
-      return agent;
+      return convertDbAgentToAppAgent(data);
     } catch (error) {
       console.error("Exception getting agent by ID:", error);
       return null;
     }
   }
 };
+
+/**
+ * Helper function to convert database agent to application Agent type
+ */
+function convertDbAgentToAppAgent(dbAgent: any): Agent {
+  // Parse settings
+  let settings = {};
+  try {
+    settings = dbAgent.settings ? 
+      (typeof dbAgent.settings === 'string' ? 
+        JSON.parse(dbAgent.settings) : dbAgent.settings) : {};
+  } catch (e) {
+    console.error("Error parsing agent settings:", e);
+    settings = {};
+  }
+
+  // Parse FAQs
+  let parsedFaqs: FAQ[] = [];
+  try {
+    if (settings.faqs) {
+      parsedFaqs = typeof settings.faqs === 'string' ? 
+        JSON.parse(settings.faqs) : settings.faqs;
+    }
+  } catch (e) {
+    console.error("Error parsing FAQs:", e);
+    parsedFaqs = [];
+  }
+  
+  // Map database status to Agent status type
+  let status: "ativo" | "inativo" | "pendente" = "pendente";
+  if (dbAgent.status === "ativo") status = "ativo";
+  else if (dbAgent.status === "inativo") status = "inativo";
+  
+  // Map business_sector to BusinessSector type or default to "Outro"
+  const businessSector: BusinessSector = 
+    ["Varejo", "Saúde", "Educação", "Finanças", "Serviços", "Imobiliária", 
+      "Alimentação", "Tecnologia", "Turismo", "Outro"]
+      .includes(settings.business_sector) 
+        ? settings.business_sector as BusinessSector 
+        : "Outro";
+
+  // Construct and return the Agent
+  return {
+    id: dbAgent.id,
+    nome: settings.name || "",
+    site: settings.website || "",
+    areaDeAtuacao: businessSector,
+    informacoes: settings.information || "",
+    prompt: settings.prompt || "",
+    faqs: parsedFaqs,
+    createdAt: dbAgent.created_at,
+    status: status,
+    connected: !!settings.connected,
+    phoneNumber: settings.phone_number || "",
+    messageCount: settings.message_count || 0,
+    messageLimit: settings.message_limit || 100,
+    instanceName: dbAgent.instance_name
+  };
+}
 
 export default agentService;

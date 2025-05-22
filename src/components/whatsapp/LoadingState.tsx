@@ -2,7 +2,7 @@
 import React from 'react';
 import { Loader2 } from 'lucide-react';
 
-interface LoadingStateProps {
+export interface LoadingStateProps {
   status?: string;
   attemptCount?: number;
   message?: string;

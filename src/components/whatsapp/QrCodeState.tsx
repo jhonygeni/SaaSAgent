@@ -1,58 +1,44 @@
 
 import React from 'react';
-import { Smartphone } from 'lucide-react';
-import { QrCodeDisplay } from '@/components/QrCodeDisplay';
+import QRCode from 'qrcode.react';
 
-interface QrCodeStateProps {
-  qrCodeData?: string;
-  qrCode?: string;  // Added for backward compatibility
-  pairingCode: string | null;
+export interface QrCodeStateProps {
+  qrCodeData: string;
+  pairingCode?: string;
   attemptCount?: number;
 }
 
 export const QrCodeState: React.FC<QrCodeStateProps> = ({ 
-  qrCodeData,
-  qrCode,
+  qrCodeData, 
   pairingCode,
   attemptCount = 0
 }) => {
-  // Use either qrCodeData or qrCode (for backwards compatibility)
-  const qrValue = qrCodeData || qrCode || '';
-  
-  // Log QR code data for debugging
-  console.log(`Rendering QR code state with data available: ${!!qrValue}, pairing code available: ${!!pairingCode}`);
-  
   return (
-    <div className="flex flex-col items-center space-y-4">
-      <div className="bg-white p-4 rounded-lg shadow-sm">
-        <QrCodeDisplay 
-          value={qrValue}
+    <div className="flex flex-col items-center space-y-6">
+      <div className="bg-white p-4 rounded-lg">
+        <QRCode 
+          value={qrCodeData} 
           size={200}
-          pairingCode={pairingCode}
+          level="H"
+          includeMargin={true}
+          className="rounded"
         />
       </div>
-      <div className="flex flex-col items-center space-y-2 max-w-xs text-center">
-        <Smartphone className="h-6 w-6 text-primary" />
-        <p className="text-sm font-medium">Escaneie este código QR</p>
-        <p className="text-xs text-muted-foreground">
-          Abra o WhatsApp no seu celular, vá em Configurações &gt; Aparelhos Conectados,
-          e escaneie o código QR acima.
-        </p>
+      
+      <div className="text-center space-y-2">
+        <p className="text-sm font-medium">Escaneie o QR Code para conectar</p>
+        
         {pairingCode && (
-          <div className="mt-1 p-2 bg-green-50 rounded-md border border-green-100 w-full">
-            <p className="text-xs font-medium text-green-700">Ou use o código de pareamento:</p>
-            <p className="text-sm font-bold text-green-800 tracking-wider">{pairingCode}</p>
+          <div className="bg-muted p-2 rounded">
+            <p className="text-xs text-muted-foreground mb-1">Se preferir, use o código de pareamento:</p>
+            <span className="font-mono text-base tracking-wide">{pairingCode}</span>
           </div>
         )}
+        
+        {attemptCount > 0 && (
+          <p className="text-xs text-muted-foreground">Tentativa {attemptCount}</p>
+        )}
       </div>
-      
-      {attemptCount > 0 && (
-        <div className="w-full text-center">
-          <p className="text-xs text-muted-foreground">
-            Aguardando conexão... (Tentativa {attemptCount})
-          </p>
-        </div>
-      )}
     </div>
   );
 };

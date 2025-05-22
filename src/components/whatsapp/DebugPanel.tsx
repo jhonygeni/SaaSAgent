@@ -24,7 +24,10 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({
     <div className="mt-3 p-2 rounded bg-gray-50 border border-gray-100 text-xs font-mono overflow-auto max-h-40">
       <div className="mb-1 text-xs font-medium text-gray-500">Detalhes Técnicos:</div>
       <pre className="whitespace-pre-wrap break-words text-gray-700">
-        {debugInfo ? JSON.stringify(JSON.parse(debugInfo), null, 2) : 'Nenhuma informação disponível.'}
+        {debugInfo ? (typeof debugInfo === 'string' ? 
+                     (debugInfo.startsWith('{') ? JSON.stringify(JSON.parse(debugInfo), null, 2) : debugInfo) : 
+                     JSON.stringify(debugInfo, null, 2)) : 
+         'Nenhuma informação disponível.'}
       </pre>
       {connectionInfo && Object.keys(connectionInfo).length > 0 && (
         <div className="mt-2 text-gray-500">

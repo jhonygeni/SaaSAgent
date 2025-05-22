@@ -4,11 +4,11 @@ import { AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button-extensions';
 
 export interface ApiHealthWarningProps {
-  onRetryClick?: () => void;
+  onRetryClick: () => void;
 }
 
 export const ApiHealthWarning: React.FC<ApiHealthWarningProps> = ({ 
-  onRetryClick = () => {} 
+  onRetryClick 
 }) => {
   return (
     <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">

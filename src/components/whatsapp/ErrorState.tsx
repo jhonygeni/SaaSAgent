@@ -1,95 +1,36 @@
 
 import React from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertOctagon, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button-extensions';
 
-interface ErrorStateProps {
-  errorMessage: string | null;
-  isAuthError?: boolean;
-  onRetry?: () => Promise<void>;
+export interface ErrorStateProps {
+  errorMessage: string;
+  onRetry: () => void;
 }
 
 export const ErrorState: React.FC<ErrorStateProps> = ({ 
   errorMessage, 
-  isAuthError = false,
   onRetry 
 }) => {
-  // Extract specific error message for connection errors
-  const isConnectError = errorMessage?.includes('/instance/connect') || errorMessage?.includes('Cannot GET');
-  const isConnectionEndpointError = errorMessage?.includes('404') && isConnectError;
-  const isStateEndpointError = errorMessage?.includes('/instance/connectionState') && errorMessage?.includes('404');
-  const isConnectionTimedOut = errorMessage?.includes('timed out') || errorMessage?.includes('timeout');
-  const isFetchError = errorMessage?.includes('/instance/fetchInstances');
-  
   return (
-    <div className="flex flex-col items-center space-y-4 py-4">
-      <div className="rounded-full bg-red-100 p-3">
-        <AlertCircle className="h-10 w-10 text-red-600" />
-      </div>
-      <div className="text-center">
-        <p className="font-medium">Falha na conexão</p>
-        <p className="text-sm text-muted-foreground mt-1">
-          {isConnectError 
-            ? "O endpoint de conexão para o QR code não está disponível. Por favor, verifique a configuração da API."
-            : isStateEndpointError
-            ? "O endpoint para verificar o estado da conexão não está disponível."
-            : isConnectionTimedOut
-            ? "Tempo de conexão esgotado. Por favor, tente novamente."
-            : isFetchError
-            ? "Erro ao buscar instâncias. Verifique a configuração da API."
-            : errorMessage || "Não foi possível conectar à API do WhatsApp. Por favor, tente novamente."}
+    <div className="flex flex-col items-center space-y-6 text-center max-w-xs mx-auto">
+      <AlertOctagon className="h-12 w-12 text-destructive" />
+      
+      <div className="space-y-2">
+        <h3 className="font-semibold">Erro na Conexão</h3>
+        <p className="text-sm text-muted-foreground">
+          {errorMessage}
         </p>
       </div>
       
-      {isAuthError && (
-        <div className="w-full bg-red-50 p-3 rounded-md text-sm text-red-800">
-          <p className="font-medium">Erro de autenticação</p>
-          <p className="text-xs mt-1">
-            Verifique se a chave de API está configurada corretamente no servidor.
-          </p>
-        </div>
-      )}
-      
-      {isConnectionEndpointError && (
-        <div className="w-full bg-red-50 p-3 rounded-md text-sm text-red-800">
-          <p className="font-medium">Erro no endpoint de conexão</p>
-          <p className="text-xs mt-1">
-            O endpoint para obter o código QR não está configurado corretamente ou não está disponível no servidor.
-            Endpoint esperado: <code className="bg-red-100 px-1">/instance/connect/{'{nome-da-instancia}'}</code>
-          </p>
-        </div>
-      )}
-      
-      {isStateEndpointError && (
-        <div className="w-full bg-red-50 p-3 rounded-md text-sm text-red-800">
-          <p className="font-medium">Erro no endpoint de status de conexão</p>
-          <p className="text-xs mt-1">
-            O endpoint para verificar o status da conexão não está configurado corretamente.
-            Endpoint esperado: <code className="bg-red-100 px-1">/instance/connectionState/{'{nome-da-instancia}'}</code>
-          </p>
-        </div>
-      )}
-      
-      {isFetchError && (
-        <div className="w-full bg-red-50 p-3 rounded-md text-sm text-red-800">
-          <p className="font-medium">Erro ao buscar instâncias</p>
-          <p className="text-xs mt-1">
-            O endpoint para buscar instâncias não está disponível ou não está configurado corretamente.
-            Endpoint esperado: <code className="bg-red-100 px-1">/instance/fetchInstances</code>
-          </p>
-        </div>
-      )}
-
-      {onRetry && (
-        <Button 
-          onClick={() => onRetry()} 
-          variant="outline"
-          size="sm"
-          className="mt-2"
-        >
-          Tentar novamente
-        </Button>
-      )}
+      <Button 
+        onClick={onRetry} 
+        variant="outline" 
+        className="gap-2"
+      >
+        <RefreshCw className="h-4 w-4" />
+        Tentar Novamente
+      </Button>
     </div>
   );
 };

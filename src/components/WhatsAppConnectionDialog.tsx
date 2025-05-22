@@ -278,7 +278,7 @@ export function WhatsAppConnectionDialog({
         <CustomNameForm 
           onSubmit={handleCustomNameSubmit} 
           isLoading={isSubmitting} 
-          validateInstanceName={validateInstanceName}
+          validateName={validateInstanceName}
           existingInstances={userInstances}
         />
       );
@@ -351,7 +351,16 @@ export function WhatsAppConnectionDialog({
             {showDebug ? "Ocultar detalhes técnicos" : "Mostrar detalhes técnicos"}
           </button>
           
-          {showDebug && <DebugPanel debugInfo={debugInfo} showDebugInfo={true} />}
+          {showDebug && (
+            <DebugPanel 
+              debugInfo={debugInfo} 
+              showDebugInfo={true} 
+              connectionInfo={{connectionStatus, isLoading, hasQrCode: !!qrCodeData}} 
+              apiHealthStatus={apiHealth} 
+              lastInstanceName={initialInstanceName || customInstanceName || ""}
+              toggleDebugInfo={() => setShowDebug(!showDebug)}
+            />
+          )}
         </div>
         
         {/* Dialog Footer */}

@@ -1,134 +1,167 @@
 
-import { useState } from 'react';
-import { Button } from "@/components/ui/button-extensions";
-import { Input } from "@/components/ui/input";
-import { AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button-extensions';
+import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 
 export interface CustomNameFormProps {
-  onSubmit: (name: string) => void | Promise<void>;
-  isLoading?: boolean;
-  validateInstanceName?: (name: string) => Promise<{ valid: boolean; message?: string }>;
+  onSubmit: (name: string) => void;
+  isLoading: boolean;
+  validateName?: (name: string) => Promise<{ valid: boolean; message?: string }>;
   existingInstances?: any[];
 }
 
 export const CustomNameForm: React.FC<CustomNameFormProps> = ({ 
-  onSubmit, 
-  isLoading = false,
-  validateInstanceName,
+  onSubmit,
+  isLoading,
+  validateName,
   existingInstances = []
 }) => {
-  const [name, setName] = useState('');
-  const [nameError, setNameError] = useState<string | null>(null);
-  const [validating, setValidating] = useState(false);
+  const [instanceName, setInstanceName] = useState('');
+  const [isValid, setIsValid] = useState<boolean | null>(null);
+  const [validationMessage, setValidationMessage] = useState<string | null>(null);
+  const [isValidating, setIsValidating] = useState(false);
 
-  // Format the name to be valid for WhatsApp API
-  const formatName = (input: string) => {
-    return input.toLowerCase()
-      .replace(/[^a-z0-9_]/g, '_')
-      .replace(/__+/g, '_');
+  // Format the name to match the rules
+  const formatName = (name: string): string => {
+    return name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
   };
 
+  // Handle instance name change with validation
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const rawInput = e.target.value;
-    const formattedName = formatName(rawInput);
-    setName(formattedName);
+    const formattedName = formatName(e.target.value);
+    setInstanceName(formattedName);
     
-    // Clear error if user starts typing again
-    if (nameError) setNameError(null);
+    // Reset validation states when typing
+    setIsValid(null);
+    setValidationMessage(null);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!name.trim()) {
-      setNameError('Digite um nome para a instância');
-      return;
-    }
-
-    // Validate name if validation function is provided
-    if (validateInstanceName) {
-      setValidating(true);
+  // Validate the name when it changes
+  useEffect(() => {
+    const validateInstanceName = async () => {
+      if (!instanceName || instanceName.length < 3) {
+        setIsValid(false);
+        setValidationMessage('Nome deve ter pelo menos 3 caracteres');
+        return;
+      }
+      
+      setIsValidating(true);
       try {
-        const result = await validateInstanceName(name);
-        if (!result.valid) {
-          setNameError(result.message || 'Nome de instância inválido');
-          setValidating(false);
+        // Check if name already exists in existing instances
+        const nameExists = existingInstances.some(
+          instance => instance.name === instanceName || instance.instance_name === instanceName
+        );
+        
+        if (nameExists) {
+          setIsValid(false);
+          setValidationMessage('Este nome já está em uso');
           return;
         }
+        
+        // Use the validation function if available
+        if (validateName) {
+          const result = await validateName(instanceName);
+          setIsValid(result.valid);
+          setValidationMessage(result.message || null);
+        } else {
+          setIsValid(true);
+          setValidationMessage(null);
+        }
       } catch (error) {
-        setNameError('Erro ao validar nome de instância');
-        setValidating(false);
-        return;
+        console.error('Error validating instance name:', error);
+        setIsValid(false);
+        setValidationMessage('Erro ao validar o nome');
+      } finally {
+        setIsValidating(false);
       }
-      setValidating(false);
-    }
+    };
     
-    // Check for duplicates in existing instances
-    if (existingInstances && existingInstances.length > 0) {
-      const isDuplicate = existingInstances.some(instance => 
-        instance.name === name || instance.instance_name === name
-      );
-      
-      if (isDuplicate) {
-        setNameError('Este nome já está sendo usado. Escolha outro nome.');
-        return;
+    // Debounce validation to avoid too many API calls
+    const timeoutId = setTimeout(() => {
+      if (instanceName) {
+        validateInstanceName();
       }
-    }
+    }, 500);
     
-    await onSubmit(name);
+    return () => clearTimeout(timeoutId);
+  }, [instanceName, validateName, existingInstances]);
+
+  // Handle form submission
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isValid && instanceName) {
+      onSubmit(instanceName);
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 w-full">
-      <div className="text-center mb-4">
-        <h3 className="text-base font-medium">Personalizar nome da instância</h3>
+    <div className="w-full max-w-md mx-auto">
+      <div className="text-center mb-6">
+        <h3 className="font-medium text-base">Escolha um nome para sua conexão</h3>
         <p className="text-sm text-muted-foreground mt-1">
-          Digite um nome único para identificar esta conexão WhatsApp
+          O nome escolhido precisa ser único e será usado para identificar esta conexão do WhatsApp.
         </p>
       </div>
       
-      <div className="space-y-2">
-        <label htmlFor="instanceName" className="text-sm font-medium">
-          Nome da Instância
-        </label>
-        <Input
-          id="instanceName"
-          type="text"
-          value={name}
-          onChange={handleNameChange}
-          placeholder="minha_empresa_whatsapp"
-          className={nameError ? "border-red-300" : ""}
-          disabled={isLoading || validating}
-          autoComplete="off"
-          pattern="[a-z0-9_]+"
-          aria-invalid={Boolean(nameError)}
-          minLength={3}
-          maxLength={20}
-        />
-        {name && (
-          <p className="text-xs text-muted-foreground">
-            Nome formatado: <code className="bg-gray-100 px-1 rounded">{name}</code>
-          </p>
-        )}
-        {nameError && (
-          <div className="flex items-center gap-1 text-xs text-red-500 mt-1">
-            <AlertCircle className="h-3 w-3" />
-            <span>{nameError}</span>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2">
+          <label htmlFor="instance-name" className="text-sm font-medium">
+            Nome da instância
+          </label>
+          
+          <div className="relative">
+            <Input
+              id="instance-name"
+              value={instanceName}
+              onChange={handleNameChange}
+              placeholder="Ex: meu_assistente"
+              className={`pr-10 ${
+                isValid === true ? 'border-green-500 focus-visible:ring-green-300' : 
+                isValid === false ? 'border-red-300 focus-visible:ring-red-300' : ''
+              }`}
+              disabled={isLoading}
+            />
+            
+            {isValidating && (
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            )}
+            
+            {!isValidating && isValid === true && (
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                <CheckCircle className="h-4 w-4 text-green-500" />
+              </div>
+            )}
+            
+            {!isValidating && isValid === false && (
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                <AlertCircle className="h-4 w-4 text-destructive" />
+              </div>
+            )}
           </div>
-        )}
-        <p className="text-xs text-gray-500">
-          Use apenas letras minúsculas, números e underscores (_). Nomes complexos podem causar problemas de conexão.
-        </p>
-      </div>
-      
-      <div className="flex justify-end pt-2">
-        <Button 
-          type="submit" 
-          disabled={isLoading || validating || !name}
+          
+          {validationMessage && (
+            <p className={`text-xs ${isValid ? 'text-green-600' : 'text-destructive'}`}>
+              {validationMessage}
+            </p>
+          )}
+          
+          <p className="text-xs text-muted-foreground mt-1">
+            O nome deve conter apenas letras minúsculas, números e underscore (_).
+          </p>
+        </div>
+        
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={!isValid || isLoading || isValidating}
+          loading={isLoading}
         >
-          {isLoading || validating ? 'Processando...' : 'Continuar'}
+          Continuar
         </Button>
-      </div>
-    </form>
+      </form>
+    </div>
   );
 };
