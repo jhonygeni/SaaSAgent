@@ -167,6 +167,8 @@ export function useWhatsAppConnection() {
       
       if (qrCode) {
         setQrCodeData(qrCode);
+        // Now we're waiting for QR code scan
+        setConnectionStatus("waiting_qr");
         // Start polling for connection status
         startStatusPolling(instanceId);
       }
@@ -277,6 +279,7 @@ export function useWhatsAppConnection() {
     pairingCode,
     attemptCount,
     validateInstanceName,
-    fetchUserInstances
+    fetchUserInstances,
+    clearPolling // Export clearPolling function
   };
 }

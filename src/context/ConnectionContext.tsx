@@ -18,11 +18,12 @@ interface ConnectionContextType {
   attemptCount: number;
   validateInstanceName: (name: string) => Promise<{valid: boolean, message?: string}>;
   fetchUserInstances: () => Promise<any[]>;
+  clearPolling: () => void; // Add clearPolling function
 }
 
 // Create a default context value to prevent errors when used outside provider
 const defaultConnectionContext: ConnectionContextType = {
-  connectionStatus: "waiting", // Changed from "idle" to "waiting" to match ConnectionStatus type
+  connectionStatus: "waiting",
   startConnection: async () => null,
   cancelConnection: () => {},
   completeConnection: () => {},
@@ -36,6 +37,7 @@ const defaultConnectionContext: ConnectionContextType = {
   attemptCount: 0,
   validateInstanceName: async () => ({ valid: false, message: "Provider not initialized" }),
   fetchUserInstances: async () => [],
+  clearPolling: () => {}, // Add default implementation
 };
 
 const ConnectionContext = createContext<ConnectionContextType>(defaultConnectionContext);

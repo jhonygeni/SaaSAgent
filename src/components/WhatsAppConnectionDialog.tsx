@@ -17,7 +17,8 @@ import {
   USE_MOCK_DATA, 
   PREVENT_CREDIT_CONSUMPTION_ON_FAILURE, 
   AUTO_CLOSE_AFTER_SUCCESS, 
-  AUTO_CLOSE_DELAY_MS 
+  AUTO_CLOSE_DELAY_MS,
+  MAX_POLLING_ATTEMPTS
 } from "@/constants/api";
 import whatsappService from "@/services/whatsappService";
 import { InstancesListResponse } from "@/services/whatsapp/types";
@@ -62,7 +63,8 @@ export function WhatsAppConnectionDialog({
     validateInstanceName,
     fetchUserInstances,
     debugInfo,
-    attemptCount
+    attemptCount,
+    clearPolling
   } = useConnection();
   
   const { updateAgentById } = useAgent();
@@ -77,6 +79,21 @@ export function WhatsAppConnectionDialog({
   const [showCustomNameForm, setShowCustomNameForm] = useState(false);
   const [userInstances, setUserInstances] = useState<any[]>([]);
   const [apiHealth, setApiHealth] = useState<"healthy" | "unhealthy" | "unknown">("unknown");
+  const [modalState, setModalState] = useState<"loading" | "qr_code" | "error" | "success" | "custom_name">("loading");
+
+  // Cleanup polling when component unmounts or dialog closes
+  useEffect(() => {
+    return () => {
+      clearPolling();
+    };
+  }, [clearPolling]);
+
+  // Also cleanup polling when dialog closes
+  useEffect(() => {
+    if (!open) {
+      clearPolling();
+    }
+  }, [open, clearPolling]);
 
   // Load existing instances and check API health when the dialog opens
   useEffect(() => {
@@ -113,14 +130,28 @@ export function WhatsAppConnectionDialog({
     }
   }, [open, fetchUserInstances, toast]);
   
+  // Update modal state based on connection status
+  useEffect(() => {
+    if (connectionStatus === "waiting" || connectionStatus === "connecting") {
+      setModalState("loading");
+    } else if (connectionStatus === "waiting_qr" || (connectionStatus === "connecting" && qrCodeData)) {
+      setModalState("qr_code");
+    } else if (connectionStatus === "connected") {
+      setModalState("success");
+    } else if (connectionStatus === "failed") {
+      setModalState("error");
+    }
+  }, [connectionStatus, qrCodeData]);
+  
   // Handle the connection process when the dialog opens
   useEffect(() => {
-    if (open && connectionStatus === "waiting" && !isLoading && !isSubmitting) {
+    if (open && connectionStatus === "waiting" && !isLoading && !isSubmitting && !showCustomNameForm) {
       console.log("Dialog opened, auto-starting connection with instance name:", initialInstanceName);
       
       const initConnection = async () => {
         try {
           setIsSubmitting(true);
+          setModalState("loading");
           // If we have an initial instance name, use it; otherwise, generate one
           const instanceNameToUse = initialInstanceName || customInstanceName || null;
           await startConnection(instanceNameToUse);
@@ -129,6 +160,9 @@ export function WhatsAppConnectionDialog({
           console.error("Error initiating connection:", error);
           if (error instanceof Error && error.message.includes("already in use")) {
             setShowCustomNameForm(true);
+            setModalState("custom_name");
+          } else {
+            setModalState("error");
           }
         } finally {
           setIsSubmitting(false);
@@ -137,7 +171,7 @@ export function WhatsAppConnectionDialog({
       
       initConnection();
     }
-  }, [open, connectionStatus, isLoading, startConnection, initialInstanceName, customInstanceName, isSubmitting]);
+  }, [open, connectionStatus, isLoading, startConnection, initialInstanceName, customInstanceName, isSubmitting, showCustomNameForm]);
 
   // Update agent status when connection status changes to connected
   useEffect(() => {
@@ -191,6 +225,7 @@ export function WhatsAppConnectionDialog({
     try {
       setIsSubmitting(true);
       setCustomInstanceName(name);
+      setModalState("loading");
       await startConnection(name);
       setShowCustomNameForm(false);
       console.log("Connection initiated with custom name");
@@ -203,6 +238,10 @@ export function WhatsAppConnectionDialog({
           description: "Este nome de instância já está sendo usado. Por favor, escolha outro nome.",
           variant: "destructive",
         });
+        setShowCustomNameForm(true);
+        setModalState("custom_name");
+      } else {
+        setModalState("error");
       }
     } finally {
       setIsSubmitting(false);
@@ -213,12 +252,14 @@ export function WhatsAppConnectionDialog({
   const handleCancel = () => {
     console.log("Cancelling connection and closing dialog");
     cancelConnection();
+    clearPolling();
     onOpenChange(false);
   };
 
   // Handle dialog close
   const handleClose = () => {
     console.log("User manually closing dialog");
+    clearPolling();
     onOpenChange(false);
   };
 
@@ -252,6 +293,8 @@ export function WhatsAppConnectionDialog({
     switch (connectionStatus) {
       case "connecting":
         return "Conectando...";
+      case "waiting_qr":
+        return "Aguardando escaneamento do QR code...";
       case "connected":
         return "Conexão estabelecida com sucesso!";
       case "failed":
@@ -267,16 +310,19 @@ export function WhatsAppConnectionDialog({
   // Handle retry for error state
   const handleRetry = async () => {
     try {
+      setModalState("loading");
+      clearPolling(); // Ensure no leftover polling
       await handleCustomNameSubmit(customInstanceName || (initialInstanceName || ""));
     } catch (error) {
       console.error("Error during retry:", error);
+      setModalState("error");
     }
   };
 
   // Render the dialog content based on the current state
   const renderDialogContent = () => {
     // Show custom name form if needed
-    if (showCustomNameForm) {
+    if (showCustomNameForm || modalState === "custom_name") {
       return (
         <CustomNameForm 
           onSubmit={handleCustomNameSubmit} 
@@ -287,17 +333,22 @@ export function WhatsAppConnectionDialog({
     }
     
     // Loading state
-    if (isLoading || isSubmitting) {
+    if ((isLoading || isSubmitting || modalState === "loading") && 
+        modalState !== "qr_code" && 
+        modalState !== "error" && 
+        modalState !== "success") {
       return (
         <LoadingState 
           status={connectionStatus} 
-          attemptCount={attemptCount} 
+          attemptCount={attemptCount}
+          maxAttempts={MAX_POLLING_ATTEMPTS}
         />
       );
     }
     
     // QR Code state
-    if (qrCodeData && connectionStatus !== "connected") {
+    if ((qrCodeData && modalState === "qr_code") || 
+        (qrCodeData && connectionStatus === "waiting_qr")) {
       return (
         <QrCodeState 
           qrCodeData={qrCodeData}
@@ -308,17 +359,22 @@ export function WhatsAppConnectionDialog({
     }
     
     // Error state
-    if (connectionError || connectionStatus === "failed") {
+    if (connectionError || modalState === "error" || connectionStatus === "failed") {
+      const isTimeout = connectionError?.includes("Timeout") || 
+                        connectionError?.includes("tempo esgotado") || 
+                        attemptCount >= MAX_POLLING_ATTEMPTS;
+      
       return (
         <ErrorState 
           errorMessage={connectionError || "Falha na conexão"} 
           onRetry={handleRetry}
+          isTimeout={isTimeout}
         />
       );
     }
     
     // Success state
-    if (connectionStatus === "connected") {
+    if (modalState === "success" || connectionStatus === "connected") {
       return <SuccessState phoneNumber={phoneNumber} />;
     }
     
@@ -333,7 +389,12 @@ export function WhatsAppConnectionDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      if (!isOpen) {
+        clearPolling(); // Ensure polling is cleared when dialog is closed
+      }
+      onOpenChange(isOpen);
+    }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <div className="flex justify-between items-center">
@@ -374,7 +435,12 @@ export function WhatsAppConnectionDialog({
             <DebugPanel 
               debugInfo={debugInfo || ""} 
               showDebugInfo={true} 
-              connectionInfo={{connectionStatus, isLoading, hasQrCode: !!qrCodeData}} 
+              connectionInfo={{
+                connectionStatus,
+                isLoading,
+                hasQrCode: !!qrCodeData,
+                modalState
+              }} 
               apiHealthStatus={apiHealth} 
               lastInstanceName={initialInstanceName || customInstanceName || ""}
               toggleDebugInfo={() => setShowDebug(!showDebug)}

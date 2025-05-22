@@ -1,9 +1,14 @@
-
 /**
  * Types for the WhatsApp connection functionality
  */
 
-export type ConnectionStatus = 'waiting' | 'connecting' | 'connected' | 'failed' | 'disconnected';
+export type ConnectionStatus = 
+  | "waiting" 
+  | "connecting" 
+  | "waiting_qr"   // New state when QR code is ready to be scanned
+  | "connected" 
+  | "disconnected" 
+  | "failed";
 
 export interface ConnectionDebugInfo {
   action?: string;

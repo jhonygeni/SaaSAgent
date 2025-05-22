@@ -175,6 +175,50 @@ export function useWhatsAppStatus() {
                               
         console.log(`Current connection state: ${connectionState}`);
         
+        // Check for waiting_qr state
+        if (connectionState === "waiting_qr" || (stateData?.qrCode && stateData.qrCode.length > 0)) {
+          console.log("QR code is ready to be scanned");
+          clearPolling();
+          setConnectionStatus("waiting_qr");
+          
+          // If there's a qrCode in the response, use it
+          if (stateData.qrCode) {
+            setQrCodeData(stateData.qrCode);
+          }
+          
+          // Still try to get a QR code if none is provided in the state response
+          if (!stateData.qrCode) {
+            try {
+              const qrResponse: QrCodeResponse = await whatsappService.getQrCode(formattedName);
+              if (qrResponse?.qrcode || qrResponse?.base64 || qrResponse?.code) {
+                setQrCodeData(qrResponse.qrcode || qrResponse.base64 || qrResponse.code);
+                
+                if (qrResponse.pairingCode) {
+                  setPairingCode(qrResponse.pairingCode);
+                }
+              }
+            } catch (qrError) {
+              console.error("Failed to get QR code:", qrError);
+              setConnectionStatus("failed");
+              setConnectionError("Failed to get QR code. Please try again.");
+            }
+          }
+          
+          return;
+        }
+        
+        // Check for error or already_exists states
+        if (connectionState === "error" || 
+            connectionState === "already_exists" || 
+            stateData.error === true || 
+            stateData.message?.toLowerCase().includes("error")) {
+          console.log("Connection error detected");
+          clearPolling();
+          setConnectionStatus("failed");
+          setConnectionError(stateData.message || "Connection error occurred. Please try again.");
+          return;
+        }
+        
         const isConnected = 
           connectionState === "open" || 
           connectionState === "connected" || 
@@ -224,10 +268,14 @@ export function useWhatsAppStatus() {
               // Check all possible QR code fields
               if (qrResponse?.qrcode || qrResponse?.base64 || qrResponse?.code) {
                 setQrCodeData(qrResponse.qrcode || qrResponse.base64 || qrResponse.code);
+                setConnectionStatus("waiting_qr");
+                clearPolling(); // Stop polling once we have a QR code
                 
                 if (qrResponse.pairingCode) {
                   setPairingCode(qrResponse.pairingCode);
                 }
+                
+                return;
               }
             } catch (qrError) {
               console.error("Falha ao atualizar QR code:", qrError);
@@ -266,6 +314,13 @@ export function useWhatsAppStatus() {
             errorMessage.includes("Authentication")) {
           clearPolling();
           setConnectionError(`Erro de autenticação: ${errorMessage}`);
+          setConnectionStatus("failed");
+        }
+        
+        // Stop polling after max attempts regardless of errors
+        if (pollCount >= MAX_POLLING_ATTEMPTS) {
+          clearPolling();
+          setConnectionError("Timeout: please try again.");
           setConnectionStatus("failed");
         }
       }

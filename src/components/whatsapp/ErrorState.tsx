@@ -6,18 +6,20 @@ import { Button } from '@/components/ui/button-extensions';
 export interface ErrorStateProps {
   errorMessage: string;
   onRetry: () => void;
+  isTimeout?: boolean;
 }
 
 export const ErrorState: React.FC<ErrorStateProps> = ({ 
   errorMessage, 
-  onRetry 
+  onRetry,
+  isTimeout = false
 }) => {
   return (
     <div className="flex flex-col items-center space-y-6 text-center max-w-xs mx-auto">
       <AlertOctagon className="h-12 w-12 text-destructive" />
       
       <div className="space-y-2">
-        <h3 className="font-semibold">Erro na Conexão</h3>
+        <h3 className="font-semibold">{isTimeout ? "Tempo Esgotado" : "Erro na Conexão"}</h3>
         <p className="text-sm text-muted-foreground">
           {errorMessage}
         </p>
