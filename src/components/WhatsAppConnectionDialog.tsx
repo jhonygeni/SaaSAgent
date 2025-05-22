@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
@@ -134,7 +133,7 @@ export function WhatsAppConnectionDialog({
   useEffect(() => {
     if (connectionStatus === "waiting" || connectionStatus === "connecting") {
       setModalState("loading");
-    } else if (connectionStatus === "waiting_qr" || (connectionStatus === "connecting" && qrCodeData)) {
+    } else if (connectionStatus === "waiting_qr" || qrCodeData) { // Fixed comparison - removed the problematic condition
       setModalState("qr_code");
     } else if (connectionStatus === "connected") {
       setModalState("success");

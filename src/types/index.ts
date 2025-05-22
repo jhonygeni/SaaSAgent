@@ -46,5 +46,5 @@ export type User = {
 };
 
 // Import the correct ConnectionStatus type from hooks/whatsapp/types.ts
-import { ConnectionStatus } from '@/hooks/whatsapp/types';
-export { ConnectionStatus };
+import type { ConnectionStatus } from '@/hooks/whatsapp/types';
+export type { ConnectionStatus };
