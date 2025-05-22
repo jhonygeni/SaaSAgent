@@ -174,7 +174,7 @@ export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
           toast({
             title: "Aviso",
             description: "Agente salvo, mas houve um erro na comunicação com a API. Algumas funcionalidades podem estar limitadas.",
-            variant: "warning",
+            variant: "default",
           });
         }
       } catch (webhookError) {
@@ -235,7 +235,7 @@ export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
           toast({
             title: "Aviso",
             description: "Agente salvo, mas houve um erro na comunicação com a API. Algumas funcionalidades podem estar limitadas.",
-            variant: "warning",
+            variant: "default",
           });
         }
       } catch (webhookError) {
