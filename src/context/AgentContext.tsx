@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { Agent, FAQ } from "../types";
 import { EXAMPLE_AGENT } from "../lib/utils";
@@ -166,7 +165,16 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       
       while (retryCount < maxRetries && !newAgent) {
         try {
+          console.log(`Creating agent, attempt ${retryCount + 1}...`);
           newAgent = await agentService.createAgent(agentToCreate);
+          
+          // Ensure we have a valid agent with ID
+          if (!newAgent || !newAgent.id) {
+            console.error(`Agent creation returned incomplete data on attempt ${retryCount + 1}:`, newAgent);
+            throw new Error("Dados do agente incompletos");
+          }
+          
+          console.log(`Agent created successfully with ID ${newAgent.id}`);
           break;
         } catch (retryError) {
           console.log(`Retry attempt ${retryCount + 1} failed`, retryError);
@@ -179,8 +187,8 @@ export function AgentProvider({ children }: { children: ReactNode }) {
         }
       }
       
-      if (newAgent) {
-        // Fixed: Ensure we're adding an Agent type to the array
+      if (newAgent && newAgent.id) {
+        // Fixed: Ensure we're adding an Agent type with a valid ID to the array
         setAgents((prev) => [...prev, newAgent as Agent]);
         
         toast({

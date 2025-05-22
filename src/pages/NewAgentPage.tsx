@@ -48,6 +48,19 @@ const NewAgentPage = () => {
 
   const handleAgentCreated = async (agent: Agent, connect: boolean = true) => {
     console.log("Agent created, handling persistence and connection");
+    
+    // Verify that agent has a valid ID
+    if (!agent || !agent.id) {
+      console.error("Received agent without a valid ID", agent);
+      setPageError("Erro: O agente foi criado sem um ID válido.");
+      toast({
+        title: "Erro ao processar agente",
+        description: "Ocorreu um erro ao processar o agente criado. ID não encontrado.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     // Log API connection details
     console.log(`Using Evolution API at: ${EVOLUTION_API_URL}, Mock mode: ${USE_MOCK_DATA ? 'ON' : 'OFF'}`);
     

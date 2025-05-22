@@ -1,142 +1,38 @@
 
 import React from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertOctagon, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button-extensions';
 
-interface ErrorStateProps {
-  errorMessage: string | null;
-  isAuthError: boolean;
-  onRetry?: () => void;
+export interface ErrorStateProps {
+  errorMessage: string;
+  onRetry: () => void;
+  isAuthError?: boolean;
 }
 
 export const ErrorState: React.FC<ErrorStateProps> = ({ 
   errorMessage, 
-  isAuthError,
-  onRetry
+  onRetry,
+  isAuthError = false
 }) => {
-  // Detectar tipos específicos de erro
-  const isWebhookError = errorMessage?.includes('webhook') || errorMessage?.includes('instance requires property');
-  const isConnectError = errorMessage?.includes('/instance/connect') || errorMessage?.includes('Cannot GET');
-  const isConnectionEndpointError = errorMessage?.includes('404') && isConnectError;
-  const isStateEndpointError = errorMessage?.includes('/instance/connectionState') && errorMessage?.includes('404');
-  const isConnectionTimedOut = errorMessage?.includes('timed out') || errorMessage?.includes('timeout');
-  const isFetchError = errorMessage?.includes('/instance/fetchInstances');
-  const isIntegrationError = errorMessage?.includes('Invalid integration');
-  const isDatabaseError = errorMessage?.includes('database') || errorMessage?.includes('supabase') || errorMessage?.includes('query');
-  const isNetworkError = errorMessage?.includes('network') || errorMessage?.includes('fetch') || errorMessage?.includes('NetworkError');
-  const isDashboardError = errorMessage?.includes('dashboard') || errorMessage?.includes('Dashboard');
-  const isStripeError = errorMessage?.includes('stripe') || errorMessage?.includes('payment') || errorMessage?.includes('Edge Function') || errorMessage?.includes('2xx');
-  const isCreationError = errorMessage?.includes('criar agente') || errorMessage?.includes('salvar o agente');
-  
   return (
-    <div className="flex flex-col items-center space-y-4 py-4">
-      <div className="rounded-full bg-red-100 p-3">
-        <AlertCircle className="h-10 w-10 text-red-600" />
-      </div>
-      <div className="text-center">
-        <p className="font-medium">Falha na conexão</p>
-        <p className="text-sm text-muted-foreground mt-1">
-          {isWebhookError 
-            ? "Erro na configuração de webhook. Webhook é obrigatório para a criação da instância."
-            : isConnectError 
-            ? "O endpoint de conexão para o QR code não está disponível. Por favor, verifique a configuração da API."
-            : isStateEndpointError
-            ? "O endpoint para verificar o estado da conexão não está disponível."
-            : isConnectionTimedOut
-            ? "Tempo de conexão esgotado. Por favor, tente novamente."
-            : isFetchError
-            ? "Erro ao buscar instâncias. Verifique a configuração da API."
-            : isIntegrationError
-            ? "Valor de integração inválido. O valor deve ser exatamente 'WHATSAPP-BAILEYS' ou 'WHATSAPP-BUSINESS'."
-            : isDashboardError
-            ? "Falha ao carregar o Dashboard. Por favor, tente novamente mais tarde ou entre em contato com o suporte."
-            : isDatabaseError
-            ? "Erro de conexão com o banco de dados. Por favor, tente novamente mais tarde."
-            : isNetworkError
-            ? "Erro de rede. Verifique sua conexão com a internet e tente novamente."
-            : isStripeError
-            ? "Erro ao processar pagamento. Ocorreu um erro na comunicação com o Stripe. Por favor, tente novamente."
-            : isCreationError
-            ? "Erro ao criar agente. Não foi possível salvar os dados no banco de dados. Por favor, tente novamente."
-            : errorMessage || "Não foi possível conectar à API do WhatsApp. Por favor, tente novamente."}
+    <div className="flex flex-col items-center space-y-6 text-center max-w-xs mx-auto">
+      <AlertOctagon className="h-12 w-12 text-destructive" />
+      
+      <div className="space-y-2">
+        <h3 className="font-semibold">{isAuthError ? "Erro de Autenticação" : "Erro na Conexão"}</h3>
+        <p className="text-sm text-muted-foreground">
+          {errorMessage}
         </p>
       </div>
       
-      {isAuthError && (
-        <div className="w-full bg-red-50 p-3 rounded-md text-sm text-red-800">
-          <p className="font-medium">Erro de autenticação</p>
-          <p className="text-xs mt-1">
-            Verifique se a chave de API está configurada corretamente no servidor.
-          </p>
-        </div>
-      )}
-      
-      {isWebhookError && (
-        <div className="w-full bg-red-50 p-3 rounded-md text-sm text-red-800">
-          <p className="font-medium">Erro na configuração de webhook</p>
-          <p className="text-xs mt-1">
-            A API exige que um webhook seja fornecido ao criar a instância. Isso já foi corrigido no código.
-            Por favor, tente novamente.
-          </p>
-        </div>
-      )}
-      
-      {isConnectionEndpointError && (
-        <div className="w-full bg-red-50 p-3 rounded-md text-sm text-red-800">
-          <p className="font-medium">Erro no endpoint de conexão</p>
-          <p className="text-xs mt-1">
-            O endpoint para obter o código QR não está configurado corretamente ou não está disponível no servidor.
-            Endpoint esperado: <code className="bg-red-100 px-1">/instance/connect/{'{nome-da-instancia}'}</code>
-          </p>
-        </div>
-      )}
-      
-      {isStateEndpointError && (
-        <div className="w-full bg-red-50 p-3 rounded-md text-sm text-red-800">
-          <p className="font-medium">Erro no endpoint de status de conexão</p>
-          <p className="text-xs mt-1">
-            O endpoint para verificar o status da conexão não está configurado corretamente.
-            Endpoint esperado: <code className="bg-red-100 px-1">/instance/connectionState/{'{nome-da-instancia}'}</code>
-          </p>
-        </div>
-      )}
-      
-      {isFetchError && (
-        <div className="w-full bg-red-50 p-3 rounded-md text-sm text-red-800">
-          <p className="font-medium">Erro ao buscar instâncias</p>
-          <p className="text-xs mt-1">
-            O endpoint para buscar instâncias não está disponível ou não está configurado corretamente.
-            Endpoint esperado: <code className="bg-red-100 px-1">/instance/fetchInstances</code>
-          </p>
-        </div>
-      )}
-
-      {isStripeError && (
-        <div className="w-full bg-red-50 p-3 rounded-md text-sm text-red-800">
-          <p className="font-medium">Erro no processamento de pagamento</p>
-          <p className="text-xs mt-1">
-            Ocorreu um erro ao processar o pagamento com o Stripe. A Edge Function retornou um código de status diferente de 2xx.
-            Por favor, verifique a configuração do Stripe e tente novamente.
-          </p>
-        </div>
-      )}
-
-      {isCreationError && (
-        <div className="w-full bg-red-50 p-3 rounded-md text-sm text-red-800">
-          <p className="font-medium">Erro ao salvar agente</p>
-          <p className="text-xs mt-1">
-            Não foi possível salvar o agente no banco de dados Supabase. Por favor, verifique se todos os campos obrigatórios estão preenchidos e tente novamente.
-          </p>
-        </div>
-      )}
-      
-      {onRetry && (
-        <button
-          onClick={onRetry}
-          className="mt-2 px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm"
-        >
-          Tentar novamente
-        </button>
-      )}
+      <Button 
+        onClick={onRetry} 
+        variant="outline" 
+        className="gap-2"
+      >
+        <RefreshCw className="h-4 w-4" />
+        Tentar Novamente
+      </Button>
     </div>
   );
 };

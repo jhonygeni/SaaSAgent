@@ -54,19 +54,25 @@ const agentService = {
 
         console.log("Creating agent with data:", JSON.stringify(supabaseAgent, null, 2));
 
-        // Insert the agent data
+        // Insert the agent data with explicit returning parameter
         const { data, error } = await supabase
           .from('agents')
           .insert(supabaseAgent)
           .select()
-          .single();
+          .single({ returning: 'representation' });
 
         if (error) {
           console.error("Error creating agent in Supabase:", error);
           throw new Error(`Erro ao salvar o agente no banco de dados: ${error.message}`);
         }
 
-        console.log("Agent created successfully in Supabase:", data);
+        console.log("Agent created successfully in Supabase with response:", data);
+        
+        // Transform to Agent type
+        if (!data) {
+          console.error("No data returned from Supabase after agent creation");
+          return null;
+        }
         
         // Convert back to our application Agent type
         return convertDbAgentToAppAgent(data);

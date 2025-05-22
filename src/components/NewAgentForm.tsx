@@ -151,9 +151,10 @@ export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
       }
 
       // First try to save the agent to Supabase directly
+      console.log("Sending agent creation request to Supabase");
       const savedAgent = await addAgent(validatedAgent);
       
-      if (!savedAgent) {
+      if (!savedAgent || !savedAgent.id) {
         toast({
           title: "Erro ao criar agente",
           description: "Não foi possível salvar o agente no banco de dados.",
@@ -162,6 +163,8 @@ export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
         setCreatingAgent(false);
         return;
       }
+      
+      console.log(`Agent saved successfully to Supabase with ID: ${savedAgent.id}`);
 
       // Only if successfully saved to Supabase, try sending the data to the webhook
       try {
@@ -208,13 +211,14 @@ export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
       }
       
       // First try to save the agent to Supabase directly
+      console.log("Sending agent creation request to Supabase (without connecting)");
       const savedAgent = await addAgent({
         ...validatedAgent,
         connected: false,
         status: "pendente"
       });
       
-      if (!savedAgent) {
+      if (!savedAgent || !savedAgent.id) {
         toast({
           title: "Erro ao criar agente",
           description: "Não foi possível salvar o agente no banco de dados.",
@@ -223,6 +227,8 @@ export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
         setCreatingAgent(false);
         return;
       }
+      
+      console.log(`Agent saved successfully to Supabase with ID: ${savedAgent.id} (without connecting)`);
 
       // Only if successfully saved to Supabase, try sending the data to the webhook
       try {
