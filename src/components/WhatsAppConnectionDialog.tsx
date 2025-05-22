@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -283,6 +282,39 @@ export function WhatsAppConnectionDialog({
   const handleForceClose = () => {
     console.log("User manually closing dialog");
     onOpenChange(false);
+  };
+
+  // Add an update to the WhatsAppConnectionDialog component to show connection status
+  // and auto-close on successful connection
+  // Importantly - make sure we're regularly updating the UI with the latest status
+  // This code would go in the component itself
+
+  // Add better status display and ensure auto-close works correctly
+  useEffect(() => {
+    // Auto-close dialog after successful connection
+    if (connectionStatus === "connected" && AUTO_CLOSE_AFTER_SUCCESS) {
+      console.log("Connection successful, auto-closing dialog...");
+      const timer = setTimeout(() => {
+        if (onOpenChange) onOpenChange(false);
+      }, AUTO_CLOSE_DELAY_MS);
+      return () => clearTimeout(timer);
+    }
+  }, [connectionStatus, onOpenChange]);
+
+  // Add better status display within the component's render method
+  const getStatusText = () => {
+    switch (connectionStatus) {
+      case "connecting":
+        return "Conectando...";
+      case "connected":
+        return "Conexão bem-sucedida!";
+      case "disconnected":
+        return "Desconectado";
+      case "failed":
+        return "Falha na conexão";
+      default:
+        return "Aguardando conexão...";
+    }
   };
 
   return (

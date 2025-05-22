@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid';
 import whatsappService from '@/services/whatsappService';
 import { USE_MOCK_DATA } from '@/constants/api';
 import { InstancesListResponse } from '@/services/whatsapp/types';
+import { supabase } from '@/integrations/supabase/client';
 
 /**
  * Função de formatação de nome para garantir consistência em todas as chamadas de API
@@ -54,15 +55,38 @@ export function useInstanceManager() {
   }, []);
 
   // Create a new instance with webhook included in the initial payload
-  const createAndConfigureInstance = useCallback(async (instanceName: string) => {
+  const createAndConfigureInstance = useCallback(async (instanceName: string, userId?: string) => {
     try {
       // Formatar nome da instância para garantir consistência
       const formattedName = formatInstanceName(instanceName);
       console.log(`Creating new WhatsApp instance with webhook: ${formattedName}`);
       
       // Criar instância com webhook já incluído no payload
-      const creationResponse = await whatsappService.createInstance(formattedName);
+      const creationResponse = await whatsappService.createInstance(formattedName, userId);
       console.log("Instance creation response:", creationResponse);
+      
+      // Persist to Supabase if user ID is provided
+      if (userId && creationResponse) {
+        try {
+          const { error } = await supabase
+            .from('whatsapp_instances')
+            .upsert({
+              name: formattedName,
+              user_id: userId,
+              status: 'pending',
+              evolution_instance_id: creationResponse.instance?.instanceId || null,
+              session_data: creationResponse
+            });
+            
+          if (error) {
+            console.error("Error saving WhatsApp instance to Supabase:", error);
+          } else {
+            console.log("WhatsApp instance data saved to Supabase successfully");
+          }
+        } catch (saveError) {
+          console.error("Failed to save instance data to Supabase:", saveError);
+        }
+      }
       
       // Armazenar para uso posterior
       setInstanceData(creationResponse);
@@ -87,12 +111,36 @@ export function useInstanceManager() {
     }
   }, []);
 
+  // Update the status of an instance in Supabase
+  const updateInstanceStatus = useCallback(async (instanceName: string, status: string, userId?: string) => {
+    if (!userId) return;
+    
+    try {
+      const formattedName = formatInstanceName(instanceName);
+      
+      const { error } = await supabase
+        .from('whatsapp_instances')
+        .update({ status })
+        .eq('name', formattedName)
+        .eq('user_id', userId);
+        
+      if (error) {
+        console.error("Error updating WhatsApp instance status in Supabase:", error);
+      } else {
+        console.log(`WhatsApp instance status updated to ${status} in Supabase`);
+      }
+    } catch (error) {
+      console.error("Failed to update instance status in Supabase:", error);
+    }
+  }, []);
+
   return {
     instanceData,
     setInstanceData,
     getInstanceName,
     createAndConfigureInstance,
     fetchUserInstances,
+    updateInstanceStatus,
     createdInstancesRef,
     clearCurrentInstanceName
   };

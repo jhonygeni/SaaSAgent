@@ -38,7 +38,7 @@ import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { useAgentWebhook, usePromptWebhook } from "@/hooks/use-webhook";
 
 interface NewAgentFormProps {
-  onAgentCreated?: (agent: Agent) => void; // Updated to include agent parameter
+  onAgentCreated?: (agent: Agent, connect: boolean) => void; // Updated to include connect parameter
 }
 
 export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
@@ -102,14 +102,14 @@ export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
     return () => clearTimeout(debounceValidate);
   }, [currentAgent.nome, validateInstanceName]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Helper function for both submission pathways
+  const validateAndPrepareAgent = async (): Promise<Agent | null> => {
     setErrors([]);
     const validationErrors = validateAgent(currentAgent);
     
     if (validationErrors.length > 0) {
       setErrors(validationErrors);
-      return;
+      return null;
     }
     
     // Final name validation before submission
@@ -119,31 +119,76 @@ export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
       
       if (!validation.valid) {
         setErrors([validation.message || "Nome inválido"]);
-        return;
+        return null;
       }
     }
+
+    // Agent is valid, return it with ID
+    return {
+      ...currentAgent,
+      id: `agent-${Date.now()}`
+    };
+  };
+
+  // Main submission handler
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     
+    const validatedAgent = await validateAndPrepareAgent();
+    if (!validatedAgent) return;
+
     try {
-      const result = await sendAgentData(currentAgent);
+      const result = await sendAgentData(validatedAgent);
       
       if (result.success) {
         // Add agent to context
-        const agentWithId = {
-          ...currentAgent,
-          id: `agent-${Date.now()}`
-        };
+        addAgent(validatedAgent);
         
-        // Show success toast
+        // Trigger the callback to show connection options
+        if (onAgentCreated) {
+          onAgentCreated(validatedAgent, true); // Default to connecting
+        }
+      } else {
+        toast({
+          title: "Erro ao criar agente",
+          description: `Não foi possível enviar os dados para o servidor: ${result.error?.message || "Erro desconhecido"}`,
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error("Erro detalhado:", error);
+      toast({
+        title: "Erro ao criar agente",
+        description: `Ocorreu um erro inesperado: ${error.message || "Detalhes indisponíveis"}`,
+        variant: "destructive",
+      });
+    }
+  };
+
+  // New handler for "Create without connecting"
+  const handleCreateOnly = async () => {
+    const validatedAgent = await validateAndPrepareAgent();
+    if (!validatedAgent) return;
+    
+    try {
+      const result = await sendAgentData(validatedAgent);
+      
+      if (result.success) {
+        // Add agent to context
+        addAgent({
+          ...validatedAgent,
+          connected: false,
+          status: "pendente"
+        });
+        
         toast({
           title: "Agente criado com sucesso!",
-          description: "Seu agente foi criado e está pronto para ser conectado.",
+          description: "Seu agente foi criado sem conexão WhatsApp. Você pode conectá-lo mais tarde no painel.",
           variant: "default",
         });
         
-        // Trigger the callback to open connection dialog
-        if (onAgentCreated) {
-          onAgentCreated(agentWithId);
-        }
+        // Navigate directly to dashboard
+        navigate("/dashboard");
       } else {
         toast({
           title: "Erro ao criar agente",
@@ -501,14 +546,25 @@ export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
           )}
         </div>
 
-        <div className="pt-4 flex justify-end">
+        <div className="pt-4 flex justify-end gap-4">
+          <Button 
+            type="button"
+            variant="outline"
+            size="lg"
+            onClick={handleCreateOnly}
+            disabled={isSubmitting || !!nameError || isValidatingName}
+            loading={isSubmitting}
+          >
+            Criar sem Conectar
+          </Button>
+          
           <Button 
             type="submit" 
             size="lg" 
             disabled={isSubmitting || !!nameError || isValidatingName} 
             loading={isSubmitting}
           >
-            Criar Agente
+            Criar e Conectar
           </Button>
         </div>
       </form>

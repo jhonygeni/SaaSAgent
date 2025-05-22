@@ -1,3 +1,4 @@
+
 import { 
   EVOLUTION_API_URL, 
   EVOLUTION_API_KEY, 
@@ -14,6 +15,7 @@ import {
   WhatsAppInstanceResponse
 } from '@/services/whatsapp/types';
 import { apiClient, formatEndpoint } from '@/services/whatsapp/apiClient';
+import { supabase } from '@/integrations/supabase/client';
 
 /**
  * Service for WhatsApp API interactions
@@ -79,7 +81,34 @@ const whatsappService = {
   getConnectionState: async (instanceName: string): Promise<ConnectionStateResponse> => {
     try {
       const endpoint = formatEndpoint(ENDPOINTS.connectionState, { instanceName });
-      return await apiClient.get<ConnectionStateResponse>(endpoint);
+      console.log(`Getting connection state from endpoint: ${endpoint}`);
+      
+      const response = await apiClient.get<ConnectionStateResponse>(endpoint);
+      console.log(`Connection state response for ${instanceName}:`, response);
+      
+      // Store connection state in Supabase if possible
+      try {
+        // Check if user is logged in
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id) {
+          const { error } = await supabase
+            .from('whatsapp_instances')
+            .update({ 
+              status: response?.state || response?.instance?.state || response?.status || "unknown",
+              updated_at: new Date().toISOString()
+            })
+            .eq('name', instanceName)
+            .eq('user_id', user.id);
+            
+          if (error) {
+            console.error("Error updating connection state in Supabase:", error);
+          }
+        }
+      } catch (saveError) {
+        console.error("Failed to save connection state to Supabase:", saveError);
+      }
+      
+      return response;
     } catch (error) {
       console.error(`Error getting connection state for ${instanceName}:`, error);
       throw error;
@@ -105,7 +134,32 @@ const whatsappService = {
       
       console.log("Creating instance with exact data:", JSON.stringify(instanceData, null, 2));
       
-      return await apiClient.post<WhatsAppInstanceResponse>(endpoint, instanceData);
+      const response = await apiClient.post<WhatsAppInstanceResponse>(endpoint, instanceData);
+      
+      // Store instance data in Supabase if possible
+      if (userId) {
+        try {
+          const { error } = await supabase
+            .from('whatsapp_instances')
+            .upsert({
+              name: instanceName,
+              user_id: userId,
+              status: 'created',
+              evolution_instance_id: response.instance?.instanceId || null,
+              session_data: response,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
+            
+          if (error) {
+            console.error("Error saving instance data to Supabase:", error);
+          }
+        } catch (saveError) {
+          console.error("Failed to save instance data to Supabase:", saveError);
+        }
+      }
+      
+      return response;
     } catch (error) {
       console.error(`Error creating instance ${instanceName}:`, error);
       throw error;
@@ -123,6 +177,30 @@ const whatsappService = {
       const response = await apiClient.get<QrCodeResponse>(endpoint);
       console.log(`QR code response for ${instanceName}:`, JSON.stringify(response, null, 2));
       
+      // Save QR code to Supabase if possible
+      try {
+        // Check if user is logged in
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id && (response.code || response.qrcode || response.base64)) {
+          const qrCode = response.code || response.qrcode || response.base64;
+          
+          const { error } = await supabase
+            .from('whatsapp_instances')
+            .update({ 
+              qr_code: qrCode,
+              updated_at: new Date().toISOString()
+            })
+            .eq('name', instanceName)
+            .eq('user_id', user.id);
+            
+          if (error) {
+            console.error("Error saving QR code to Supabase:", error);
+          }
+        }
+      } catch (saveError) {
+        console.error("Failed to save QR code to Supabase:", saveError);
+      }
+      
       return response;
     } catch (error) {
       console.error(`Error getting QR code for ${instanceName}:`, error);
@@ -134,7 +212,37 @@ const whatsappService = {
   getInstanceInfo: async (instanceName: string): Promise<InstanceInfo> => {
     try {
       const endpoint = formatEndpoint(ENDPOINTS.instanceInfo, { instanceName });
-      return await apiClient.get<InstanceInfo>(endpoint);
+      const response = await apiClient.get<InstanceInfo>(endpoint);
+      
+      // If we have a phone number, update Supabase
+      if (response?.instance?.user?.id) {
+        try {
+          // Extract phone number from user.id (format: "number@s.whatsapp.net")
+          const phoneNumber = response.instance.user.id.split('@')[0];
+          
+          // Check if user is logged in
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user?.id && phoneNumber) {
+            const { error } = await supabase
+              .from('whatsapp_instances')
+              .update({ 
+                phone_number: phoneNumber,
+                status: 'connected',
+                updated_at: new Date().toISOString()
+              })
+              .eq('name', instanceName)
+              .eq('user_id', user.id);
+              
+            if (error) {
+              console.error("Error saving phone number to Supabase:", error);
+            }
+          }
+        } catch (saveError) {
+          console.error("Failed to save phone number to Supabase:", saveError);
+        }
+      }
+      
+      return response;
     } catch (error) {
       console.error(`Error getting instance info for ${instanceName}:`, error);
       throw error;
@@ -156,7 +264,31 @@ const whatsappService = {
   logoutInstance: async (instanceName: string) => {
     try {
       const endpoint = formatEndpoint(ENDPOINTS.instanceLogout, { instanceName });
-      return await apiClient.delete(endpoint);
+      const response = await apiClient.delete(endpoint);
+      
+      // Update status in Supabase
+      try {
+        // Check if user is logged in
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id) {
+          const { error } = await supabase
+            .from('whatsapp_instances')
+            .update({ 
+              status: 'disconnected',
+              updated_at: new Date().toISOString()
+            })
+            .eq('name', instanceName)
+            .eq('user_id', user.id);
+            
+          if (error) {
+            console.error("Error updating logout status in Supabase:", error);
+          }
+        }
+      } catch (saveError) {
+        console.error("Failed to update logout status in Supabase:", saveError);
+      }
+      
+      return response;
     } catch (error) {
       console.error(`Error logging out instance ${instanceName}:`, error);
       throw error;

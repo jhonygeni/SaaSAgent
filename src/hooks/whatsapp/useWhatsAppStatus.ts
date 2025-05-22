@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { ConnectionStatus } from '@/types';
 import whatsappService from '@/services/whatsappService';
@@ -38,7 +37,7 @@ export function useWhatsAppStatus() {
   // Show error toast
   const showErrorToast = useCallback((message: string) => {
     toast({
-      title: "Connection Error",
+      title: "Erro de Conexão",
       description: message,
       variant: "destructive",
     });
@@ -159,12 +158,19 @@ export function useWhatsAppStatus() {
         updateDebugInfo({ 
           pollCount, 
           instanceName: formattedName,
-          connectionState: stateData?.state || stateData?.status,
+          connectionState: stateData?.state || stateData?.instance?.state || stateData?.status,
           consecutiveSuccessCount: consecutiveSuccessCount.current
         });
         
-        // Check for successful connection states - both state and status fields
-        const connectionState = stateData?.state || stateData?.status;
+        // Check for successful connection states - handle both formats from API:
+        // 1. { state: "open" } or { status: "open" }
+        // 2. { instance: { state: "open" } }
+        const connectionState = stateData?.state || 
+                              (stateData?.instance?.state) || 
+                              stateData?.status;
+                              
+        console.log(`Current connection state: ${connectionState}`);
+        
         const isConnected = 
           connectionState === "open" || 
           connectionState === "connected" || 

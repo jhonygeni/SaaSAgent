@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { NewAgentForm } from "@/components/NewAgentForm";
 import { WhatsAppConnectionDialog } from "@/components/WhatsAppConnectionDialog";
@@ -8,6 +7,9 @@ import { toast } from "@/hooks/use-toast";
 import { useAgent } from "@/context/AgentContext";
 import { useNavigate } from "react-router-dom";
 import { Agent } from "@/types";
+import { supabase } from "@/integrations/supabase/client";
+import { storeInstanceData } from "@/services/whatsapp/dataStorage";
+import { useUser } from "@/context/UserContext";
 
 const NewAgentPage = () => {
   const [showConnectionDialog, setShowConnectionDialog] = useState(false);
@@ -15,6 +17,7 @@ const NewAgentPage = () => {
   const { addAgent, updateAgentById } = useAgent();
   const navigate = useNavigate();
   const [createdAgent, setCreatedAgent] = useState<Agent | null>(null);
+  const { user } = useUser();
 
   // Log important connection state changes
   useEffect(() => {
