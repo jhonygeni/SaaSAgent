@@ -68,6 +68,9 @@ export function useInstanceManager() {
       // Persist to Supabase if user ID is provided
       if (userId && creationResponse) {
         try {
+          // Convert the response to a JSON-compatible object
+          const sessionData = JSON.parse(JSON.stringify(creationResponse));
+          
           const { error } = await supabase
             .from('whatsapp_instances')
             .upsert({
@@ -75,7 +78,7 @@ export function useInstanceManager() {
               user_id: userId,
               status: 'pending',
               evolution_instance_id: creationResponse.instance?.instanceId || null,
-              session_data: creationResponse
+              session_data: sessionData
             });
             
           if (error) {

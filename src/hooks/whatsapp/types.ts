@@ -3,7 +3,7 @@
  * Types for the WhatsApp connection functionality
  */
 
-export type ConnectionStatus = 'waiting' | 'connecting' | 'connected' | 'failed';
+export type ConnectionStatus = 'waiting' | 'connecting' | 'connected' | 'failed' | 'disconnected';
 
 export interface ConnectionDebugInfo {
   action?: string;

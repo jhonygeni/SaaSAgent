@@ -44,16 +44,21 @@ export interface WhatsAppInstanceResponse {
   };
 }
 
-// Connection state response
+// Connection state response - updated to handle different API response formats
 export interface ConnectionStateResponse {
   status?: string;
-  state?: string; // Both fields might exist in different API responses
+  state?: string;
   message?: string;
+  instance?: {
+    instanceName?: string;
+    state?: string;
+    status?: string;
+  };
 }
 
 // Instance info response
 export interface InstanceInfo {
-  status?: string; // Adding this field to fix the type error
+  status?: string;
   instance: {
     name: string;
     user?: {

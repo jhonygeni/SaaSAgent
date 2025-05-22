@@ -1,5 +1,6 @@
+
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { ConnectionStatus } from '@/types';
+import { ConnectionStatus } from '@/hooks/whatsapp/types';
 import whatsappService from '@/services/whatsappService';
 import { useToast } from '../use-toast';
 import { USE_MOCK_DATA, MAX_POLLING_ATTEMPTS, STATUS_POLLING_INTERVAL_MS, CONSECUTIVE_SUCCESS_THRESHOLD } from '@/constants/api';
@@ -158,13 +159,16 @@ export function useWhatsAppStatus() {
         updateDebugInfo({ 
           pollCount, 
           instanceName: formattedName,
-          connectionState: stateData?.state || stateData?.instance?.state || stateData?.status,
+          connectionState: stateData?.state || 
+                         (stateData?.instance?.state) || 
+                         stateData?.status,
           consecutiveSuccessCount: consecutiveSuccessCount.current
         });
         
-        // Check for successful connection states - handle both formats from API:
-        // 1. { state: "open" } or { status: "open" }
-        // 2. { instance: { state: "open" } }
+        // Check for successful connection states - handle all possible formats from API:
+        // 1. { state: "open" }
+        // 2. { status: "open" }
+        // 3. { instance: { state: "open" } }
         const connectionState = stateData?.state || 
                               (stateData?.instance?.state) || 
                               stateData?.status;

@@ -91,10 +91,16 @@ const whatsappService = {
         // Check if user is logged in
         const { data: { user } } = await supabase.auth.getUser();
         if (user?.id) {
+          // Extract state from any of the possible response formats
+          const state = response?.state || 
+                      (response?.instance?.state) || 
+                      response?.status || 
+                      "unknown";
+                      
           const { error } = await supabase
             .from('whatsapp_instances')
             .update({ 
-              status: response?.state || response?.instance?.state || response?.status || "unknown",
+              status: state,
               updated_at: new Date().toISOString()
             })
             .eq('name', instanceName)
@@ -139,6 +145,9 @@ const whatsappService = {
       // Store instance data in Supabase if possible
       if (userId) {
         try {
+          // Convert the complex object to a JSON-compatible structure
+          const sessionData = JSON.parse(JSON.stringify(response));
+          
           const { error } = await supabase
             .from('whatsapp_instances')
             .upsert({
@@ -146,7 +155,7 @@ const whatsappService = {
               user_id: userId,
               status: 'created',
               evolution_instance_id: response.instance?.instanceId || null,
-              session_data: response,
+              session_data: sessionData,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
             });
