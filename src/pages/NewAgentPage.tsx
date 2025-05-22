@@ -126,8 +126,9 @@ const NewAgentPage = () => {
       const testInstanceName = `test_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 7)}`;
       console.log(`Using test instance name: ${testInstanceName}`);
       
-      // Just await the function without checking its return value
+      // Fix the issue: Don't check the return value of startConnection
       await startConnection(testInstanceName);
+      // Simply proceed with showing the dialog after the connection attempt
       console.log("QR Code request complete");
       setShowConnectionDialog(true);
     } catch (error: any) {
