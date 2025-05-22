@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { Agent, BusinessSector, FAQ } from "@/types";
 import { nanoid } from "nanoid";
@@ -58,8 +57,7 @@ const agentService = {
         const { data, error } = await supabase
           .from('agents')
           .insert(supabaseAgent)
-          .select()
-          .single({ returning: 'representation' });
+          .select();  // Fixed: removed the parameter from select()
 
         if (error) {
           console.error("Error creating agent in Supabase:", error);
@@ -69,13 +67,13 @@ const agentService = {
         console.log("Agent created successfully in Supabase with response:", data);
         
         // Transform to Agent type
-        if (!data) {
+        if (!data || data.length === 0) {  // Check for empty array as well
           console.error("No data returned from Supabase after agent creation");
           return null;
         }
         
         // Convert back to our application Agent type
-        return convertDbAgentToAppAgent(data);
+        return convertDbAgentToAppAgent(data[0]);  // Access the first element of the array
       })();
       
       // Race between the operation and the timeout
