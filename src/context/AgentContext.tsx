@@ -154,12 +154,10 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       
       // Make sure instanceName is set correctly
       const formattedName = agent.nome.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-    // Remova o campo id para deixar o Supabase gerar automaticamente
-    const { id, ...agentWithoutId } = agent;
-    const agentToCreate = {
-      ...agentWithoutId,
-      instanceName: agent.instanceName || formattedName
-    };
+      const agentToCreate = {
+        ...agent,
+        instanceName: agent.instanceName || formattedName
+      };
       
       // Create agent in Supabase with retry logic
       let newAgent = null;

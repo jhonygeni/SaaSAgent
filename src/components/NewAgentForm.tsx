@@ -134,6 +134,7 @@ export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
     const formattedName = currentAgent.nome.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
     return {
       ...currentAgent,
+      id: `agent-${Date.now()}`,
       instanceName: formattedName
     };
   };
