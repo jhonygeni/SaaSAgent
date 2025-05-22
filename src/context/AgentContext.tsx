@@ -66,7 +66,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       
       // Add timeout protection
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error("Timeout loading agents")), 5000);
+        setTimeout(() => reject(new Error("Tempo limite excedido ao carregar agentes")), 10000);
       });
       
       const loadPromise = agentService.fetchUserAgents();
@@ -83,7 +83,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       setAgents([]);
       
       // Only show toast for actual API errors, not timeouts
-      if (!(error instanceof Error) || !error.message.includes("Timeout")) {
+      if (!(error instanceof Error) || !error.message.includes("Tempo limite excedido")) {
         toast({
           title: "Erro ao carregar agentes",
           description: "Não foi possível carregar seus agentes. Por favor, tente novamente mais tarde.",
@@ -151,12 +151,37 @@ export function AgentProvider({ children }: { children: ReactNode }) {
   const addAgent = async (agent: Agent): Promise<Agent | null> => {
     try {
       setIsLoading(true);
-      // Create agent in Supabase
-      const newAgent = await agentService.createAgent(agent);
+      
+      // Make sure instanceName is set correctly
+      const formattedName = agent.nome.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+      const agentToCreate = {
+        ...agent,
+        instanceName: agent.instanceName || formattedName
+      };
+      
+      // Create agent in Supabase with retry logic
+      let newAgent = null;
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (retryCount < maxRetries && !newAgent) {
+        try {
+          newAgent = await agentService.createAgent(agentToCreate);
+          break;
+        } catch (retryError) {
+          console.log(`Retry attempt ${retryCount + 1} failed`, retryError);
+          retryCount++;
+          if (retryCount >= maxRetries) {
+            throw retryError;
+          }
+          // Wait a bit before retrying
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
       
       if (newAgent) {
         // Fixed: Ensure we're adding an Agent type to the array
-        setAgents((prev) => [...prev, newAgent]);
+        setAgents((prev) => [...prev, newAgent as Agent]);
         
         toast({
           title: "Agente criado com sucesso",
@@ -173,11 +198,11 @@ export function AgentProvider({ children }: { children: ReactNode }) {
         });
         return null;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error adding agent:", error);
       toast({
         title: "Erro ao criar agente",
-        description: "Ocorreu um erro ao tentar criar o agente.",
+        description: `Ocorreu um erro ao tentar criar o agente: ${error.message || "Erro desconhecido"}`,
         variant: "destructive",
       });
       return null;

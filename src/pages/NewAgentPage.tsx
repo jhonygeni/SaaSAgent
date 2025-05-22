@@ -9,6 +9,9 @@ import { useAgent } from "@/context/AgentContext";
 import { useNavigate } from "react-router-dom";
 import { Agent } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
+import { ErrorState } from "@/components/ErrorState";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button-extensions";
 
 const NewAgentPage = () => {
   const [showConnectionDialog, setShowConnectionDialog] = useState(false);
@@ -17,6 +20,7 @@ const NewAgentPage = () => {
   const navigate = useNavigate();
   const [createdAgent, setCreatedAgent] = useState<Agent | null>(null);
   const { toast } = useToast();
+  const [pageError, setPageError] = useState<string | null>(null);
 
   // Log important connection state changes
   useEffect(() => {
@@ -48,26 +52,9 @@ const NewAgentPage = () => {
     console.log(`Using Evolution API at: ${EVOLUTION_API_URL}, Mock mode: ${USE_MOCK_DATA ? 'ON' : 'OFF'}`);
     
     try {
-      // Save the agent to Supabase first
-      const savedAgent = await addAgent({
-        ...agent,
-        connected: false,
-        status: "pendente",
-        // Add instanceName using the formatted agent name for consistency
-        instanceName: agent.nome.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
-      });
-      
-      if (!savedAgent) {
-        toast({
-          title: "Erro ao criar agente",
-          description: "Não foi possível salvar o agente no banco de dados.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
+      // The agent is already saved in the database in the updated NewAgentForm component
       // Store the created agent for reference in the connection flow
-      setCreatedAgent(savedAgent);
+      setCreatedAgent(agent);
       
       if (connect) {
         // Show the connection dialog for WhatsApp integration
@@ -81,8 +68,9 @@ const NewAgentPage = () => {
         });
         navigate("/dashboard");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error in agent creation flow:", error);
+      setPageError(`Erro ao criar agente: ${error.message}`);
       toast({
         title: "Erro ao criar agente",
         description: "Ocorreu um erro durante a criação do agente.",
@@ -126,8 +114,7 @@ const NewAgentPage = () => {
       const testInstanceName = `test_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 7)}`;
       console.log(`Using test instance name: ${testInstanceName}`);
       
-      // Fixed: Don't check the return value directly as the function returns a Promise
-      // Just await the startConnection function and proceed
+      // Start the connection
       await startConnection(testInstanceName);
       
       // Show the connection dialog after the connection attempt
@@ -135,6 +122,7 @@ const NewAgentPage = () => {
       setShowConnectionDialog(true);
     } catch (error: any) {
       console.error("Error starting connection:", error);
+      setPageError(`Erro ao iniciar conexão: ${error.message}`);
       
       // Special handling for duplicate instance name errors
       if (error.message && error.message.includes("already in use")) {
@@ -153,6 +141,33 @@ const NewAgentPage = () => {
       }
     }
   };
+
+  // Handle page error retry
+  const handleRetry = () => {
+    setPageError(null);
+    window.location.reload();
+  };
+
+  if (pageError) {
+    return (
+      <div className="container mx-auto p-4">
+        <Card className="border-red-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <span>Erro na Página</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ErrorState 
+              errorMessage={pageError}
+              isAuthError={false}
+              onRetry={handleRetry}
+            />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen">

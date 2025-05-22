@@ -52,6 +52,7 @@ export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
   const [nameValidated, setNameValidated] = useState<boolean>(false);
   const [nameError, setNameError] = useState<string | null>(null);
   const [isValidatingName, setIsValidatingName] = useState<boolean>(false);
+  const [creatingAgent, setCreatingAgent] = useState<boolean>(false);
   
   // Use our custom webhook hooks
   const { 
@@ -115,18 +116,26 @@ export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
     // Final name validation before submission
     if (currentAgent.nome) {
       const formattedName = currentAgent.nome.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-      const validation = await validateInstanceName(formattedName);
-      
-      if (!validation.valid) {
-        setErrors([validation.message || "Nome inválido"]);
+      try {
+        const validation = await validateInstanceName(formattedName);
+        
+        if (!validation.valid) {
+          setErrors([validation.message || "Nome inválido"]);
+          return null;
+        }
+      } catch (error) {
+        console.error("Error validating instance name:", error);
+        setErrors(["Erro ao validar o nome da instância"]);
         return null;
       }
     }
 
-    // Agent is valid, return it with ID
+    // Prepare the agent with proper instanceName 
+    const formattedName = currentAgent.nome.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
     return {
       ...currentAgent,
-      id: `agent-${Date.now()}`
+      id: `agent-${Date.now()}`,
+      instanceName: formattedName
     };
   };
 
@@ -134,26 +143,48 @@ export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const validatedAgent = await validateAndPrepareAgent();
-    if (!validatedAgent) return;
-
+    setCreatingAgent(true);
     try {
-      const result = await sendAgentData(validatedAgent);
+      const validatedAgent = await validateAndPrepareAgent();
+      if (!validatedAgent) {
+        setCreatingAgent(false);
+        return;
+      }
+
+      // First try to save the agent to Supabase directly
+      const savedAgent = await addAgent(validatedAgent);
       
-      if (result.success) {
-        // Add agent to context
-        addAgent(validatedAgent);
-        
-        // Trigger the callback to show connection options
-        if (onAgentCreated) {
-          onAgentCreated(validatedAgent, true); // Default to connecting
-        }
-      } else {
+      if (!savedAgent) {
         toast({
           title: "Erro ao criar agente",
-          description: `Não foi possível enviar os dados para o servidor: ${result.error?.message || "Erro desconhecido"}`,
+          description: "Não foi possível salvar o agente no banco de dados.",
           variant: "destructive",
         });
+        setCreatingAgent(false);
+        return;
+      }
+
+      // Only if successfully saved to Supabase, try sending the data to the webhook
+      try {
+        const result = await sendAgentData(savedAgent);
+        
+        if (!result.success) {
+          // If webhook fails but database save worked, we can still proceed
+          console.warn("Agent webhook failed but database save was successful:", result.error);
+          toast({
+            title: "Aviso",
+            description: "Agente salvo, mas houve um erro na comunicação com a API. Algumas funcionalidades podem estar limitadas.",
+            variant: "warning",
+          });
+        }
+      } catch (webhookError) {
+        // Non-blocking webhook error
+        console.error("Webhook error:", webhookError);
+      }
+      
+      // Trigger the callback to show connection options, even if webhook had issues
+      if (onAgentCreated) {
+        onAgentCreated(savedAgent, true); // Default to connecting
       }
     } catch (error: any) {
       console.error("Erro detalhado:", error);
@@ -162,40 +193,64 @@ export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
         description: `Ocorreu um erro inesperado: ${error.message || "Detalhes indisponíveis"}`,
         variant: "destructive",
       });
+    } finally {
+      setCreatingAgent(false);
     }
   };
 
   // New handler for "Create without connecting"
   const handleCreateOnly = async () => {
-    const validatedAgent = await validateAndPrepareAgent();
-    if (!validatedAgent) return;
-    
+    setCreatingAgent(true);
     try {
-      const result = await sendAgentData(validatedAgent);
+      const validatedAgent = await validateAndPrepareAgent();
+      if (!validatedAgent) {
+        setCreatingAgent(false);
+        return;
+      }
       
-      if (result.success) {
-        // Add agent to context
-        addAgent({
-          ...validatedAgent,
-          connected: false,
-          status: "pendente"
-        });
-        
-        toast({
-          title: "Agente criado com sucesso!",
-          description: "Seu agente foi criado sem conexão WhatsApp. Você pode conectá-lo mais tarde no painel.",
-          variant: "default",
-        });
-        
-        // Navigate directly to dashboard
-        navigate("/dashboard");
-      } else {
+      // First try to save the agent to Supabase directly
+      const savedAgent = await addAgent({
+        ...validatedAgent,
+        connected: false,
+        status: "pendente"
+      });
+      
+      if (!savedAgent) {
         toast({
           title: "Erro ao criar agente",
-          description: `Não foi possível enviar os dados para o servidor: ${result.error?.message || "Erro desconhecido"}`,
+          description: "Não foi possível salvar o agente no banco de dados.",
           variant: "destructive",
         });
+        setCreatingAgent(false);
+        return;
       }
+
+      // Only if successfully saved to Supabase, try sending the data to the webhook
+      try {
+        const result = await sendAgentData(savedAgent);
+        
+        if (!result.success) {
+          // If webhook fails but database save worked, we can still proceed
+          console.warn("Agent webhook failed but database save was successful:", result.error);
+          toast({
+            title: "Aviso",
+            description: "Agente salvo, mas houve um erro na comunicação com a API. Algumas funcionalidades podem estar limitadas.",
+            variant: "warning",
+          });
+        }
+      } catch (webhookError) {
+        // Non-blocking webhook error
+        console.error("Webhook error:", webhookError);
+      }
+      
+      toast({
+        title: "Agente criado com sucesso!",
+        description: "Seu agente foi criado sem conexão WhatsApp. Você pode conectá-lo mais tarde no painel.",
+        variant: "default",
+      });
+      
+      // Navigate directly to dashboard
+      navigate("/dashboard");
     } catch (error: any) {
       console.error("Erro detalhado:", error);
       toast({
@@ -203,6 +258,8 @@ export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
         description: `Ocorreu um erro inesperado: ${error.message || "Detalhes indisponíveis"}`,
         variant: "destructive",
       });
+    } finally {
+      setCreatingAgent(false);
     }
   };
   
@@ -552,8 +609,8 @@ export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
             variant="outline"
             size="lg"
             onClick={handleCreateOnly}
-            disabled={isSubmitting || !!nameError || isValidatingName}
-            loading={isSubmitting}
+            disabled={isSubmitting || !!nameError || isValidatingName || creatingAgent}
+            loading={creatingAgent && !isSubmitting}
           >
             Criar sem Conectar
           </Button>
@@ -561,8 +618,9 @@ export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
           <Button 
             type="submit" 
             size="lg" 
-            disabled={isSubmitting || !!nameError || isValidatingName} 
-            loading={isSubmitting}
+            disabled={isSubmitting || !!nameError || isValidatingName || creatingAgent} 
+            loading={isSubmitting || creatingAgent}
+            onClick={handleSubmit}
           >
             Criar e Conectar
           </Button>

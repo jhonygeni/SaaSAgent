@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { AlertCircle } from 'lucide-react';
 
@@ -23,6 +24,8 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
   const isDatabaseError = errorMessage?.includes('database') || errorMessage?.includes('supabase') || errorMessage?.includes('query');
   const isNetworkError = errorMessage?.includes('network') || errorMessage?.includes('fetch') || errorMessage?.includes('NetworkError');
   const isDashboardError = errorMessage?.includes('dashboard') || errorMessage?.includes('Dashboard');
+  const isStripeError = errorMessage?.includes('stripe') || errorMessage?.includes('payment') || errorMessage?.includes('Edge Function') || errorMessage?.includes('2xx');
+  const isCreationError = errorMessage?.includes('criar agente') || errorMessage?.includes('salvar o agente');
   
   return (
     <div className="flex flex-col items-center space-y-4 py-4">
@@ -50,6 +53,10 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
             ? "Erro de conexão com o banco de dados. Por favor, tente novamente mais tarde."
             : isNetworkError
             ? "Erro de rede. Verifique sua conexão com a internet e tente novamente."
+            : isStripeError
+            ? "Erro ao processar pagamento. Ocorreu um erro na comunicação com o Stripe. Por favor, tente novamente."
+            : isCreationError
+            ? "Erro ao criar agente. Não foi possível salvar os dados no banco de dados. Por favor, tente novamente."
             : errorMessage || "Não foi possível conectar à API do WhatsApp. Por favor, tente novamente."}
         </p>
       </div>
@@ -99,6 +106,25 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
           <p className="text-xs mt-1">
             O endpoint para buscar instâncias não está disponível ou não está configurado corretamente.
             Endpoint esperado: <code className="bg-red-100 px-1">/instance/fetchInstances</code>
+          </p>
+        </div>
+      )}
+
+      {isStripeError && (
+        <div className="w-full bg-red-50 p-3 rounded-md text-sm text-red-800">
+          <p className="font-medium">Erro no processamento de pagamento</p>
+          <p className="text-xs mt-1">
+            Ocorreu um erro ao processar o pagamento com o Stripe. A Edge Function retornou um código de status diferente de 2xx.
+            Por favor, verifique a configuração do Stripe e tente novamente.
+          </p>
+        </div>
+      )}
+
+      {isCreationError && (
+        <div className="w-full bg-red-50 p-3 rounded-md text-sm text-red-800">
+          <p className="font-medium">Erro ao salvar agente</p>
+          <p className="text-xs mt-1">
+            Não foi possível salvar o agente no banco de dados Supabase. Por favor, verifique se todos os campos obrigatórios estão preenchidos e tente novamente.
           </p>
         </div>
       )}

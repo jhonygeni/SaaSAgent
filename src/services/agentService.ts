@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { Agent, BusinessSector, FAQ } from "@/types";
 import { nanoid } from "nanoid";
@@ -13,7 +14,7 @@ const agentService = {
     try {
       // Set timeout for the operation
       const timeoutPromise = new Promise<null>((_, reject) => {
-        setTimeout(() => reject(new Error("Request timeout - createAgent")), 10000);
+        setTimeout(() => reject(new Error("Tempo limite excedido - createAgent")), 15000);
       });
       
       const createPromise = (async () => {
@@ -27,11 +28,15 @@ const agentService = {
         // Generate an ID if not provided
         const agentId = agent.id || `agent-${nanoid(8)}`;
         
+        // Ensure instanceName is set properly
+        const instanceName = agent.instanceName || 
+                              agent.nome.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+        
         // Format the agent data for insertion - store most data in the settings field as JSON
         const supabaseAgent = {
           id: agentId,
           user_id: user.id,
-          instance_name: agent.instanceName || agent.nome.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, ''),
+          instance_name: instanceName,
           status: agent.status || "pendente",
           settings: JSON.stringify({
             name: agent.nome,
@@ -47,6 +52,8 @@ const agentService = {
           })
         };
 
+        console.log("Creating agent with data:", JSON.stringify(supabaseAgent, null, 2));
+
         // Insert the agent data
         const { data, error } = await supabase
           .from('agents')
@@ -56,7 +63,7 @@ const agentService = {
 
         if (error) {
           console.error("Error creating agent in Supabase:", error);
-          return null;
+          throw new Error(`Erro ao salvar o agente no banco de dados: ${error.message}`);
         }
 
         console.log("Agent created successfully in Supabase:", data);
@@ -69,7 +76,7 @@ const agentService = {
       return await Promise.race([createPromise, timeoutPromise]);
     } catch (error) {
       console.error("Exception creating agent:", error);
-      return null;
+      throw error; // Rethrow to allow for retry logic
     }
   },
 
@@ -80,7 +87,7 @@ const agentService = {
     try {
       // Set timeout for the operation
       const timeoutPromise = new Promise<Agent[]>((_, reject) => {
-        setTimeout(() => reject(new Error("Request timeout - fetchUserAgents")), 5000);
+        setTimeout(() => reject(new Error("Tempo limite excedido - fetchUserAgents")), 8000);
       });
       
       const fetchPromise = (async () => {
