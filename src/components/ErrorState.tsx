@@ -1,13 +1,17 @@
-
 import React from 'react';
 import { AlertCircle } from 'lucide-react';
 
 interface ErrorStateProps {
   errorMessage: string | null;
   isAuthError: boolean;
+  onRetry?: () => void;
 }
 
-export const ErrorState: React.FC<ErrorStateProps> = ({ errorMessage, isAuthError }) => {
+export const ErrorState: React.FC<ErrorStateProps> = ({ 
+  errorMessage, 
+  isAuthError,
+  onRetry
+}) => {
   // Detectar tipos específicos de erro
   const isWebhookError = errorMessage?.includes('webhook') || errorMessage?.includes('instance requires property');
   const isConnectError = errorMessage?.includes('/instance/connect') || errorMessage?.includes('Cannot GET');
@@ -16,6 +20,8 @@ export const ErrorState: React.FC<ErrorStateProps> = ({ errorMessage, isAuthErro
   const isConnectionTimedOut = errorMessage?.includes('timed out') || errorMessage?.includes('timeout');
   const isFetchError = errorMessage?.includes('/instance/fetchInstances');
   const isIntegrationError = errorMessage?.includes('Invalid integration');
+  const isDatabaseError = errorMessage?.includes('database') || errorMessage?.includes('supabase') || errorMessage?.includes('query');
+  const isNetworkError = errorMessage?.includes('network') || errorMessage?.includes('fetch') || errorMessage?.includes('NetworkError');
   
   return (
     <div className="flex flex-col items-center space-y-4 py-4">
@@ -37,6 +43,10 @@ export const ErrorState: React.FC<ErrorStateProps> = ({ errorMessage, isAuthErro
             ? "Erro ao buscar instâncias. Verifique a configuração da API."
             : isIntegrationError
             ? "Valor de integração inválido. O valor deve ser exatamente 'WHATSAPP-BAILEYS' ou 'WHATSAPP-BUSINESS'."
+            : isDatabaseError
+            ? "Erro de conexão com o banco de dados. Por favor, tente novamente mais tarde."
+            : isNetworkError
+            ? "Erro de rede. Verifique sua conexão com a internet e tente novamente."
             : errorMessage || "Não foi possível conectar à API do WhatsApp. Por favor, tente novamente."}
         </p>
       </div>
@@ -88,6 +98,15 @@ export const ErrorState: React.FC<ErrorStateProps> = ({ errorMessage, isAuthErro
             Endpoint esperado: <code className="bg-red-100 px-1">/instance/fetchInstances</code>
           </p>
         </div>
+      )}
+      
+      {onRetry && (
+        <button
+          onClick={onRetry}
+          className="mt-2 px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm"
+        >
+          Tentar novamente
+        </button>
       )}
     </div>
   );

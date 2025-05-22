@@ -42,27 +42,48 @@ export function AgentProvider({ children }: { children: ReactNode }) {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgentForEdit, setSelectedAgentForEdit] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [loadError, setLoadError] = useState<Error | null>(null);
 
-  // Load agents from Supabase when user changes
+  // Load agents from Supabase when user changes - with error handling
   useEffect(() => {
     if (user) {
-      loadAgentsFromSupabase();
+      // Don't automatically load on mount to prevent infinite loading issues
+      // Instead, let the Dashboard component control when to load
     }
   }, [user]);
 
   // Load agents from Supabase
-  const loadAgentsFromSupabase = async () => {
+  const loadAgentsFromSupabase = async (): Promise<void> => {
+    if (!user) {
+      console.log("No user, skipping agent loading");
+      return Promise.resolve();
+    }
+    
     try {
       setIsLoading(true);
-      const supabaseAgents = await agentService.fetchUserAgents();
+      setLoadError(null);
+      
+      // Add timeout protection
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error("Timeout loading agents")), 10000);
+      });
+      
+      const loadPromise = agentService.fetchUserAgents();
+      
+      // Race between actual loading and timeout
+      const supabaseAgents = await Promise.race([loadPromise, timeoutPromise]);
       setAgents(supabaseAgents);
+      return Promise.resolve();
     } catch (error) {
       console.error("Error loading agents from Supabase:", error);
+      setLoadError(error as Error);
       toast({
         title: "Erro ao carregar agentes",
         description: "Não foi possível carregar seus agentes. Por favor, tente novamente mais tarde.",
         variant: "destructive",
       });
+      // Still resolve the promise to prevent blocking
+      return Promise.resolve();
     } finally {
       setIsLoading(false);
     }

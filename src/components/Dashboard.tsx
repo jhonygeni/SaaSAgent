@@ -24,38 +24,74 @@ import { useAgent } from "@/context/AgentContext";
 
 export function Dashboard() {
   const { user, checkSubscriptionStatus } = useUser();
-  const { loadAgentsFromSupabase, isLoading: isLoadingAgents } = useAgent();
+  const { loadAgentsFromSupabase, isLoading: isLoadingAgents, agents } = useAgent();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { connectionStatus } = useConnection();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
+  const [loadAttempts, setLoadAttempts] = useState(0);
+  
+  // Set a maximum loading time to prevent infinite loading
+  useEffect(() => {
+    const loadingTimeout = setTimeout(() => {
+      if (isLoading && loadAttempts > 2) {
+        console.log("Dashboard loading timed out");
+        setIsLoading(false);
+        setLoadError("O carregamento do dashboard demorou mais do que o esperado. Os dados podem estar incompletos.");
+      }
+    }, 10000); // 10 seconds max loading time
+    
+    return () => clearTimeout(loadingTimeout);
+  }, [isLoading, loadAttempts]);
   
   // Load data when component mounts or when user changes
   useEffect(() => {
     const loadDashboard = async () => {
       try {
         setIsLoading(true);
+        setLoadError(null);
+        setLoadAttempts(prev => prev + 1);
+        console.log(`Dashboard loading attempt ${loadAttempts + 1}`);
+        
         // If user is logged in, refresh agent data from Supabase
         if (user) {
-          await loadAgentsFromSupabase();
+          await Promise.race([
+            loadAgentsFromSupabase(), 
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error("Timeout loading agents")), 8000)
+            )
+          ]);
         }
         
         setIsLoading(false);
       } catch (error) {
         console.error("Error loading dashboard:", error);
+        setLoadError("Não foi possível carregar os dados do dashboard. Tente novamente mais tarde.");
         toast({
           title: "Erro ao carregar dashboard",
           description: "Não foi possível carregar os dados do dashboard.",
           variant: "destructive",
         });
+        // Critical: Still set loading to false even when there's an error
         setIsLoading(false);
       }
     };
     
     loadDashboard();
-  }, [user, toast, loadAgentsFromSupabase]);
+    
+    // Set a backup to ensure loading state is turned off even if something fails
+    const backupTimeout = setTimeout(() => {
+      if (isLoading) {
+        console.warn("Forcing dashboard loading state to complete");
+        setIsLoading(false);
+      }
+    }, 15000); // 15 seconds absolute maximum
+    
+    return () => clearTimeout(backupTimeout);
+  }, [user, toast, loadAgentsFromSupabase, loadAttempts]);
   
   // Check if redirected from successful checkout
   useEffect(() => {
@@ -71,6 +107,13 @@ export function Dashboard() {
       });
     }
   }, [searchParams, user, checkSubscriptionStatus, toast]);
+
+  // Handler to retry loading if it fails
+  const handleRetryLoading = () => {
+    setLoadAttempts(0);
+    setLoadError(null);
+    setIsLoading(true);
+  };
 
   if (!user) {
     return (
@@ -99,9 +142,21 @@ export function Dashboard() {
     <div className="flex flex-col min-h-screen bg-background">
       <DashboardHeader />
       <div className="container mx-auto py-4 md:py-6 space-y-6 md:space-y-8 px-4 md:px-6">
-        {isLoading || isLoadingAgents ? (
-          <div className="flex justify-center items-center h-64">
+        {isLoading ? (
+          <div className="flex flex-col justify-center items-center h-64 gap-4">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            <p className="text-muted-foreground text-sm">Carregando dashboard...</p>
+            {loadAttempts > 1 && (
+              <p className="text-xs text-muted-foreground">Tentativa {loadAttempts}...</p>
+            )}
+          </div>
+        ) : loadError ? (
+          // Error state
+          <div className="rounded-md bg-destructive/10 p-6 flex flex-col items-center text-center">
+            <AlertCircle className="h-10 w-10 text-destructive mb-4" />
+            <h3 className="font-medium text-lg mb-2">Erro ao carregar o dashboard</h3>
+            <p className="text-muted-foreground mb-4">{loadError}</p>
+            <Button onClick={handleRetryLoading}>Tentar novamente</Button>
           </div>
         ) : (
           <>
