@@ -21,6 +21,7 @@ import { useConnection } from "@/context/ConnectionContext";
 import { useToast } from "@/hooks/use-toast";
 import { useSearchParams } from "react-router-dom";
 import { useAgent } from "@/context/AgentContext";
+import { ErrorState } from "@/components/ErrorState";
 
 export function Dashboard() {
   const { user, checkSubscriptionStatus } = useUser();
@@ -33,16 +34,19 @@ export function Dashboard() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
   const [loadAttempts, setLoadAttempts] = useState(0);
+  const [forceShowContent, setForceShowContent] = useState(false);
   
-  // Set a maximum loading time to prevent infinite loading
+  // Force complete loading after a timeout to prevent infinite spinner
   useEffect(() => {
     const loadingTimeout = setTimeout(() => {
-      if (isLoading && loadAttempts > 2) {
-        console.log("Dashboard loading timed out");
+      if (isLoading) {
+        console.log("Dashboard loading timed out - forcing completion");
         setIsLoading(false);
-        setLoadError("O carregamento do dashboard demorou mais do que o esperado. Os dados podem estar incompletos.");
+        if (loadAttempts > 2) {
+          setForceShowContent(true); // Force show content even with errors
+        }
       }
-    }, 10000); // 10 seconds max loading time
+    }, 8000); // 8 seconds max loading time
     
     return () => clearTimeout(loadingTimeout);
   }, [isLoading, loadAttempts]);
@@ -56,27 +60,43 @@ export function Dashboard() {
         setLoadAttempts(prev => prev + 1);
         console.log(`Dashboard loading attempt ${loadAttempts + 1}`);
         
-        // If user is logged in, refresh agent data from Supabase
-        if (user) {
-          await Promise.race([
-            loadAgentsFromSupabase(), 
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error("Timeout loading agents")), 8000)
-            )
-          ]);
+        // Only try to load agents if we have a user and we haven't exceeded max attempts
+        if (user && loadAttempts < 3) {
+          try {
+            // Set a timeout promise to race against the agent loading
+            const timeoutPromise = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error("Dashboard loading timed out")), 5000)
+            );
+            
+            // Race between actual loading and timeout - if timeout wins, we catch the error below
+            await Promise.race([
+              loadAgentsFromSupabase(),
+              timeoutPromise
+            ]);
+          } catch (loadError) {
+            console.error("Failed to load agents:", loadError);
+            // Don't set error state yet - we'll still show the dashboard
+            // Just log it and continue
+          }
         }
         
+        // Always complete loading, regardless of errors
         setIsLoading(false);
       } catch (error) {
         console.error("Error loading dashboard:", error);
         setLoadError("Não foi possível carregar os dados do dashboard. Tente novamente mais tarde.");
-        toast({
-          title: "Erro ao carregar dashboard",
-          description: "Não foi possível carregar os dados do dashboard.",
-          variant: "destructive",
-        });
+        
         // Critical: Still set loading to false even when there's an error
         setIsLoading(false);
+        
+        // Only show toast for first few attempts to avoid spamming the user
+        if (loadAttempts <= 2) {
+          toast({
+            title: "Erro ao carregar dashboard",
+            description: "Tentando mostrar o conteúdo disponível.",
+            variant: "destructive",
+          });
+        }
       }
     };
     
@@ -87,11 +107,12 @@ export function Dashboard() {
       if (isLoading) {
         console.warn("Forcing dashboard loading state to complete");
         setIsLoading(false);
+        setForceShowContent(true);
       }
-    }, 15000); // 15 seconds absolute maximum
+    }, 10000); // 10 seconds absolute maximum
     
     return () => clearTimeout(backupTimeout);
-  }, [user, toast, loadAgentsFromSupabase, loadAttempts]);
+  }, [user, toast, loadAgentsFromSupabase]);
   
   // Check if redirected from successful checkout
   useEffect(() => {
@@ -113,6 +134,7 @@ export function Dashboard() {
     setLoadAttempts(0);
     setLoadError(null);
     setIsLoading(true);
+    setForceShowContent(false);
   };
 
   if (!user) {
@@ -150,17 +172,39 @@ export function Dashboard() {
               <p className="text-xs text-muted-foreground">Tentativa {loadAttempts}...</p>
             )}
           </div>
-        ) : loadError ? (
-          // Error state
-          <div className="rounded-md bg-destructive/10 p-6 flex flex-col items-center text-center">
-            <AlertCircle className="h-10 w-10 text-destructive mb-4" />
-            <h3 className="font-medium text-lg mb-2">Erro ao carregar o dashboard</h3>
-            <p className="text-muted-foreground mb-4">{loadError}</p>
-            <Button onClick={handleRetryLoading}>Tentar novamente</Button>
+        ) : loadError && !forceShowContent ? (
+          // Error state - but only show if we're not forcing content
+          <div className="rounded-md bg-destructive/10 p-6">
+            <ErrorState 
+              errorMessage={loadError}
+              isAuthError={false}
+              onRetry={handleRetryLoading}
+            />
           </div>
         ) : (
           <>
-            {/* Dashboard Analytics */}
+            {/* Show warning if there were errors but we're forcing content */}
+            {loadError && forceShowContent && (
+              <div className="rounded-md bg-amber-50 p-4 text-amber-800 mb-4 border border-amber-200">
+                <div className="flex items-start">
+                  <AlertCircle className="h-5 w-5 mr-2 mt-0.5" />
+                  <div>
+                    <h3 className="font-medium text-sm">Atenção: Alguns dados podem não estar disponíveis</h3>
+                    <p className="text-xs mt-1">Ocorreu um erro ao carregar dados completos do dashboard. Mostrando conteúdo disponível.</p>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="mt-2 bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200 px-2 py-1 h-auto text-xs"
+                      onClick={handleRetryLoading}
+                    >
+                      Tentar recarregar
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Dashboard Analytics - even if there are errors, try to show what we can */}
             <div className="grid grid-cols-1 gap-6">
               <div className="w-full">
                 <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Visão Geral</h2>
@@ -200,7 +244,7 @@ export function Dashboard() {
               </div>
             )}
             
-            {/* Interested Clients Section - Ensure it's responsive */}
+            {/* Interested Clients Section */}
             <div className="pt-2 md:pt-4">
               <InterestedClients />
             </div>

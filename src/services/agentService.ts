@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { Agent, BusinessSector, FAQ } from "@/types";
 import { nanoid } from "nanoid";
@@ -12,124 +11,65 @@ const agentService = {
    */
   createAgent: async (agent: Agent): Promise<Agent | null> => {
     try {
-      // First, make sure we have the current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.error("No authenticated user found");
-        return null;
-      }
-
-      // Generate an ID if not provided
-      const agentId = agent.id || `agent-${nanoid(8)}`;
+      // Set timeout for the operation
+      const timeoutPromise = new Promise<null>((_, reject) => {
+        setTimeout(() => reject(new Error("Request timeout - createAgent")), 10000);
+      });
       
-      // Format the agent data for insertion - store most data in the settings field as JSON
-      const supabaseAgent = {
-        id: agentId,
-        user_id: user.id,
-        instance_name: agent.instanceName || agent.nome.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, ''),
-        status: agent.status || "pendente",
-        settings: JSON.stringify({
-          name: agent.nome,
-          website: agent.site,
-          business_sector: agent.areaDeAtuacao,
-          information: agent.informacoes,
-          prompt: agent.prompt,
-          faqs: agent.faqs,
-          phone_number: agent.phoneNumber,
-          message_count: agent.messageCount || 0,
-          message_limit: agent.messageLimit || 100,
-          connected: agent.connected || false
-        })
-      };
+      const createPromise = (async () => {
+        // First, make sure we have the current user
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          console.error("No authenticated user found");
+          return null;
+        }
 
-      // Insert the agent data
-      const { data, error } = await supabase
-        .from('agents')
-        .insert(supabaseAgent)
-        .select()
-        .single();
+        // Generate an ID if not provided
+        const agentId = agent.id || `agent-${nanoid(8)}`;
+        
+        // Format the agent data for insertion - store most data in the settings field as JSON
+        const supabaseAgent = {
+          id: agentId,
+          user_id: user.id,
+          instance_name: agent.instanceName || agent.nome.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, ''),
+          status: agent.status || "pendente",
+          settings: JSON.stringify({
+            name: agent.nome,
+            website: agent.site,
+            business_sector: agent.areaDeAtuacao,
+            information: agent.informacoes,
+            prompt: agent.prompt,
+            faqs: agent.faqs,
+            phone_number: agent.phoneNumber,
+            message_count: agent.messageCount || 0,
+            message_limit: agent.messageLimit || 100,
+            connected: agent.connected || false
+          })
+        };
 
-      if (error) {
-        console.error("Error creating agent in Supabase:", error);
-        return null;
-      }
+        // Insert the agent data
+        const { data, error } = await supabase
+          .from('agents')
+          .insert(supabaseAgent)
+          .select()
+          .single();
 
-      console.log("Agent created successfully in Supabase:", data);
+        if (error) {
+          console.error("Error creating agent in Supabase:", error);
+          return null;
+        }
+
+        console.log("Agent created successfully in Supabase:", data);
+        
+        // Convert back to our application Agent type
+        return convertDbAgentToAppAgent(data);
+      })();
       
-      // Convert back to our application Agent type
-      return convertDbAgentToAppAgent(data);
+      // Race between the operation and the timeout
+      return await Promise.race([createPromise, timeoutPromise]);
     } catch (error) {
       console.error("Exception creating agent:", error);
       return null;
-    }
-  },
-
-  /**
-   * Update an existing agent in Supabase
-   */
-  updateAgent: async (id: string, updates: Partial<Agent>): Promise<boolean> => {
-    try {
-      // First get the current agent
-      const { data: currentAgent, error: fetchError } = await supabase
-        .from('agents')
-        .select('*')
-        .eq('id', id)
-        .single();
-      
-      if (fetchError) {
-        console.error("Error fetching agent for update:", fetchError);
-        return false;
-      }
-      
-      // Parse current settings
-      let settings = {};
-      try {
-        settings = currentAgent.settings ? 
-          (typeof currentAgent.settings === 'string' ? 
-            JSON.parse(currentAgent.settings) : currentAgent.settings) : {};
-      } catch (e) {
-        console.error("Error parsing agent settings:", e);
-        settings = {};
-      }
-      
-      // Update settings with new values
-      const updatedSettings = { ...settings } as Record<string, any>;
-      
-      if (updates.nome) updatedSettings.name = updates.nome;
-      if (updates.site) updatedSettings.website = updates.site;
-      if (updates.areaDeAtuacao) updatedSettings.business_sector = updates.areaDeAtuacao;
-      if (updates.informacoes) updatedSettings.information = updates.informacoes;
-      if (updates.prompt) updatedSettings.prompt = updates.prompt;
-      if (updates.faqs) updatedSettings.faqs = updates.faqs;
-      if (updates.phoneNumber) updatedSettings.phone_number = updates.phoneNumber;
-      if (updates.messageCount !== undefined) updatedSettings.message_count = updates.messageCount;
-      if (updates.messageLimit !== undefined) updatedSettings.message_limit = updates.messageLimit;
-      if (updates.connected !== undefined) updatedSettings.connected = updates.connected;
-      
-      // Format the data for Supabase
-      const supabaseUpdates: Record<string, any> = {
-        settings: updatedSettings,
-        updated_at: new Date().toISOString()
-      };
-      
-      // A few fields that are stored directly in the table
-      if (updates.status) supabaseUpdates.status = updates.status;
-      if (updates.instanceName) supabaseUpdates.instance_name = updates.instanceName;
-
-      const { error } = await supabase
-        .from('agents')
-        .update(supabaseUpdates)
-        .eq('id', id);
-
-      if (error) {
-        console.error("Error updating agent in Supabase:", error);
-        return false;
-      }
-
-      return true;
-    } catch (error) {
-      console.error("Exception updating agent:", error);
-      return false;
     }
   },
 
@@ -138,30 +78,117 @@ const agentService = {
    */
   fetchUserAgents: async (): Promise<Agent[]> => {
     try {
-      // Get the current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.error("No authenticated user found");
-        return [];
-      }
+      // Set timeout for the operation
+      const timeoutPromise = new Promise<Agent[]>((_, reject) => {
+        setTimeout(() => reject(new Error("Request timeout - fetchUserAgents")), 5000);
+      });
+      
+      const fetchPromise = (async () => {
+        // Get the current user
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          console.error("No authenticated user found");
+          return [];
+        }
 
-      // Fetch all agents for this user
-      const { data, error } = await supabase
-        .from('agents')
-        .select('*')
-        .eq('user_id', user.id);
+        // Fetch all agents for this user
+        const { data, error } = await supabase
+          .from('agents')
+          .select('*')
+          .eq('user_id', user.id);
 
-      if (error) {
-        console.error("Error fetching agents from Supabase:", error);
-        return [];
-      }
+        if (error) {
+          console.error("Error fetching agents from Supabase:", error);
+          return [];
+        }
 
-      // Transform the data to match our Agent type
-      const agents: Agent[] = data.map(convertDbAgentToAppAgent);
-      return agents;
+        // Transform the data to match our Agent type
+        const agents: Agent[] = data.map(convertDbAgentToAppAgent);
+        return agents;
+      })();
+      
+      // Race between the operation and the timeout
+      return await Promise.race([fetchPromise, timeoutPromise]);
     } catch (error) {
       console.error("Exception fetching agents:", error);
       return [];
+    }
+  },
+
+  /**
+   * Update an existing agent in Supabase
+   */
+  updateAgent: async (id: string, updates: Partial<Agent>): Promise<boolean> => {
+    try {
+      const timeoutPromise = new Promise<boolean>((_, reject) => {
+        setTimeout(() => reject(new Error("Request timeout - updateAgent")), 8000);
+      });
+      
+      const updatePromise = (async () => {
+        // First get the current agent
+        const { data: currentAgent, error: fetchError } = await supabase
+          .from('agents')
+          .select('*')
+          .eq('id', id)
+          .single();
+        
+        if (fetchError) {
+          console.error("Error fetching agent for update:", fetchError);
+          return false;
+        }
+        
+        // Parse current settings
+        let settings = {};
+        try {
+          settings = currentAgent.settings ? 
+            (typeof currentAgent.settings === 'string' ? 
+              JSON.parse(currentAgent.settings) : currentAgent.settings) : {};
+        } catch (e) {
+          console.error("Error parsing agent settings:", e);
+          settings = {};
+        }
+        
+        // Update settings with new values
+        const updatedSettings = { ...settings } as Record<string, any>;
+        
+        if (updates.nome) updatedSettings.name = updates.nome;
+        if (updates.site) updatedSettings.website = updates.site;
+        if (updates.areaDeAtuacao) updatedSettings.business_sector = updates.areaDeAtuacao;
+        if (updates.informacoes) updatedSettings.information = updates.informacoes;
+        if (updates.prompt) updatedSettings.prompt = updates.prompt;
+        if (updates.faqs) updatedSettings.faqs = updates.faqs;
+        if (updates.phoneNumber) updatedSettings.phone_number = updates.phoneNumber;
+        if (updates.messageCount !== undefined) updatedSettings.message_count = updates.messageCount;
+        if (updates.messageLimit !== undefined) updatedSettings.message_limit = updates.messageLimit;
+        if (updates.connected !== undefined) updatedSettings.connected = updates.connected;
+        
+        // Format the data for Supabase
+        const supabaseUpdates: Record<string, any> = {
+          settings: updatedSettings,
+          updated_at: new Date().toISOString()
+        };
+        
+        // A few fields that are stored directly in the table
+        if (updates.status) supabaseUpdates.status = updates.status;
+        if (updates.instanceName) supabaseUpdates.instance_name = updates.instanceName;
+
+        const { error } = await supabase
+          .from('agents')
+          .update(supabaseUpdates)
+          .eq('id', id);
+
+        if (error) {
+          console.error("Error updating agent in Supabase:", error);
+          return false;
+        }
+
+        return true;
+      })();
+      
+      return await Promise.race([updatePromise, timeoutPromise]);
+    } catch (error) {
+      console.error("Exception updating agent:", error);
+      return false;
     }
   },
 
@@ -170,17 +197,25 @@ const agentService = {
    */
   deleteAgent: async (id: string): Promise<boolean> => {
     try {
-      const { error } = await supabase
-        .from('agents')
-        .delete()
-        .eq('id', id);
+      const timeoutPromise = new Promise<boolean>((_, reject) => {
+        setTimeout(() => reject(new Error("Request timeout - deleteAgent")), 8000);
+      });
+      
+      const deletePromise = (async () => {
+        const { error } = await supabase
+          .from('agents')
+          .delete()
+          .eq('id', id);
 
-      if (error) {
-        console.error("Error deleting agent from Supabase:", error);
-        return false;
-      }
+        if (error) {
+          console.error("Error deleting agent from Supabase:", error);
+          return false;
+        }
 
-      return true;
+        return true;
+      })();
+      
+      return await Promise.race([deletePromise, timeoutPromise]);
     } catch (error) {
       console.error("Exception deleting agent:", error);
       return false;
@@ -192,19 +227,27 @@ const agentService = {
    */
   getAgentById: async (id: string): Promise<Agent | null> => {
     try {
-      const { data, error } = await supabase
-        .from('agents')
-        .select('*')
-        .eq('id', id)
-        .single();
+      const timeoutPromise = new Promise<null>((_, reject) => {
+        setTimeout(() => reject(new Error("Request timeout - getAgentById")), 5000);
+      });
+      
+      const getPromise = (async () => {
+        const { data, error } = await supabase
+          .from('agents')
+          .select('*')
+          .eq('id', id)
+          .single();
 
-      if (error) {
-        console.error("Error fetching agent from Supabase:", error);
-        return null;
-      }
+        if (error) {
+          console.error("Error fetching agent from Supabase:", error);
+          return null;
+        }
 
-      // Transform to Agent type
-      return convertDbAgentToAppAgent(data);
+        // Transform to Agent type
+        return convertDbAgentToAppAgent(data);
+      })();
+      
+      return await Promise.race([getPromise, timeoutPromise]);
     } catch (error) {
       console.error("Exception getting agent by ID:", error);
       return null;

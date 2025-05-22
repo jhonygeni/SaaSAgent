@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useConnection } from "@/context/ConnectionContext";
 import { AlertCircle } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button-extensions";
 
 // Define the global window interface to include our editAgent function
 declare global {
@@ -23,6 +24,7 @@ const DashboardPage = () => {
   const [connectDialogOpen, setConnectDialogOpen] = useState(false);
   const [connectingAgentId, setConnectingAgentId] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const { setSelectedAgentForEdit, updateAgentById, agents } = useAgent();
   const { connectionStatus } = useConnection();
   const { toast } = useToast();
@@ -117,6 +119,12 @@ const DashboardPage = () => {
       });
     }
   };
+  
+  const handleRetry = () => {
+    setPageError(null);
+    setRetryCount(prev => prev + 1);
+    window.location.reload();
+  };
 
   // If there's a critical page error, display it
   if (pageError) {
@@ -134,12 +142,12 @@ const DashboardPage = () => {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">{pageError}</p>
-            <button 
-              onClick={() => window.location.reload()} 
+            <Button 
+              onClick={handleRetry} 
               className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md"
             >
               Recarregar página
-            </button>
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -149,7 +157,7 @@ const DashboardPage = () => {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <main className="flex-grow">
-        <Dashboard />
+        <Dashboard key={`dashboard-${retryCount}`} />
       </main>
       
       <EditAgentDialog 

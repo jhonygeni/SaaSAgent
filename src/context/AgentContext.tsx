@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { Agent, FAQ } from "../types";
 import { EXAMPLE_AGENT } from "../lib/utils";
@@ -65,7 +66,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       
       // Add timeout protection
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error("Timeout loading agents")), 10000);
+        setTimeout(() => reject(new Error("Timeout loading agents")), 5000);
       });
       
       const loadPromise = agentService.fetchUserAgents();
@@ -77,11 +78,19 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Error loading agents from Supabase:", error);
       setLoadError(error as Error);
-      toast({
-        title: "Erro ao carregar agentes",
-        description: "Não foi possível carregar seus agentes. Por favor, tente novamente mais tarde.",
-        variant: "destructive",
-      });
+      
+      // Return empty array but still resolve the promise to prevent blocking UI
+      setAgents([]);
+      
+      // Only show toast for actual API errors, not timeouts
+      if (!(error instanceof Error) || !error.message.includes("Timeout")) {
+        toast({
+          title: "Erro ao carregar agentes",
+          description: "Não foi possível carregar seus agentes. Por favor, tente novamente mais tarde.",
+          variant: "destructive",
+        });
+      }
+      
       // Still resolve the promise to prevent blocking
       return Promise.resolve();
     } finally {

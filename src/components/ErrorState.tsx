@@ -22,6 +22,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
   const isIntegrationError = errorMessage?.includes('Invalid integration');
   const isDatabaseError = errorMessage?.includes('database') || errorMessage?.includes('supabase') || errorMessage?.includes('query');
   const isNetworkError = errorMessage?.includes('network') || errorMessage?.includes('fetch') || errorMessage?.includes('NetworkError');
+  const isDashboardError = errorMessage?.includes('dashboard') || errorMessage?.includes('Dashboard');
   
   return (
     <div className="flex flex-col items-center space-y-4 py-4">
@@ -43,6 +44,8 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
             ? "Erro ao buscar instâncias. Verifique a configuração da API."
             : isIntegrationError
             ? "Valor de integração inválido. O valor deve ser exatamente 'WHATSAPP-BAILEYS' ou 'WHATSAPP-BUSINESS'."
+            : isDashboardError
+            ? "Falha ao carregar o Dashboard. Por favor, tente novamente mais tarde ou entre em contato com o suporte."
             : isDatabaseError
             ? "Erro de conexão com o banco de dados. Por favor, tente novamente mais tarde."
             : isNetworkError
