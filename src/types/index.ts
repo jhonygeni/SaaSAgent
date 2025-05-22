@@ -45,5 +45,6 @@ export type User = {
   agents: Agent[];
 };
 
-// Updated to match the definition in src/hooks/whatsapp/types.ts
-export type ConnectionStatus = "waiting" | "connecting" | "connected" | "failed" | "disconnected";
+// Import the correct ConnectionStatus type from hooks/whatsapp/types.ts
+import { ConnectionStatus } from '@/hooks/whatsapp/types';
+export { ConnectionStatus };
