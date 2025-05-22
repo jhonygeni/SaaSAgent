@@ -126,10 +126,10 @@ const NewAgentPage = () => {
       const testInstanceName = `test_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 7)}`;
       console.log(`Using test instance name: ${testInstanceName}`);
       
-      // Fix: Call startConnection without checking its return value
+      // Fix: Don't test the return value, just await the Promise
       await startConnection(testInstanceName);
       
-      // Simply proceed with showing the dialog after the connection attempt
+      // Show the connection dialog after the connection attempt
       console.log("QR Code request complete");
       setShowConnectionDialog(true);
     } catch (error: any) {
