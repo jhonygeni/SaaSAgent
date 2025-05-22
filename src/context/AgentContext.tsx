@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { Agent, FAQ } from "../types";
 import { EXAMPLE_AGENT } from "../lib/utils";
@@ -119,7 +118,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const addAgent = async (agent: Agent): Promise<Agent | null> => { ... }
+  const addAgent = async (agent: Agent): Promise<Agent | null> => {
     try {
       setIsLoading(true);
       // Create agent in Supabase
