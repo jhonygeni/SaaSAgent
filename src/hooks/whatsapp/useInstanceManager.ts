@@ -69,22 +69,26 @@ export function useInstanceManager() {
       if (userId && creationResponse) {
         try {
           // Convert the response to a JSON-compatible object
-          const sessionData = JSON.parse(JSON.stringify(creationResponse));
+          const sessionData = JSON.stringify(creationResponse);
           
-          const { error } = await supabase
-            .from('whatsapp_instances')
-            .upsert({
-              name: formattedName,
-              user_id: userId,
-              status: 'pending',
-              evolution_instance_id: creationResponse.instance?.instanceId || null,
-              session_data: sessionData
-            });
-            
-          if (error) {
-            console.error("Error saving WhatsApp instance to Supabase:", error);
-          } else {
-            console.log("WhatsApp instance data saved to Supabase successfully");
+          const { data: userData } = await supabase.auth.getUser();
+          
+          if (userData && userData.user) {
+            const { error } = await supabase
+              .from('whatsapp_instances')
+              .upsert({
+                name: formattedName,
+                user_id: userData.user.id,
+                status: 'pending',
+                evolution_instance_id: creationResponse.instance?.instanceId || null,
+                session_data: sessionData
+              });
+              
+            if (error) {
+              console.error("Error saving WhatsApp instance to Supabase:", error);
+            } else {
+              console.log("WhatsApp instance data saved to Supabase successfully");
+            }
           }
         } catch (saveError) {
           console.error("Failed to save instance data to Supabase:", saveError);
@@ -105,8 +109,24 @@ export function useInstanceManager() {
   // Fetch all instances that belong to the current user
   const fetchUserInstances = useCallback(async () => {
     try {
+      // First try to get instances from Supabase
+      const { data: userData } = await supabase.auth.getUser();
+      
+      if (userData && userData.user) {
+        const { data: supabaseInstances, error } = await supabase
+          .from('whatsapp_instances')
+          .select('*')
+          .eq('user_id', userData.user.id);
+          
+        if (!error && supabaseInstances) {
+          console.log("Found instances in Supabase:", supabaseInstances);
+          return supabaseInstances;
+        }
+      }
+      
+      // Fallback to WhatsApp API if no instances in Supabase
       const response: InstancesListResponse = await whatsappService.listInstances();
-      console.log("User instances:", response);
+      console.log("Instances from WhatsApp API:", response);
       return response.instances || [];
     } catch (error) {
       console.error("Error fetching user instances:", error);
@@ -116,21 +136,23 @@ export function useInstanceManager() {
 
   // Update the status of an instance in Supabase
   const updateInstanceStatus = useCallback(async (instanceName: string, status: string, userId?: string) => {
-    if (!userId) return;
-    
     try {
       const formattedName = formatInstanceName(instanceName);
       
-      const { error } = await supabase
-        .from('whatsapp_instances')
-        .update({ status })
-        .eq('name', formattedName)
-        .eq('user_id', userId);
-        
-      if (error) {
-        console.error("Error updating WhatsApp instance status in Supabase:", error);
-      } else {
-        console.log(`WhatsApp instance status updated to ${status} in Supabase`);
+      const { data: userData } = await supabase.auth.getUser();
+      
+      if (userData && userData.user) {
+        const { error } = await supabase
+          .from('whatsapp_instances')
+          .update({ status })
+          .eq('name', formattedName)
+          .eq('user_id', userData.user.id);
+          
+        if (error) {
+          console.error("Error updating WhatsApp instance status in Supabase:", error);
+        } else {
+          console.log(`WhatsApp instance status updated to ${status} in Supabase`);
+        }
       }
     } catch (error) {
       console.error("Failed to update instance status in Supabase:", error);

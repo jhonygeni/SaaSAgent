@@ -1,21 +1,21 @@
-import { useEffect, useState, useCallback } from "react";
-import { Button } from "@/components/ui/button";
+
+import { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
-import { 
-  RefreshCw,
-  ArrowRight,
-} from "lucide-react";
+import { Button } from "@/components/ui/button-extensions";
 import { useConnection } from "@/context/ConnectionContext";
+import { useAgent } from "@/context/AgentContext";
+import { useToast } from "@/hooks/use-toast";
+import { useUser } from "@/context/UserContext";
 import { 
   USE_MOCK_DATA, 
-  EVOLUTION_API_URL, 
+  PREVENT_CREDIT_CONSUMPTION_ON_FAILURE, 
   AUTO_CLOSE_AFTER_SUCCESS, 
   AUTO_CLOSE_DELAY_MS 
 } from "@/constants/api";
@@ -27,260 +27,202 @@ import { ConnectionStatus } from "@/hooks/whatsapp/types";
 import { LoadingState } from "./whatsapp/LoadingState";
 import { QrCodeState } from "./whatsapp/QrCodeState";
 import { SuccessState } from "./whatsapp/SuccessState";
-import { ErrorState } from "./ErrorState";
+import { ErrorState } from "./whatsapp/ErrorState";
 import { DebugPanel } from "./whatsapp/DebugPanel";
 import { CustomNameForm } from "./whatsapp/CustomNameForm";
-import { ApiHealthBadge } from "./whatsapp/ApiHealthBadge";
 import { ApiHealthWarning } from "./whatsapp/ApiHealthWarning";
-import { useToast } from "@/hooks/use-toast";
+import { ApiHealthBadge } from "./whatsapp/ApiHealthBadge";
 
+// Props for the WhatsAppConnectionDialog
 interface WhatsAppConnectionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onComplete?: () => void;
+  onComplete?: (phoneNumber?: string) => void;
   agentId?: string | null;
+  instanceName?: string; // Add instanceName prop
 }
 
 export function WhatsAppConnectionDialog({
   open,
   onOpenChange,
   onComplete,
-  agentId
+  agentId,
+  instanceName: initialInstanceName
 }: WhatsAppConnectionDialogProps) {
+  // Get contexts and hooks
   const { 
     connectionStatus, 
     startConnection, 
     cancelConnection, 
-    completeConnection, 
+    completeConnection,
+    qrCodeData, 
     isLoading, 
-    qrCodeData,
-    pairingCode,
     connectionError,
-    getConnectionInfo,
-    debugInfo,
-    attemptCount,
-    validateInstanceName
+    pairingCode,
+    validateInstanceName,
+    fetchUserInstances,
+    debugInfo
   } = useConnection();
   
+  const { updateAgentById } = useAgent();
   const { toast } = useToast();
-  const [hasInitiatedConnection, setHasInitiatedConnection] = useState(false);
-  const [showDebugInfo, setShowDebugInfo] = useState(process.env.NODE_ENV !== "production");
-  const [apiHealthStatus, setApiHealthStatus] = useState<"unknown" | "healthy" | "unhealthy">("unknown");
-  const [retryCount, setRetryCount] = useState(0);
-  const [lastInstanceName, setLastInstanceName] = useState<string | null>(null);
-  const [autoCloseEnabled, setAutoCloseEnabled] = useState(AUTO_CLOSE_AFTER_SUCCESS);
-  const [instances, setInstances] = useState<any[]>([]);
-  const [dialogCloseTriggered, setDialogCloseTriggered] = useState(false);
+  const { user } = useUser();
   
-  // Check API health when dialog opens
+  // Local state
+  const [showDebug, setShowDebug] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [customInstanceName, setCustomInstanceName] = useState<string | null>(null);
+  const [showCustomNameForm, setShowCustomNameForm] = useState(false);
+  const [userInstances, setUserInstances] = useState<any[]>([]);
+  const [apiHealth, setApiHealth] = useState<"healthy" | "unhealthy" | "unknown">("unknown");
+
+  // Load existing instances and check API health when the dialog opens
   useEffect(() => {
-    if (open) {
-      checkApiHealth();
-      fetchInstances();
-      setDialogCloseTriggered(false); // Reset the dialog close trigger
-    }
-  }, [open]);
-  
-  // Check API health by using the fetchInstances endpoint
-  const checkApiHealth = async () => {
-    try {
-      console.log("Checking API health using fetchInstances endpoint...");
-      setApiHealthStatus("unknown");
-      const isHealthy = await whatsappService.checkApiHealth();
-      console.log("API health check result:", isHealthy);
-      setApiHealthStatus(isHealthy ? "healthy" : "unhealthy");
-    } catch (error) {
-      console.error("API health check failed:", error);
-      setApiHealthStatus("unhealthy");
-    }
-  };
-  
-  // Fetch existing instances
-  const fetchInstances = async () => {
-    try {
-      console.log("Fetching instances...");
-      const response: InstancesListResponse = await whatsappService.fetchInstances();
-      console.log("Instances fetched:", response);
-      if (response && response.instances && Array.isArray(response.instances)) {
-        setInstances(response.instances);
-      }
-    } catch (error) {
-      console.error("Failed to fetch instances:", error);
-    }
-  };
-  
-  // Normalize instance name for consistent API calls
-  const sanitizeInstanceName = (name: string): string => {
-    return name.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/__+/g, '_');
-  };
-  
-  // Start connection process when dialog opens and API is healthy
-  useEffect(() => {
-    const initiateConnection = async () => {
-      // Guard conditions to prevent starting a new connection when one is already in progress
-      if (
-        !open || 
-        hasInitiatedConnection || 
-        connectionStatus !== "waiting" || 
-        qrCodeData || 
-        isLoading
-      ) {
-        return;
-      }
-      
-      // Don't auto-start if API is unhealthy
-      if (apiHealthStatus === "unhealthy") {
-        console.log("API is unhealthy, skipping automatic connection start");
-        return;
-      }
-      
-      console.log("Starting WhatsApp connection process automatically");
-      setHasInitiatedConnection(true);
-      
+    const checkApiAndLoadInstances = async () => {
+      // Check API health
       try {
-        // Create a more unique instance name to avoid conflicts
-        const timestamp = Date.now().toString(36);
-        const randomStr = Math.random().toString(36).substring(2, 6);
+        const isHealthy = await whatsappService.checkApiHealth();
+        setApiHealth(isHealthy ? "healthy" : "unhealthy");
         
-        // If we have an agentId, use it for the instance name
-        const instanceBase = agentId ? `a_${agentId.substring(0, 6)}` : 'agent';
-        const instanceName = `${instanceBase}_${timestamp}_${randomStr}`;
-        
-        // Normalize the instance name before using it
-        const sanitizedName = sanitizeInstanceName(instanceName);
-        console.log(`Using sanitized instance name: ${sanitizedName} (from ${instanceName})`);
-        setLastInstanceName(sanitizedName);
-        
-        // Start the connection with the sanitized instance name - this follows the correct API flow
-        await startConnection(sanitizedName);
+        if (!isHealthy && open) {
+          toast({
+            title: "⚠️ API Indisponível",
+            description: "A API do WhatsApp parece estar offline. A conexão pode não funcionar corretamente.",
+            variant: "destructive",
+          });
+        }
       } catch (error) {
-        console.error("Failed to start connection:", error);
+        console.error("API health check failed:", error);
+        setApiHealth("unhealthy");
+      }
+      
+      // Load user instances
+      try {
+        const instances = await fetchUserInstances();
+        console.log("Existing user instances:", instances);
+        setUserInstances(instances || []);
+      } catch (error) {
+        console.error("Failed to fetch user instances:", error);
       }
     };
     
-    // Delay slightly to ensure API health check completes first
-    const timer = setTimeout(initiateConnection, 800);
-    return () => clearTimeout(timer);
-  }, [open, hasInitiatedConnection, connectionStatus, qrCodeData, isLoading, startConnection, agentId, apiHealthStatus]);
-
-  // Reset state when dialog closes
-  useEffect(() => {
-    if (!open) {
-      setHasInitiatedConnection(false);
-      setRetryCount(0);
-      setLastInstanceName(null);
-      
-      // Cancel connection if dialog is closed and connection is not successful
-      if (connectionStatus !== "connected") {
-        cancelConnection();
-      }
+    if (open) {
+      checkApiAndLoadInstances();
     }
-  }, [open, cancelConnection, connectionStatus]);
-
-  // CRITICAL FIX: Handle connection success and auto-close dialog
+  }, [open, fetchUserInstances]);
+  
+  // Handle the connection process when the dialog opens
   useEffect(() => {
-    if (connectionStatus === "connected" && !dialogCloseTriggered) {
-      console.log("Connection successful, completing connection and showing toast notification");
+    if (open && connectionStatus === "waiting" && !isLoading && !isSubmitting) {
+      console.log("Dialog opened, auto-starting connection with instance name:", initialInstanceName);
       
-      // Call completeConnection to register the success
-      completeConnection();
+      const initConnection = async () => {
+        try {
+          setIsSubmitting(true);
+          // If we have an initial instance name, use it; otherwise, generate one
+          const instanceNameToUse = initialInstanceName || customInstanceName || null;
+          const qrCode = await startConnection(instanceNameToUse);
+          
+          if (qrCode) {
+            console.log("Connection initiated, QR code received");
+          }
+        } catch (error) {
+          console.error("Error initiating connection:", error);
+          if (error instanceof Error && error.message.includes("already in use")) {
+            setShowCustomNameForm(true);
+          }
+        } finally {
+          setIsSubmitting(false);
+        }
+      };
       
-      // Call the onComplete callback if provided
-      if (onComplete) {
-        onComplete();
-      }
-      
-      // Show success toast
-      toast({
-        title: "WhatsApp Conectado",
-        description: "Seu WhatsApp foi conectado com sucesso! O pop-up será fechado automaticamente.",
-      });
-      
-      setDialogCloseTriggered(true);
-      
-      // Auto-close the dialog after successful connection with a delay
-      if (autoCloseEnabled) {
-        console.log(`Auto-closing dialog in ${AUTO_CLOSE_DELAY_MS}ms after successful connection`);
-        const timer = setTimeout(() => {
-          console.log("Auto-closing dialog now");
-          onOpenChange(false);
-        }, AUTO_CLOSE_DELAY_MS);
-        
-        return () => clearTimeout(timer);
-      }
+      initConnection();
     }
-  }, [connectionStatus, completeConnection, onComplete, autoCloseEnabled, onOpenChange, dialogCloseTriggered, toast]);
+  }, [open, connectionStatus, isLoading, startConnection]);
+
+  // Update agent status when connection status changes to connected
+  useEffect(() => {
+    const handleConnectionStateChange = async () => {
+      if (connectionStatus === "connected" && agentId) {
+        try {
+          // Get the phone number from instance info
+          const instanceNameToUse = initialInstanceName || customInstanceName || undefined;
+          if (instanceNameToUse) {
+            const instanceInfo = await whatsappService.getInstanceInfo(instanceNameToUse);
+            
+            if (instanceInfo?.instance?.user?.phone) {
+              setPhoneNumber(instanceInfo.instance.user.phone);
+              
+              // Update agent with phone number
+              await updateAgentById(agentId, {
+                connected: true,
+                status: "ativo",
+                phoneNumber: instanceInfo.instance.user.phone,
+                instanceName: instanceNameToUse
+              });
+              
+              // Call onComplete if provided
+              if (onComplete) {
+                onComplete(instanceInfo.instance.user.phone);
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Error updating agent with phone number:", error);
+        }
+      }
+    };
+    
+    handleConnectionStateChange();
+  }, [connectionStatus, agentId, updateAgentById, onComplete, initialInstanceName, customInstanceName]);
+  
+  // Auto-close dialog on success if enabled
+  useEffect(() => {
+    if (connectionStatus === "connected" && AUTO_CLOSE_AFTER_SUCCESS) {
+      const timer = setTimeout(() => {
+        if (onOpenChange) onOpenChange(false);
+      }, AUTO_CLOSE_DELAY_MS);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [connectionStatus, onOpenChange]);
+
+  // Handle form submission for custom instance name
+  const handleCustomNameSubmit = async (name: string) => {
+    try {
+      setIsSubmitting(true);
+      setCustomInstanceName(name);
+      const qrCode = await startConnection(name);
+      setShowCustomNameForm(false);
+      
+      if (qrCode) {
+        console.log("Connection initiated with custom name, QR code received");
+      }
+    } catch (error) {
+      console.error("Error starting connection with custom name:", error);
+      
+      if (error instanceof Error && error.message.includes("already in use")) {
+        toast({
+          title: "Nome já em uso",
+          description: "Este nome de instância já está sendo usado. Por favor, escolha outro nome.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle connection cancellation
+  const handleCancel = () => {
+    console.log("Cancelling connection and closing dialog");
+    cancelConnection();
+    onOpenChange(false);
+  };
 
   // Handle dialog close
-  const handleDialogClose = useCallback((isOpen: boolean) => {
-    if (!isOpen && connectionStatus !== "connected") {
-      console.log("Dialog closed, canceling connection");
-      cancelConnection();
-    }
-    onOpenChange(isOpen);
-  }, [cancelConnection, connectionStatus, onOpenChange]);
-
-  // Handle custom instance name submit
-  const handleCustomNameSubmit = async (customInstanceName: string) => {
-    setHasInitiatedConnection(true);
-    
-    // Normalize the custom name before using it
-    const sanitizedName = sanitizeInstanceName(customInstanceName);
-    setLastInstanceName(sanitizedName);
-    
-    await startConnection(sanitizedName);
-  };
-
-  // Handle retry button click - create new unique instance name
-  const handleRetry = async () => {
-    setHasInitiatedConnection(true);
-    setRetryCount(prevCount => prevCount + 1);
-    
-    try {
-      // Check API health first
-      await checkApiHealth();
-      
-      // Create a new unique instance name for the retry to avoid conflict
-      // NEVER reuse previous instance names
-      const timestamp = Date.now().toString(36);
-      const randomStr = Math.random().toString(36).substring(2, 6);
-      const retryNum = retryCount + 1;
-      
-      // If we have an agentId, use it for the instance name
-      const instanceBase = agentId ? `a_${agentId.substring(0, 6)}` : 'retry';
-      const instanceName = `${instanceBase}_${timestamp}_${randomStr}_r${retryNum}`;
-      
-      // Normalize the instance name
-      const sanitizedName = sanitizeInstanceName(instanceName);
-      console.log(`Retry #${retryNum}: Using new sanitized instance name: ${sanitizedName}`);
-      setLastInstanceName(sanitizedName);
-      
-      // Start the connection process with the new sanitized instance name
-      await startConnection(sanitizedName);
-    } catch (error) {
-      console.error("Failed to retry connection:", error);
-      // Let the error handling in startConnection show the error
-    }
-  };
-
-  // Toggle debug information
-  const toggleDebugInfo = () => {
-    setShowDebugInfo(!showDebugInfo);
-  };
-
-  // Toggle auto-close feature
-  const toggleAutoClose = () => {
-    setAutoCloseEnabled(!autoCloseEnabled);
-  };
-
-  // Get connection info
-  const connectionInfo = getConnectionInfo();
-  const instanceInfo = connectionInfo?.instanceData;
-  const phoneNumber = instanceInfo?.instance?.user?.id?.split('@')[0];
-  const timeTaken = connectionInfo?.timeTaken;
-
-  // Force close dialog button for users if auto-close fails
-  const handleForceClose = () => {
+  const handleClose = () => {
     console.log("User manually closing dialog");
     onOpenChange(false);
   };
@@ -291,142 +233,114 @@ export function WhatsAppConnectionDialog({
       case "connecting":
         return "Conectando...";
       case "connected":
-        return "Conexão bem-sucedida!";
-      case "disconnected":
-        return "Desconectado";
+        return "Conexão estabelecida com sucesso!";
       case "failed":
         return "Falha na conexão";
+      case "disconnected":
+        return "Desconectado";
+      case "waiting":
       default:
-        return "Aguardando conexão...";
+        return "Aguardando...";
     }
   };
 
+  // Render the dialog content based on the current state
+  const renderDialogContent = () => {
+    // Show custom name form if needed
+    if (showCustomNameForm) {
+      return (
+        <CustomNameForm 
+          onSubmit={handleCustomNameSubmit} 
+          isLoading={isSubmitting} 
+          validateInstanceName={validateInstanceName}
+          existingInstances={userInstances}
+        />
+      );
+    }
+    
+    // Loading state
+    if (isLoading || isSubmitting) {
+      return <LoadingState />;
+    }
+    
+    // QR Code state
+    if (qrCodeData && connectionStatus !== "connected") {
+      return <QrCodeState qrCode={qrCodeData} pairingCode={pairingCode} />;
+    }
+    
+    // Error state
+    if (connectionError || connectionStatus === "failed") {
+      return (
+        <ErrorState 
+          errorMessage={connectionError || "Falha na conexão"} 
+          onRetry={() => handleCustomNameSubmit(customInstanceName || "")}
+        />
+      );
+    }
+    
+    // Success state
+    if (connectionStatus === "connected") {
+      return <SuccessState phoneNumber={phoneNumber} />;
+    }
+    
+    // Default waiting state
+    return <LoadingState message="Iniciando processo de conexão..." />;
+  };
+
   return (
-    <Dialog open={open} onOpenChange={handleDialogClose}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <div className="flex items-center">
+          <div className="flex justify-between items-center">
             <DialogTitle>Conectar ao WhatsApp</DialogTitle>
-            <ApiHealthBadge status={apiHealthStatus} />
+            <ApiHealthBadge status={apiHealth} />
           </div>
           <DialogDescription>
-            Escaneie o QR code com seu WhatsApp para conectar.
-            {USE_MOCK_DATA && (
-              <div className="mt-1 text-xs p-1 bg-yellow-50 text-yellow-700 rounded">
-                WARNING: Running in mock mode - real API calls are disabled
-              </div>
-            )}
+            Conecte seu agente ao WhatsApp para começar a receber mensagens.
           </DialogDescription>
         </DialogHeader>
-
-        {apiHealthStatus === "unhealthy" && (
-          <ApiHealthWarning onRetryClick={checkApiHealth} />
-        )}
-
-        <div className="flex flex-col items-center justify-center py-6 space-y-6">
-          {connectionStatus === "failed" && connectionError?.includes("already in use") && (
-            <CustomNameForm 
-              onSubmit={handleCustomNameSubmit}
-              validateName={validateInstanceName}
-              isLoading={isLoading}
-            />
-          )}
-
-          {isLoading && (
-            <LoadingState status={connectionStatus} attemptCount={attemptCount} />
-          )}
-
-          {!isLoading && connectionStatus === "waiting" && qrCodeData && (
-            <QrCodeState 
-              qrCodeData={qrCodeData} 
-              pairingCode={pairingCode} 
-              attemptCount={attemptCount} 
-            />
-          )}
-
-          {!isLoading && connectionStatus === "connected" && (
-            <SuccessState 
-              phoneNumber={phoneNumber} 
-              instanceName={lastInstanceName || undefined}
-              timeTaken={timeTaken}
-            />
-          )}
-
-          {!isLoading && connectionStatus === "failed" && !connectionError?.includes("already in use") && (
-            <ErrorState 
-              errorMessage={connectionError} 
-              isAuthError={!!connectionError?.includes("Authentication failed")} 
-            />
-          )}
-
-          {showDebugInfo && (
-            <DebugPanel 
-              debugInfo={debugInfo}
-              connectionInfo={getConnectionInfo()}
-              showDebugInfo={showDebugInfo}
-              toggleDebugInfo={toggleDebugInfo}
-              apiHealthStatus={apiHealthStatus}
-              lastInstanceName={lastInstanceName}
-              instances={instances}
-            />
-          )}
-        </div>
-
-        <DialogFooter className="flex flex-col sm:flex-row sm:justify-between">
-          <div className="flex flex-col space-y-2 w-full sm:w-auto mb-3 sm:mb-0">
-            {connectionStatus !== "connected" && (
-              <Button 
-                variant="outline" 
-                onClick={() => handleDialogClose(false)}
-                className="w-full sm:w-auto"
-              >
-                Cancelar
-              </Button>
-            )}
-            
-            {process.env.NODE_ENV !== "production" && (
-              <div className="flex items-center space-x-2">
-                <input 
-                  type="checkbox" 
-                  id="auto-close" 
-                  checked={autoCloseEnabled} 
-                  onChange={toggleAutoClose}
-                  className="w-4 h-4"
-                />
-                <label htmlFor="auto-close" className="text-xs text-muted-foreground">
-                  Fechar automaticamente
-                </label>
-              </div>
-            )}
+        
+        {/* API Health Warning */}
+        {apiHealth === "unhealthy" && <ApiHealthWarning />}
+        
+        {/* Current Status */}
+        <div className="text-center font-medium mb-4">
+          <div className="text-sm mb-1 text-muted-foreground">Status:</div>
+          <div className="text-base">
+            {getStatusText()}
           </div>
+        </div>
+        
+        {/* Main Dialog Content */}
+        <div className="flex flex-col items-center justify-center py-4">
+          {renderDialogContent()}
+        </div>
+        
+        {/* Debug Panel (collapsible) */}
+        <div className="mt-4 border-t pt-4">
+          <button 
+            onClick={() => setShowDebug(!showDebug)}
+            className="text-xs text-muted-foreground hover:text-primary flex items-center"
+          >
+            {showDebug ? "Ocultar detalhes técnicos" : "Mostrar detalhes técnicos"}
+          </button>
           
-          {connectionStatus === "waiting" && qrCodeData && (
-            <Button 
-              onClick={handleRetry} 
-              disabled={isLoading}
-              className="w-full sm:w-auto"
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              {isLoading ? "Carregando..." : "Gerar novo código"}
-            </Button>
-          )}
-          
-          {connectionStatus === "failed" && !connectionError?.includes("already in use") && (
-            <Button 
-              onClick={handleRetry}
-              className="w-full sm:w-auto"
-              disabled={apiHealthStatus === "unhealthy"}
-            >
-              Tentar novamente
-            </Button>
-          )}
+          {showDebug && <DebugPanel debugInfo={debugInfo} />}
+        </div>
+        
+        {/* Dialog Footer */}
+        <DialogFooter className="flex flex-col sm:flex-row sm:justify-between gap-2">
+          <Button
+            variant="outline" 
+            onClick={handleCancel}
+            disabled={isSubmitting}
+          >
+            Cancelar
+          </Button>
           
           {connectionStatus === "connected" && (
-            <Button 
-              onClick={handleForceClose}
-              className="w-full"
-            >
-              Continuar <ArrowRight className="ml-2 h-4 w-4" />
+            <Button onClick={handleClose}>
+              Fechar
             </Button>
           )}
         </DialogFooter>

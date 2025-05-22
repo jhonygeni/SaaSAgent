@@ -22,7 +22,7 @@ export type Agent = {
   site: string;
   areaDeAtuacao: BusinessSector;
   informacoes: string;
-  prompt?: string; // Added prompt field
+  prompt?: string;
   faqs: FAQ[];
   createdAt?: string;
   status?: "ativo" | "inativo" | "pendente";
@@ -30,6 +30,7 @@ export type Agent = {
   phoneNumber?: string;
   messageCount?: number;
   messageLimit?: number;
+  instanceName?: string; // Add instance name to connect to WhatsApp services
 };
 
 export type SubscriptionPlan = "free" | "starter" | "growth";

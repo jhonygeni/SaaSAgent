@@ -1,15 +1,14 @@
+
 import { useState, useEffect } from "react";
 import { NewAgentForm } from "@/components/NewAgentForm";
 import { WhatsAppConnectionDialog } from "@/components/WhatsAppConnectionDialog";
 import { useConnection } from "@/context/ConnectionContext";
 import { USE_MOCK_DATA, EVOLUTION_API_URL } from "@/constants/api";
-import { toast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { useAgent } from "@/context/AgentContext";
 import { useNavigate } from "react-router-dom";
 import { Agent } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
-import { storeInstanceData } from "@/services/whatsapp/dataStorage";
-import { useUser } from "@/context/UserContext";
 
 const NewAgentPage = () => {
   const [showConnectionDialog, setShowConnectionDialog] = useState(false);
@@ -17,7 +16,7 @@ const NewAgentPage = () => {
   const { addAgent, updateAgentById } = useAgent();
   const navigate = useNavigate();
   const [createdAgent, setCreatedAgent] = useState<Agent | null>(null);
-  const { user } = useUser();
+  const { toast } = useToast();
 
   // Log important connection state changes
   useEffect(() => {
@@ -43,27 +42,53 @@ const NewAgentPage = () => {
     }
   }, [connectionStatus, qrCodeData, createdAgent, updateAgentById]);
 
-  const handleAgentCreated = (agent: Agent) => {
-    console.log("Agent created, showing connection dialog");
+  const handleAgentCreated = async (agent: Agent, connect: boolean = true) => {
+    console.log("Agent created, handling persistence and connection");
     // Log API connection details
     console.log(`Using Evolution API at: ${EVOLUTION_API_URL}, Mock mode: ${USE_MOCK_DATA ? 'ON' : 'OFF'}`);
     
-    // Save the agent first, regardless of connection status
-    const savedAgent: Agent = {
-      ...agent,
-      id: `agent-${Date.now()}`, // Ensure the agent has an ID
-      connected: false,
-      status: "pendente"
-    };
-    
-    // Add the agent to the agent context
-    addAgent(savedAgent);
-    
-    // Store the created agent for reference in the connection flow
-    setCreatedAgent(savedAgent);
-    
-    // Show the connection dialog
-    setShowConnectionDialog(true);
+    try {
+      // Save the agent to Supabase first
+      const savedAgent = await addAgent({
+        ...agent,
+        connected: false,
+        status: "pendente",
+        // Add instanceName using the formatted agent name for consistency
+        instanceName: agent.nome.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
+      });
+      
+      if (!savedAgent) {
+        toast({
+          title: "Erro ao criar agente",
+          description: "Não foi possível salvar o agente no banco de dados.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Store the created agent for reference in the connection flow
+      setCreatedAgent(savedAgent);
+      
+      if (connect) {
+        // Show the connection dialog for WhatsApp integration
+        setShowConnectionDialog(true);
+      } else {
+        // No connection requested, navigate to dashboard
+        toast({
+          title: "Agente criado com sucesso",
+          description: "O agente foi criado com sucesso. Você pode conectá-lo ao WhatsApp posteriormente.",
+          variant: "default",
+        });
+        navigate("/dashboard");
+      }
+    } catch (error) {
+      console.error("Error in agent creation flow:", error);
+      toast({
+        title: "Erro ao criar agente",
+        description: "Ocorreu um erro durante a criação do agente.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Handle connection dialog close
@@ -142,6 +167,7 @@ const NewAgentPage = () => {
           open={showConnectionDialog} 
           onOpenChange={handleConnectionDialogClose}
           agentId={createdAgent?.id}
+          instanceName={createdAgent?.instanceName}
         />
         
         {/* Debug section for development, can be removed in production */}

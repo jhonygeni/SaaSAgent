@@ -1,6 +1,10 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+
+import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { Agent, FAQ } from "../types";
 import { EXAMPLE_AGENT } from "../lib/utils";
+import { useToast } from "@/hooks/use-toast";
+import agentService from "@/services/agentService";
+import { useUser } from "./UserContext";
 
 interface AgentContextType {
   currentAgent: Agent;
@@ -15,11 +19,15 @@ interface AgentContextType {
   removeAgent: (id: string) => void;
   getAgentById: (id: string) => Agent | undefined;
   setSelectedAgentForEdit: (agentId: string | null) => void;
+  loadAgentsFromSupabase: () => Promise<void>;
+  isLoading: boolean;
 }
 
 const AgentContext = createContext<AgentContextType | undefined>(undefined);
 
 export function AgentProvider({ children }: { children: ReactNode }) {
+  const { toast } = useToast();
+  const { user } = useUser();
   const [currentAgent, setCurrentAgent] = useState<Agent>({
     nome: "",
     site: "",
@@ -34,6 +42,32 @@ export function AgentProvider({ children }: { children: ReactNode }) {
   
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgentForEdit, setSelectedAgentForEdit] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  // Load agents from Supabase when user changes
+  useEffect(() => {
+    if (user) {
+      loadAgentsFromSupabase();
+    }
+  }, [user]);
+
+  // Load agents from Supabase
+  const loadAgentsFromSupabase = async () => {
+    try {
+      setIsLoading(true);
+      const supabaseAgents = await agentService.fetchUserAgents();
+      setAgents(supabaseAgents);
+    } catch (error) {
+      console.error("Error loading agents from Supabase:", error);
+      toast({
+        title: "Erro ao carregar agentes",
+        description: "Não foi possível carregar seus agentes. Por favor, tente novamente mais tarde.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const updateAgent = (updatedAgent: Partial<Agent>) => {
     setCurrentAgent((prev) => ({
@@ -85,25 +119,102 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const addAgent = (agent: Agent) => {
-    const newAgent = {
-      ...agent,
-      id: `agent-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-    };
-    setAgents((prev) => [...prev, newAgent]);
+  const addAgent = async (agent: Agent) => {
+    try {
+      setIsLoading(true);
+      // Create agent in Supabase
+      const agentId = await agentService.createAgent(agent);
+      
+      if (agentId) {
+        const newAgent = {
+          ...agent,
+          id: agentId,
+          createdAt: new Date().toISOString(),
+        };
+        
+        setAgents((prev) => [...prev, newAgent]);
+        toast({
+          title: "Agente criado com sucesso",
+          description: "O agente foi criado e salvo no banco de dados.",
+          variant: "default",
+        });
+        
+        return newAgent;
+      } else {
+        toast({
+          title: "Erro ao criar agente",
+          description: "Não foi possível salvar o agente no banco de dados.",
+          variant: "destructive",
+        });
+        return null;
+      }
+    } catch (error) {
+      console.error("Error adding agent:", error);
+      toast({
+        title: "Erro ao criar agente",
+        description: "Ocorreu um erro ao tentar criar o agente.",
+        variant: "destructive",
+      });
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const updateAgentById = (id: string, updatedAgent: Partial<Agent>) => {
-    setAgents((prev) => 
-      prev.map((agent) => 
-        agent.id === id ? { ...agent, ...updatedAgent } : agent
-      )
-    );
+  const updateAgentById = async (id: string, updatedAgent: Partial<Agent>) => {
+    try {
+      setIsLoading(true);
+      const success = await agentService.updateAgent(id, updatedAgent);
+      
+      if (success) {
+        setAgents((prev) => 
+          prev.map((agent) => 
+            agent.id === id ? { ...agent, ...updatedAgent } : agent
+          )
+        );
+      } else {
+        toast({
+          title: "Erro ao atualizar agente",
+          description: "Não foi possível atualizar o agente no banco de dados.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error updating agent:", error);
+      toast({
+        title: "Erro ao atualizar agente",
+        description: "Ocorreu um erro ao tentar atualizar o agente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const removeAgent = (id: string) => {
-    setAgents((prev) => prev.filter((agent) => agent.id !== id));
+  const removeAgent = async (id: string) => {
+    try {
+      setIsLoading(true);
+      const success = await agentService.deleteAgent(id);
+      
+      if (success) {
+        setAgents((prev) => prev.filter((agent) => agent.id !== id));
+      } else {
+        toast({
+          title: "Erro ao remover agente",
+          description: "Não foi possível remover o agente do banco de dados.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error removing agent:", error);
+      toast({
+        title: "Erro ao remover agente",
+        description: "Ocorreu um erro ao tentar remover o agente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const getAgentById = (id: string) => {
@@ -125,6 +236,8 @@ export function AgentProvider({ children }: { children: ReactNode }) {
         removeAgent,
         getAgentById,
         setSelectedAgentForEdit,
+        loadAgentsFromSupabase,
+        isLoading,
       }}
     >
       {children}

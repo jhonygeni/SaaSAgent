@@ -20,9 +20,11 @@ import { useEffect, useState } from "react";
 import { useConnection } from "@/context/ConnectionContext";
 import { useToast } from "@/hooks/use-toast";
 import { useSearchParams } from "react-router-dom";
+import { useAgent } from "@/context/AgentContext";
 
 export function Dashboard() {
   const { user, checkSubscriptionStatus } = useUser();
+  const { loadAgentsFromSupabase, isLoading: isLoadingAgents } = useAgent();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { connectionStatus } = useConnection();
@@ -30,12 +32,16 @@ export function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchParams] = useSearchParams();
   
-  // Dashboard loading effect
+  // Load data when component mounts or when user changes
   useEffect(() => {
     const loadDashboard = async () => {
       try {
-        // Simulate dashboard data loading
-        await new Promise(resolve => setTimeout(resolve, 500));
+        setIsLoading(true);
+        // If user is logged in, refresh agent data from Supabase
+        if (user) {
+          await loadAgentsFromSupabase();
+        }
+        
         setIsLoading(false);
       } catch (error) {
         console.error("Error loading dashboard:", error);
@@ -49,7 +55,7 @@ export function Dashboard() {
     };
     
     loadDashboard();
-  }, [toast]);
+  }, [user, toast, loadAgentsFromSupabase]);
   
   // Check if redirected from successful checkout
   useEffect(() => {
@@ -93,55 +99,63 @@ export function Dashboard() {
     <div className="flex flex-col min-h-screen bg-background">
       <DashboardHeader />
       <div className="container mx-auto py-4 md:py-6 space-y-6 md:space-y-8 px-4 md:px-6">
-        {/* Dashboard Analytics */}
-        <div className="grid grid-cols-1 gap-6">
-          <div className="w-full">
-            <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Visão Geral</h2>
-            <DashboardAnalytics />
+        {isLoading || isLoadingAgents ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
           </div>
-        </div>
-        
-        {/* Connection Status Indicator - Only show if connectionStatus is available */}
-        {connectionStatus && (
-          <div className="grid grid-cols-1 gap-4">
-            <Card className={`border-l-4 ${
-              connectionStatus === "connected" 
-                ? "border-l-green-500" 
-                : connectionStatus === "failed" 
-                  ? "border-l-red-500" 
-                  : "border-l-yellow-500"
-            }`}>
-              <CardHeader className="py-3">
-                <CardTitle className="text-base flex items-center space-x-2">
-                  <span>Status WhatsApp:</span>
-                  <span className={
-                    connectionStatus === "connected" 
-                      ? "text-green-500" 
-                      : connectionStatus === "failed" 
-                        ? "text-red-500" 
-                        : "text-yellow-500"
-                  }>
-                    {connectionStatus === "connected" 
-                      ? "Conectado" 
-                      : connectionStatus === "failed" 
-                        ? "Desconectado" 
-                        : "Aguardando conexão"}
-                  </span>
-                </CardTitle>
-              </CardHeader>
-            </Card>
-          </div>
+        ) : (
+          <>
+            {/* Dashboard Analytics */}
+            <div className="grid grid-cols-1 gap-6">
+              <div className="w-full">
+                <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Visão Geral</h2>
+                <DashboardAnalytics />
+              </div>
+            </div>
+            
+            {/* Connection Status Indicator - Only show if connectionStatus is available */}
+            {connectionStatus && (
+              <div className="grid grid-cols-1 gap-4">
+                <Card className={`border-l-4 ${
+                  connectionStatus === "connected" 
+                    ? "border-l-green-500" 
+                    : connectionStatus === "failed" 
+                      ? "border-l-red-500" 
+                      : "border-l-yellow-500"
+                }`}>
+                  <CardHeader className="py-3">
+                    <CardTitle className="text-base flex items-center space-x-2">
+                      <span>Status WhatsApp:</span>
+                      <span className={
+                        connectionStatus === "connected" 
+                          ? "text-green-500" 
+                          : connectionStatus === "failed" 
+                            ? "text-red-500" 
+                            : "text-yellow-500"
+                      }>
+                        {connectionStatus === "connected" 
+                          ? "Conectado" 
+                          : connectionStatus === "failed" 
+                            ? "Desconectado" 
+                            : "Aguardando conexão"}
+                      </span>
+                    </CardTitle>
+                  </CardHeader>
+                </Card>
+              </div>
+            )}
+            
+            {/* Interested Clients Section - Ensure it's responsive */}
+            <div className="pt-2 md:pt-4">
+              <InterestedClients />
+            </div>
+            
+            {/* Agent List Section */}
+            <div className="pt-2 md:pt-4">
+              <AgentList />
+            </div>
+          </>
         )}
-        
-        {/* Interested Clients Section - Ensure it's responsive */}
-        <div className="pt-2 md:pt-4">
-          <InterestedClients />
-        </div>
-        
-        {/* Agent List Section */}
-        <div className="pt-2 md:pt-4">
-          <AgentList />
-        </div>
       </div>
     </div>
   );
