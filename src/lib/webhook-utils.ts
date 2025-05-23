@@ -16,12 +16,14 @@ export async function sendWithRetries<T = any>(
   options: {
     maxRetries?: number;
     retryDelay?: number;
+    idempotencyKey?: string;
     onRetry?: (attempt: number, maxRetries: number) => void;
   } = {}
 ): Promise<WebhookResponse<T>> {
   const { 
     maxRetries = 3, 
     retryDelay = 1000,
+    idempotencyKey,
     onRetry 
   } = options;
   
@@ -39,11 +41,17 @@ export async function sendWithRetries<T = any>(
         await new Promise(resolve => setTimeout(resolve, retryDelay * Math.pow(2, attempt - 1)));
       }
       
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+
+      if (idempotencyKey) {
+        headers["X-Idempotency-Key"] = idempotencyKey;
+      }
+
       const response = await fetch(url, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify(data),
       });
       

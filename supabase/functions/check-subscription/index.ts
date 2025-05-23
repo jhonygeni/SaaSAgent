@@ -1,4 +1,3 @@
-
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // @ts-ignore
@@ -8,7 +7,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, Authorization",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Max-Age": "86400"
 };
 
 // Helper logging function for debugging
@@ -19,8 +20,8 @@ const logStep = (step: string, details?: any) => {
 
 // Price IDs for our plans - use test price IDs that actually exist in your Stripe account
 const PRICE_IDS = {
-  starter: "price_1OhwaAP1QgGAc8KHblKt0X7N", // Update with your actual Starter plan price ID
-  growth: "price_1OhwaAP1QgGAc8KHN3YSgU1K"  // Update with your actual Growth plan price ID
+  starter: "price_1RRBDsP1QgGAc8KHzueN2CJL", // Novo Starter plan price ID
+  growth: "price_1RRBEZP1QgGAc8KH71uKIH6i"  // Novo Growth plan price ID
 };
 
 serve(async (req) => {

@@ -1,12 +1,43 @@
-
 import { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAgent } from "@/context/AgentContext";
+import { useUser } from "@/context/UserContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ArrowLeft, Send } from "lucide-react";
+import { sendWithRetries } from "@/lib/webhook-utils";
+import { supabase } from "@/integrations/supabase/client";
+import { Agent } from "@/types";
+import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
+import { 
+  generateMessageId, 
+  isMessageDuplicate, 
+  registerMessage, 
+  createMessageMetadata 
+} from "@/lib/message-utils";
+
+interface WebhookPayload {
+  comportamento: string;
+  mensagem: string;
+  remoteJid: string;
+  messageType: string;
+  idMensagem: string;
+  fromMe: boolean;
+  status_conta: string;
+  usuario: Record<string, any>;
+  webhookUrl: string;
+  executionMode: string;
+  agente: Agent;
+  agentId: string;
+  phoneNumber: string;
+  messageMetadata: {
+    attemptId: string;
+    originalMessageId: string;
+    timestamp: number;
+  };
+}
 
 type Message = {
   id: string;
@@ -15,15 +46,144 @@ type Message = {
   timestamp: Date;
 };
 
+function buildWebhookPayload({
+  agent,
+  user,
+  message,
+  messageMetadata,
+}: {
+  agent: Agent;
+  user: any;
+  message: string;
+  messageMetadata: {
+    attemptId: string;
+    originalMessageId: string;
+    timestamp: number;
+  };
+}): WebhookPayload {
+  return {
+    comportamento: agent.prompt || "",
+    mensagem: message,
+    remoteJid: agent.instanceName || "test-remoteJid",
+    messageType: "chat",
+    idMensagem: messageMetadata.originalMessageId,
+    fromMe: false,
+    status_conta: agent.status || "inativo",
+    usuario: user
+      ? {
+          id: user.id,
+          email: user.email,
+          nome: user.name,
+          plano: user.plan,
+          phoneNumber: "5511999999999",
+        }
+      : {},
+    webhookUrl: "https://webhooksaas.geni.chat/webhook/principal",
+    executionMode: "test",
+    agente: agent,
+    agentId: agent.id,
+    phoneNumber: "5511999999999",
+    messageMetadata,
+  };
+}
+
 export function AgentChat() {
   const { id } = useParams<{ id: string }>();
   const { getAgentById } = useAgent();
+  const { user } = useUser();
   const navigate = useNavigate();
   const agent = getAgentById(id || "");
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(0);
+  const [processedMessages] = useState(new Set<string>());
+  const lastWebhookAttempt = useRef<{ [key: string]: number }>({});
+  const MIN_WEBHOOK_INTERVAL = 2000;
+  const MESSAGES_PER_PAGE = 50;
+  const loadingMoreRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const loadingMore = useIntersectionObserver(loadingMoreRef);
+
+  const shouldSendWebhook = (messageId: string) => {
+    const now = Date.now();
+    const lastAttempt = lastWebhookAttempt.current[messageId] || 0;
+    
+    if (now - lastAttempt < MIN_WEBHOOK_INTERVAL) {
+      console.log('Webhook throttled:', messageId);
+      return false;
+    }
+    
+    lastWebhookAttempt.current[messageId] = now;
+    return true;
+  };
+
+  const saveErrorMessage = async (errorMessageId: string, messageMetadata: any, errorMessage: string) => {
+    try {
+      const { error: saveErrorError } = await supabase
+        .from('messages')
+        .insert({
+          id: errorMessageId,
+          content: errorMessage,
+          direction: "outbound",
+          instance_id: agent?.id,
+          message_type: "chat",
+          user_id: user?.id,
+          sender_phone: "5511999999999",
+          recipient_phone: "5511999999999",
+          status: "error",
+          created_at: new Date().toISOString(),
+          parent_message_id: messageMetadata.originalMessageId,
+          metadata: {
+            ...messageMetadata,
+            error: true,
+            errorMessage
+          }
+        });
+
+      if (saveErrorError) {
+        console.error("Error saving error message:", saveErrorError);
+      }
+    } catch (err) {
+      console.error("Error in saveErrorMessage:", err);
+    }
+  };
+
+  // Load chat history when component mounts
+  useEffect(() => {
+    const loadChatHistory = async () => {
+      if (!agent || !user) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('messages')
+          .select('*')
+          .eq('instance_id', agent.id)
+          .order('created_at', { ascending: true });
+
+        if (error) {
+          console.error("Error loading chat history:", error);
+          return;
+        }
+
+        if (data) {
+          const formattedMessages: Message[] = data.map(msg => ({
+            id: msg.id,
+            content: msg.content || "",
+            sender: msg.direction === "outbound" ? "agent" : "user",
+            timestamp: new Date(msg.created_at || new Date())
+          }));
+
+          setMessages(formattedMessages);
+        }
+      } catch (error) {
+        console.error("Error in loadChatHistory:", error);
+      }
+    };
+
+    loadChatHistory();
+  }, [agent, user]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -32,7 +192,7 @@ export function AgentChat() {
 
   // Add initial greeting message when component mounts
   useEffect(() => {
-    if (agent) {
+    if (agent && messages.length === 0) {
       setMessages([
         {
           id: "greeting",
@@ -42,69 +202,244 @@ export function AgentChat() {
         },
       ]);
     }
-  }, [agent]);
+  }, [agent, messages.length]);
 
-  if (!agent) {
-    return (
-      <div className="container mx-auto py-8 text-center">
-        <h2 className="text-2xl font-bold mb-4">Agente não encontrado</h2>
-        <p className="text-muted-foreground mb-6">
-          O agente que você está tentando testar não existe.
-        </p>
-        <Button onClick={() => navigate("/dashboard")}>
-          Voltar para o Dashboard
-        </Button>
-      </div>
-    );
-  }
+  // Real-time message subscription with reconnection logic
+  useEffect(() => {
+    if (!agent || !user) return;
 
-  const handleSend = (e: React.FormEvent) => {
+    const setupSubscription = () => {
+      const subscription = supabase
+        .channel('messages')
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'messages',
+          filter: `instance_id=eq.${agent.id}`,
+        }, 
+        (payload: any) => {
+          if (payload.eventType === 'INSERT') {
+            // Verificar se a mensagem já foi processada
+            if (processedMessages.has(payload.new.id)) {
+              return;
+            }
+
+            const newMessage: Message = {
+              id: payload.new.id,
+              content: payload.new.content,
+              sender: payload.new.direction === "outbound" ? "agent" : "user",
+              timestamp: new Date(payload.new.created_at),
+            };
+
+            // Registrar a mensagem como processada
+            processedMessages.add(payload.new.id);
+            setMessages(prev => [...prev, newMessage]);
+          } else if (payload.eventType === 'UPDATE') {
+            setMessages(prev => prev.map(msg => 
+              msg.id === payload.new.id 
+                ? {
+                    ...msg,
+                    content: payload.new.content,
+                    timestamp: new Date(payload.new.created_at)
+                  }
+                : msg
+            ));
+          }
+        })
+        .subscribe((status: string) => {
+          if (status === 'SUBSCRIBED') {
+            if (reconnectTimeoutRef.current) {
+              clearTimeout(reconnectTimeoutRef.current);
+              reconnectTimeoutRef.current = undefined;
+            }
+          } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+            reconnectTimeoutRef.current = setTimeout(() => {
+              setupSubscription();
+            }, 5000);
+          }
+        });
+
+      return subscription;
+    };
+
+    const subscription = setupSubscription();
+
+    return () => {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      subscription.unsubscribe();
+    };
+  }, [agent, user, processedMessages]);
+
+  const loadMoreMessages = async () => {
+    if (!agent || !user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('instance_id', agent.id)
+        .order('created_at', { ascending: false })
+        .range(page * MESSAGES_PER_PAGE, (page + 1) * MESSAGES_PER_PAGE - 1);
+
+      if (error) {
+        console.error("Error loading more messages:", error);
+        return;
+      }
+
+      if (data) {
+        const formattedMessages = data.map(msg => ({
+          id: msg.id,
+          content: msg.content || "",
+          sender: msg.direction === "outbound" ? "agent" as const : "user" as const,
+          timestamp: new Date(msg.created_at || new Date())
+        }));
+
+        setMessages(prev => [...formattedMessages.reverse(), ...prev]);
+        setHasMore(data.length === MESSAGES_PER_PAGE);
+        setPage(p => p + 1);
+      }
+    } catch (error) {
+      console.error("Error in loadMoreMessages:", error);
+    }
+  };
+
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!message.trim()) return;
+    if (!message.trim() || !agent || !user) return;
 
-    // Add user message
+    const messageMetadata = createMessageMetadata();
+    
+    if (isMessageDuplicate(messageMetadata.originalMessageId)) {
+      console.log('Mensagem duplicada detectada:', messageMetadata.originalMessageId);
+      return;
+    }
+
+    registerMessage(messageMetadata.originalMessageId);
+    const messageContent = message;
+    setMessage("");
+
     const userMessage: Message = {
-      id: `user-${Date.now()}`,
-      content: message,
+      id: messageMetadata.originalMessageId,
+      content: messageContent,
       sender: "user",
       timestamp: new Date(),
     };
+    
     setMessages((prev) => [...prev, userMessage]);
-    setMessage("");
     setLoading(true);
 
-    // Simulate agent response
-    setTimeout(() => {
-      // Check if the message is related to any FAQs
-      const lowerMessage = message.toLowerCase();
-      const matchedFAQ = agent.faqs.find((faq) =>
-        lowerMessage.includes(faq.pergunta.toLowerCase())
+    try {
+      const { error: saveError } = await supabase
+        .from('messages')
+        .insert({
+          id: messageMetadata.originalMessageId,
+          content: messageContent,
+          direction: "inbound",
+          instance_id: agent.id,
+          message_type: "chat",
+          user_id: user.id,
+          sender_phone: "5511999999999",
+          recipient_phone: "5511999999999",
+          status: "sent",
+          created_at: new Date().toISOString(),
+          metadata: messageMetadata
+        });
+
+      if (saveError) {
+        throw saveError;
+      }
+
+      if (!shouldSendWebhook(messageMetadata.originalMessageId)) {
+        throw new Error('Rate limit exceeded');
+      }
+
+      const webhookPayload = buildWebhookPayload({ 
+        agent, 
+        user, 
+        message: messageContent,
+        messageMetadata
+      });
+      
+      const webhookResult = await sendWithRetries(
+        "https://webhooksaas.geni.chat/webhook/principal",
+        webhookPayload,
+        {
+          idempotencyKey: messageMetadata.attemptId,
+          maxRetries: 3,
+          retryDelay: 1000
+        }
       );
 
       let responseContent = "";
-      
-      if (matchedFAQ) {
-        responseContent = matchedFAQ.resposta;
-      } else if (lowerMessage.includes("horário") || lowerMessage.includes("horario")) {
-        responseContent = "Nosso horário de atendimento é de segunda a sexta, das 9h às 18h.";
-      } else if (lowerMessage.includes("preço") || lowerMessage.includes("preco") || lowerMessage.includes("valor")) {
-        responseContent = "Para informações sobre preços, por favor entre em contato com nossa equipe comercial ou acesse nosso site para mais detalhes.";
-      } else if (lowerMessage.includes("localização") || lowerMessage.includes("localizacao") || lowerMessage.includes("endereço")) {
-        responseContent = "Você pode encontrar nosso endereço completo e instruções de como chegar em nosso site.";
+      let webhookData = webhookResult.data;
+
+      if (Array.isArray(webhookData) && webhookData.length > 0) {
+        webhookData = webhookData[0];
+      }
+
+      if (webhookResult.success && webhookData && (webhookData.output || webhookData.Respond_to_Webhook_teste)) {
+        responseContent = typeof webhookData.output === "string" 
+          ? webhookData.output 
+          : webhookData.output?.Respond_to_Webhook_teste || webhookData.Respond_to_Webhook_teste || JSON.stringify(webhookData.output);
       } else {
-        responseContent = "Obrigado pelo seu contato! Entendi sua mensagem e vou direcionar para a equipe responsável. Há algo mais em que posso ajudar?";
+        responseContent = "Não foi possível obter uma resposta do agente de teste.";
+      }
+
+      const agentMessageId = `agent-${Date.now()}`;
+      
+      const { error: saveResponseError } = await supabase
+        .from('messages')
+        .insert({
+          id: agentMessageId,
+          content: responseContent,
+          direction: "outbound",
+          instance_id: agent.id,
+          message_type: "chat",
+          user_id: user.id,
+          sender_phone: "5511999999999",
+          recipient_phone: "5511999999999",
+          status: "delivered",
+          created_at: new Date().toISOString(),
+          parent_message_id: messageMetadata.originalMessageId,
+          metadata: {
+            ...messageMetadata,
+            responseAttemptId: generateMessageId()
+          }
+        });
+
+      if (saveResponseError) {
+        console.error("Error saving agent response:", saveResponseError);
       }
 
       const agentResponse: Message = {
-        id: `agent-${Date.now()}`,
+        id: agentMessageId,
         content: responseContent,
         sender: "agent",
         timestamp: new Date(),
       };
       
       setMessages((prev) => [...prev, agentResponse]);
+    } catch (err) {
+      console.error("Error in handleSend:", err);
+      const errorMessageId = `error-${Date.now()}`;
+      const errorMessage = "Erro ao processar a mensagem de teste do agente.";
+      
+      await saveErrorMessage(errorMessageId, messageMetadata, errorMessage);
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: errorMessageId,
+          content: errorMessage,
+          sender: "agent",
+          timestamp: new Date(),
+        },
+      ]);
+    } finally {
       setLoading(false);
-    }, 1000 + Math.random() * 1000); // Random delay between 1-2s
+    }
   };
 
   const getInitials = (name: string) => {
@@ -140,12 +475,20 @@ export function AgentChat() {
             </Avatar>
             <div>
               <h3 className="font-medium">{agent.nome}</h3>
-              <p className="text-xs text-muted-foreground">Modo de teste</p>
+              <p className="text-xs text-muted-foreground">
+                {isConnected ? "Conectado" : "Reconectando..."}
+                {messageQueue.length > 0 && ` (${messageQueue.length} mensagens na fila)`}
+              </p>
             </div>
           </div>
         </div>
 
         <div className="p-4 h-[400px] overflow-y-auto flex flex-col space-y-4">
+          {hasMore && (
+            <div ref={loadingMoreRef} className="text-center py-2">
+              <div className="loading-spinner" />
+            </div>
+          )}
           {messages.map((msg) => (
             <div
               key={msg.id}
@@ -170,7 +513,7 @@ export function AgentChat() {
               </div>
             </div>
           ))}
-          
+
           {loading && (
             <div className="flex justify-start">
               <div className="max-w-[80%] rounded-lg p-3 bg-muted">
@@ -182,7 +525,7 @@ export function AgentChat() {
               </div>
             </div>
           )}
-          
+
           <div ref={messagesEndRef} />
         </div>
 
@@ -203,4 +546,4 @@ export function AgentChat() {
       </Card>
     </div>
   );
-}
+};
