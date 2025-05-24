@@ -2,7 +2,6 @@ import { createContext, useContext, useState, ReactNode, useEffect, useCallback 
 import { User, SubscriptionPlan } from '../types';
 import { getMessageLimitByPlan } from '../lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { subscriptionCache } from '../lib/subscription-cache';
 
 interface UserContextType {
   user: User | null;
@@ -53,49 +52,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
         return;
       }
       
-      console.log("Verificando assinatura...");
-      
-      // Primeiro tentar usar cache para evitar chamada à API
-      const cachedSubscription = subscriptionCache.getFromCache(supabaseUser.id);
-      if (cachedSubscription) {
-        console.log("Usando dados de assinatura em cache:", cachedSubscription);
-        
-        if (!user && supabaseUser) {
-          const newUser: User = {
-            id: supabaseUser.id,
-            email: supabaseUser.email || '',
-            name: supabaseUser.user_metadata?.name || supabaseUser.email || '',
-            plan: (cachedSubscription.plan || 'free') as SubscriptionPlan,
-            messageCount: 0,
-            messageLimit: getMessageLimitByPlan(cachedSubscription.plan || 'free'),
-            agents: [],
-          };
-          console.log("Criando novo usuário no contexto usando cache:", newUser);
-          setUser(newUser);
-        } 
-        else if (user && cachedSubscription.plan && cachedSubscription.plan !== user.plan) {
-          console.log(`Atualizando plano de ${user.plan} para ${cachedSubscription.plan} (cache)`);
-          setPlan(cachedSubscription.plan as SubscriptionPlan);
-        }
-        return;
-      }
-      
       console.log("Chamando edge function check-subscription");
       
       try {
-        // Implementar timeout para evitar que a função trave a UI
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout - A função check-subscription demorou muito')), 8000)
-        );
-        
-        // Call check-subscription edge function com timeout
-        const { data, error } = await Promise.race([
-          supabase.functions.invoke('check-subscription'),
-          timeoutPromise
-        ]).catch(err => {
-          console.error('Timeout ou erro ao invocar check-subscription:', err.message);
-          return { data: null, error: { message: err.message } };
-        }) as any;
+        // Call check-subscription edge function
+        const { data, error } = await supabase.functions.invoke('check-subscription');
         
         if (error) {
           console.error('Error checking subscription:', error);
@@ -109,10 +70,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         
         console.log("Resposta de check-subscription:", data);
         
-        // Salvar resultado no cache para uso futuro
         if (data) {
-          subscriptionCache.saveToCache(supabaseUser.id, data);
-        
           // If we have a user but no data in context yet, create it
           if (!user && supabaseUser) {
             const newUser: User = {
@@ -252,8 +210,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    // Limpar o cache de assinatura ao fazer logout
-    subscriptionCache.clearCache();
     await supabase.auth.signOut();
     setUser(null);
   };

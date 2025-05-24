@@ -9,12 +9,16 @@ if ! docker info > /dev/null 2>&1; then
   exit 1
 fi
 
-# Carregar variáveis de ambiente do arquivo .env
-if [ -f ../.env ]; then
-  echo "Carregando variáveis de ambiente do arquivo .env..."
-  source ../.env
+# Determinar caminho absoluto para o diretório raiz do projeto
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+echo "Diretório raiz do projeto: $PROJECT_ROOT"
+
+# Carregar variáveis de ambiente do arquivo .env usando caminho absoluto
+if [ -f "$PROJECT_ROOT/.env" ]; then
+  echo "Carregando variáveis de ambiente do arquivo .env na pasta raiz..."
+  source "$PROJECT_ROOT/.env"
 else
-  echo "Erro: Arquivo .env não encontrado. Por favor, crie um arquivo .env baseado no .env.example"
+  echo "Erro: Arquivo .env não encontrado em $PROJECT_ROOT. Por favor, crie um arquivo .env baseado no .env.example"
   exit 1
 fi
 
