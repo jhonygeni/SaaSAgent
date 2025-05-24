@@ -9,15 +9,20 @@ if ! docker info > /dev/null 2>&1; then
   exit 1
 fi
 
-# Variáveis de ambiente para o servidor SMTP
-SMTP_HOST="smtp.hostinger.com"
-SMTP_PORT="465"
-SMTP_USERNAME="validar@geni.chat"
-SMTP_PASSWORD="Vu1@+H*Mw^3"
-SITE_URL="https://app.conversaai.com.br"
+# Carregar variáveis de ambiente do arquivo .env
+if [ -f ../.env ]; then
+  echo "Carregando variáveis de ambiente do arquivo .env..."
+  source ../.env
+else
+  echo "Erro: Arquivo .env não encontrado. Por favor, crie um arquivo .env baseado no .env.example"
+  exit 1
+fi
 
-# Projeto Supabase
-PROJECT_REF="hpovwcaskorzzrpphgkc"
+# Verificar se as variáveis necessárias estão definidas
+if [ -z "$SMTP_HOST" ] || [ -z "$SMTP_PORT" ] || [ -z "$SMTP_USERNAME" ] || [ -z "$SMTP_PASSWORD" ] || [ -z "$SITE_URL" ] || [ -z "$PROJECT_REF" ]; then
+  echo "Erro: Uma ou mais variáveis de ambiente necessárias não estão definidas no arquivo .env"
+  exit 1
+fi
 
 # Passos
 echo "=== Implantação e Configuração da Função Custom Email ==="

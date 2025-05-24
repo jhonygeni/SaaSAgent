@@ -4,11 +4,15 @@
  * Este script simula uma chamada para a função Edge de e-mail personalizado,
  * permitindo testar se está funcionando corretamente antes de implantá-la.
  * 
- * Atualizado para usar o servidor SMTP da Hostinger (validar@geni.chat)
+ * Atualizado para usar credenciais seguras de variáveis de ambiente
  */
 
 import { createClient } from '@supabase/supabase-js';
 import * as readline from 'readline';
+import * as dotenv from 'dotenv';
+
+// Carregar variáveis de ambiente do arquivo .env
+dotenv.config();
 
 const rl = readline.createInterface({
   input: process.stdin,

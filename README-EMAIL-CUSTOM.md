@@ -21,13 +21,15 @@ Este sistema substitui o processo padrão de envio de emails do Supabase por uma
 
 ## Variáveis de Ambiente
 
-As seguintes variáveis de ambiente estão configuradas na função Edge:
+As seguintes variáveis de ambiente precisam ser configuradas na função Edge:
 
-- `SMTP_HOST=smtp.hostinger.com`
-- `SMTP_PORT=465`
-- `SMTP_USERNAME=validar@geni.chat`
-- `SMTP_PASSWORD=Vu1@+H*Mw^3` (Não incluir em repositórios públicos!)
-- `SITE_URL=https://saa-s-agent.vercel.app`
+- `SMTP_HOST` - Servidor SMTP (exemplo: smtp.hostinger.com)
+- `SMTP_PORT` - Porta do servidor SMTP (exemplo: 465 para SSL)
+- `SMTP_USERNAME` - Email de envio (exemplo: noreply@seudominio.com)
+- `SMTP_PASSWORD` - Senha do email (NUNCA armazene em repositórios!)
+- `SITE_URL` - URL base do site (exemplo: https://seusite.com)
+
+Veja o arquivo `.env.example` para um modelo de configuração e crie um arquivo `.env` com suas credenciais reais.
 
 ## Scripts de Teste
 

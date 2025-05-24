@@ -116,11 +116,20 @@ const sendCustomEmail = async (email, type, token, redirectTo, metadata) => {
   try {
     console.log("Iniciando envio de e-mail personalizado...");
     
-    // Obter configurações do ambiente
-    const SMTP_HOST = Deno.env.get("SMTP_HOST") || "smtp.hostinger.com";
-    const SMTP_PORT = Number(Deno.env.get("SMTP_PORT")) || 465;
-    const SMTP_USERNAME = Deno.env.get("SMTP_USERNAME") || "validar@geni.chat";
-    const SMTP_PASSWORD = Deno.env.get("SMTP_PASSWORD") || "";
+    // Obter configurações do ambiente (Deno será disponível no ambiente de execução da função Edge)
+    // @ts-ignore - Deno will be available in the Edge Function environment
+    const SMTP_HOST = Deno.env.get("SMTP_HOST");
+    // @ts-ignore - Deno will be available in the Edge Function environment
+    const SMTP_PORT = Number(Deno.env.get("SMTP_PORT"));
+    // @ts-ignore - Deno will be available in the Edge Function environment
+    const SMTP_USERNAME = Deno.env.get("SMTP_USERNAME");
+    // @ts-ignore - Deno will be available in the Edge Function environment
+    const SMTP_PASSWORD = Deno.env.get("SMTP_PASSWORD");
+    
+    // Verificar se todas as variáveis de ambiente necessárias estão definidas
+    if (!SMTP_HOST || !SMTP_PORT || !SMTP_USERNAME || !SMTP_PASSWORD) {
+      throw new Error("Configurações SMTP incompletas. Verifique as variáveis de ambiente.");
+    }
     
     console.log(`Usando SMTP: ${SMTP_HOST}:${SMTP_PORT}, usuário: ${SMTP_USERNAME}`);
     
