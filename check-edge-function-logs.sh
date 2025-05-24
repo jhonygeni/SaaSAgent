@@ -2,11 +2,14 @@
 # Script to check logs from custom email Edge function
 
 PROJECT_REF="hpovwcaskorzzrpphgkc"
-FUNCTION_NAME="custom-email"
+FUNCTION_NAME="check-subscription"
 
 echo "Fetching logs for function '$FUNCTION_NAME' in project '$PROJECT_REF'..."
-supabase functions logs "$FUNCTION_NAME" --project-ref "$PROJECT_REF"
+echo "Executando: supabase functions logs $FUNCTION_NAME"
+
+# A nova versão da CLI não usa mais --project-ref
+supabase functions logs "$FUNCTION_NAME" 
 
 echo ""
-echo "To stream logs in real-time, run:"
-echo "supabase functions logs $FUNCTION_NAME --project-ref $PROJECT_REF --no-verify --follow"
+echo "Para ver os logs em tempo real, execute:"
+echo "supabase functions logs $FUNCTION_NAME --follow"

@@ -27,7 +27,7 @@ As seguintes variáveis de ambiente estão configuradas na função Edge:
 - `SMTP_PORT=465`
 - `SMTP_USERNAME=validar@geni.chat`
 - `SMTP_PASSWORD=Vu1@+H*Mw^3` (Não incluir em repositórios públicos!)
-- `SITE_URL=https://app.conversaai.com.br`
+- `SITE_URL=https://saa-s-agent.vercel.app`
 
 ## Scripts de Teste
 

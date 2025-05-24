@@ -1,8 +1,8 @@
-
 import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { User, SubscriptionPlan } from '../types';
 import { getMessageLimitByPlan } from '../lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { subscriptionCache } from '../lib/subscription-cache';
 
 interface UserContextType {
   user: User | null;
@@ -19,6 +19,22 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 export function UserProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
+  
+  // Função auxiliar para criar um usuário com plano padrão
+  const createUserWithDefaultPlan = (supabaseUser: any, defaultPlan: SubscriptionPlan = 'free') => {
+    const newUser: User = {
+      id: supabaseUser.id,
+      email: supabaseUser.email || '',
+      name: supabaseUser.user_metadata?.name || supabaseUser.email || '',
+      plan: defaultPlan,
+      messageCount: 0,
+      messageLimit: getMessageLimitByPlan(defaultPlan),
+      agents: [],
+    };
+    console.log("Criando novo usuário no contexto com plano padrão:", newUser);
+    setUser(newUser);
+    return newUser;
+  };
   
   // Check subscription status
   const checkSubscriptionStatus = useCallback(async () => {
@@ -37,55 +53,106 @@ export function UserProvider({ children }: { children: ReactNode }) {
         return;
       }
       
-      console.log("Chamando edge function check-subscription");
-      // Call check-subscription edge function
-      try {
-        const { data, error } = await supabase.functions.invoke('check-subscription');
+      console.log("Verificando assinatura...");
+      
+      // Primeiro tentar usar cache para evitar chamada à API
+      const cachedSubscription = subscriptionCache.getFromCache(supabaseUser.id);
+      if (cachedSubscription) {
+        console.log("Usando dados de assinatura em cache:", cachedSubscription);
         
-        if (error) {
-          console.error('Error checking subscription:', error);
-          // Definir um plano padrão mesmo em caso de erro
-          if (!user) {
-            // Criar usuário com plano gratuito se não existir
-            createUserWithPlan(supabaseUser, 'free');
-          }
-          return;
-        }
-      } catch (invokeError) {
-        console.error('Failed to invoke check-subscription function:', invokeError);
-        // Em caso de erro na invocação da função, ainda garantimos que o usuário tem um plano
-        if (!user) {
-          // Criar usuário com plano gratuito se não existir
-          createUserWithPlan(supabaseUser, 'free');
-        }
-        return;
-      }
-      
-      console.log("Resposta de check-subscription:", data);
-      
-      if (data) {
-        // If we have a user but no data in context yet, create it
         if (!user && supabaseUser) {
           const newUser: User = {
             id: supabaseUser.id,
             email: supabaseUser.email || '',
             name: supabaseUser.user_metadata?.name || supabaseUser.email || '',
-            plan: (data.plan || 'free') as SubscriptionPlan,
+            plan: (cachedSubscription.plan || 'free') as SubscriptionPlan,
             messageCount: 0,
-            messageLimit: getMessageLimitByPlan(data.plan || 'free'),
+            messageLimit: getMessageLimitByPlan(cachedSubscription.plan || 'free'),
             agents: [],
           };
-          console.log("Criando novo usuário no contexto:", newUser);
+          console.log("Criando novo usuário no contexto usando cache:", newUser);
           setUser(newUser);
+        } 
+        else if (user && cachedSubscription.plan && cachedSubscription.plan !== user.plan) {
+          console.log(`Atualizando plano de ${user.plan} para ${cachedSubscription.plan} (cache)`);
+          setPlan(cachedSubscription.plan as SubscriptionPlan);
         }
-        // If we already have user data, just update the plan
-        else if (user && data.plan && data.plan !== user.plan) {
-          console.log(`Atualizando plano de ${user.plan} para ${data.plan}`);
-          setPlan(data.plan as SubscriptionPlan);
+        return;
+      }
+      
+      console.log("Chamando edge function check-subscription");
+      
+      try {
+        // Implementar timeout para evitar que a função trave a UI
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout - A função check-subscription demorou muito')), 8000)
+        );
+        
+        // Call check-subscription edge function com timeout
+        const { data, error } = await Promise.race([
+          supabase.functions.invoke('check-subscription'),
+          timeoutPromise
+        ]).catch(err => {
+          console.error('Timeout ou erro ao invocar check-subscription:', err.message);
+          return { data: null, error: { message: err.message } };
+        }) as any;
+        
+        if (error) {
+          console.error('Error checking subscription:', error);
+          
+          // Se há erro, mas o usuário está autenticado, garantimos que ele tenha um plano
+          if (!user && supabaseUser) {
+            createUserWithDefaultPlan(supabaseUser);
+          }
+          return;
+        }
+        
+        console.log("Resposta de check-subscription:", data);
+        
+        // Salvar resultado no cache para uso futuro
+        if (data) {
+          subscriptionCache.saveToCache(supabaseUser.id, data);
+        
+          // If we have a user but no data in context yet, create it
+          if (!user && supabaseUser) {
+            const newUser: User = {
+              id: supabaseUser.id,
+              email: supabaseUser.email || '',
+              name: supabaseUser.user_metadata?.name || supabaseUser.email || '',
+              plan: (data.plan || 'free') as SubscriptionPlan,
+              messageCount: 0,
+              messageLimit: getMessageLimitByPlan(data.plan || 'free'),
+              agents: [],
+            };
+            console.log("Criando novo usuário no contexto:", newUser);
+            setUser(newUser);
+          }
+          // If we already have user data, just update the plan
+          else if (user && data.plan && data.plan !== user.plan) {
+            console.log(`Atualizando plano de ${user.plan} para ${data.plan}`);
+            setPlan(data.plan as SubscriptionPlan);
+          }
+        }
+      } catch (invokeError) {
+        console.error('Failed to invoke check-subscription function:', invokeError);
+        
+        // Em caso de erro na invocação, garantimos que o usuário tenha um plano básico
+        if (!user && supabaseUser) {
+          createUserWithDefaultPlan(supabaseUser);
         }
       }
     } catch (err) {
       console.error('Failed to check subscription status:', err);
+      
+      // Tentamos obter uma sessão para criar um usuário básico mesmo com erro
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user && !user) {
+          createUserWithDefaultPlan(session.user);
+        }
+      } catch (sessionErr) {
+        console.error('Failed to get session after subscription error:', sessionErr);
+      }
     }
   }, [user]);
   
@@ -105,23 +172,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
           
           console.log("Usuário logado:", supabaseUser);
           
-          // Create new user object
-          const newUser: User = {
-            id: supabaseUser.id,
-            email: supabaseUser.email || '',
-            name: supabaseUser.user_metadata?.name || supabaseUser.email || '',
-            plan: 'free',
-            messageCount: 0,
-            messageLimit: getMessageLimitByPlan('free'),
-            agents: [],
-          };
+          // Create new user object with default free plan
+          createUserWithDefaultPlan(supabaseUser);
           
-          setUser(newUser);
-          
-          // Check subscription status
+          // Check subscription status after delay to ensure auth is complete
           setTimeout(() => {
             checkSubscriptionStatus();
-          }, 0);
+          }, 1000);
         }
         
         if (event === 'SIGNED_OUT') {
@@ -141,24 +198,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
         console.log("Sessão existente encontrada");
         const supabaseUser = session.user;
         
-        // Create new user object
-        const newUser: User = {
-          id: supabaseUser.id,
-          email: supabaseUser.email || '',
-          name: supabaseUser.user_metadata?.name || supabaseUser.email || '',
-          plan: 'free',
-          messageCount: 0,
-          messageLimit: getMessageLimitByPlan('free'),
-          agents: [],
-        };
+        // Create new user object with default free plan
+        createUserWithDefaultPlan(supabaseUser);
         
-        console.log("Configurando usuário da sessão existente:", newUser);
-        setUser(newUser);
-        
-        // Check subscription status
+        // Check subscription status after delay
         setTimeout(() => {
           checkSubscriptionStatus();
-        }, 0);
+        }, 1000);
       } else {
         console.log("Nenhuma sessão existente encontrada");
       }
@@ -172,7 +218,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       console.log("Removendo listener de autenticação");
       subscription.unsubscribe();
     };
-  }, []);
+  }, [checkSubscriptionStatus]);
 
   const updateUser = (updatedUser: Partial<User>) => {
     if (!user) return;
@@ -199,13 +245,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
     
     setUser(newUser);
     
-    // Check subscription status after login
+    // Check subscription status after login with delay
     setTimeout(() => {
       checkSubscriptionStatus();
     }, 1000);
   };
 
   const logout = async () => {
+    // Limpar o cache de assinatura ao fazer logout
+    subscriptionCache.clearCache();
     await supabase.auth.signOut();
     setUser(null);
   };

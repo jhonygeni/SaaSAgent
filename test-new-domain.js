@@ -1,16 +1,16 @@
-// Teste de fluxo completo usando a API do Supabase
+// Teste de fluxo completo usando a API do Supabase com o novo domínio
 import { createClient } from '@supabase/supabase-js';
 
 // Configurações do projeto Supabase
 const SUPABASE_URL = 'https://hpovwcaskorzzrpphgkc.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhwb3Z3Y2Fza29yenpycHBoZ2tjIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NTU5NDI5NTYsImV4cCI6MTk3MTUxODk1Nn0.CqtbnT5KwQsCoRiurG-_T2cyOzHS8m7ktmyKmO5T4S8'; // Chave anônima pública
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhwb3Z3Y2Fza29yenpycHBoZ2tjIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NTU5NDI5NTYsImV4cCI6MTk3MTUxODk1Nn0.CqtbnT5KwQsCoRiurG-_T2cyOzHS8m7ktmyKmO5T4S8';
 
 // Criar cliente Supabase
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // Função para testar o fluxo de cadastro
 const testSignupFlow = async () => {
-  console.log('🧪 Iniciando teste de fluxo de cadastro');
+  console.log('🧪 Iniciando teste de fluxo de cadastro com novo domínio');
   
   // Gerar um email de teste único
   const testEmail = `test-${Math.floor(Math.random() * 10000)}@example.com`;
@@ -41,8 +41,8 @@ const testSignupFlow = async () => {
     console.log('\n🔍 Verifique:');
     console.log('1. Se você recebeu um email no endereço do administrador');
     console.log('2. Se o email foi enviado por: validar@geni.chat');
-    console.log('3. Se o conteúdo do email está formatado corretamente');
-    console.log('4. Se o link de confirmação funciona corretamente');
+    console.log('3. Se o conteúdo do email inclui o novo domínio: saa-s-agent.vercel.app');
+    console.log('4. Se o link de confirmação funciona corretamente e redireciona para o novo domínio');
     
     console.log('\n⚠️ Importante: Como este é um email de teste, você não terá acesso à caixa de entrada.');
     console.log('   Você deve monitorar os logs da função Edge para verificar se o email foi enviado com sucesso:');
@@ -57,4 +57,4 @@ const testSignupFlow = async () => {
 testSignupFlow();
 
 // Para executar: 
-// node test-signup-flow.js
+// node test-new-domain.js

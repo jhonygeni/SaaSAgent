@@ -5,6 +5,25 @@ import Stripe from "https://esm.sh/stripe@12.18.0";
 // @ts-ignore
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
+// Handler para lidar com erros e timeouts
+// @ts-ignore
+const withTimeout = async (promise, timeoutMs = 5000, fallbackValue = null) => {
+  let timeoutHandle;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutHandle = setTimeout(() => reject(new Error(`Operação atingiu timeout de ${timeoutMs}ms`)), timeoutMs);
+  });
+
+  try {
+    const result = await Promise.race([promise, timeoutPromise]);
+    clearTimeout(timeoutHandle);
+    return result;
+  } catch (e) {
+    clearTimeout(timeoutHandle);
+    console.error(`Timeout ou erro: ${e.message}`);
+    return fallbackValue;
+  }
+};
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, Authorization",
