@@ -19,6 +19,9 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import NotFound from "./pages/NotFound";
 import UserProfilePage from "./pages/UserProfilePage";
+import EmailConfirmationPage from "./pages/EmailConfirmationPage";
+import EmailConfirmSuccessPage from "./pages/EmailConfirmSuccessPage";
+import ResendConfirmationPage from "./pages/ResendConfirmationPage";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +45,9 @@ const App = () => (
                   <Route path="/entrar" element={<LoginPage />} />
                   <Route path="/registrar" element={<RegisterPage />} />
                   <Route path="/perfil" element={<UserProfilePage />} />
+                  <Route path="/confirmar-email" element={<EmailConfirmationPage />} />
+                  <Route path="/confirmar-email-sucesso" element={<EmailConfirmSuccessPage />} />
+                  <Route path="/reenviar-confirmacao" element={<ResendConfirmationPage />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </BrowserRouter>

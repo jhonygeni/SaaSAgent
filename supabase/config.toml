@@ -1,1 +1,22 @@
 project_id = "hpovwcaskorzzrpphgkc"
+
+[auth]
+# Configuração personalizada para a autenticação
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://app.conversaai.com.br", "https://conversaai.com.br"]
+
+# Configuração do provedor de e-mail personalizado
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = true
+
+# Nota: A configuração do template_hook precisa ser feita manualmente no console do Supabase
+# pois a versão atual do CLI não suporta essa configuração no config.toml
+
+# Variáveis de ambiente para as Edge Functions
+[functions.custom-email]
+verify_jwt = false
+
+# As variáveis de ambiente da função precisam ser configuradas após o deploy
+# usando o comando supabase secrets set

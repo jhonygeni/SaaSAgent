@@ -58,8 +58,7 @@ export function Register() {
           data: {
             name: name,
           },
-          // Important: Enable auto-confirm for testing
-          emailRedirectTo: `${window.location.origin}/dashboard`,
+          emailRedirectTo: `${window.location.origin}/confirmar-email-sucesso`,
         }
       });
       
@@ -70,15 +69,24 @@ export function Register() {
       
       console.log("Conta criada com sucesso:", data);
       toast({
-        title: "Conta criada com sucesso",
-        description: "Bem-vindo à plataforma!",
+        title: "Confirmação de e-mail necessária",
+        description: "Enviamos um link de confirmação para o seu e-mail. Por favor, verifique sua caixa de entrada para ativar sua conta.",
       });
       
-      // Check subscription status after registration
-      await checkSubscriptionStatus();
-      
-      // After successful registration, redirect to plans page
-      navigate("/planos");
+      // Verificando se temos um usuário válido no data
+      if (data.user) {
+        // Esperar pela consulta ao status da assinatura para garantir que o usuário esteja carregado no contexto
+        await checkSubscriptionStatus();
+        
+        // Usar timeout para garantir que o estado do usuário foi atualizado no contexto
+        setTimeout(() => {
+          // Navegar para o dashboard primeiro, depois o usuário pode escolher planos
+          navigate("/dashboard");
+        }, 1000);
+      } else {
+        // Se não tiver usuário válido, redirecionamos para o login
+        navigate("/entrar");
+      }
     } catch (error: any) {
       console.error("Erro completo ao criar conta:", error);
       let errorMessage = "Ocorreu um erro ao criar sua conta. Tente novamente.";

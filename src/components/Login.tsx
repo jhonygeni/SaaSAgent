@@ -46,7 +46,19 @@ export function Login() {
       });
       
       if (error) {
-        console.error("Erro de login:", error);
+        console.error("Erro de login:", error);          // Verificar se é um erro de e-mail não confirmado
+        if (error.message.includes("Email not confirmed")) {
+          // Exibir mensagem específica e oferecer opção de reenviar e-mail
+          toast({
+            title: "E-mail não confirmado",
+            description: "Você precisa confirmar seu e-mail antes de fazer login. Verifique sua caixa de entrada ou solicite um novo e-mail de confirmação.",
+          });
+          
+          // Redirecionar para a página de reenvio de confirmação
+          navigate("/reenviar-confirmacao", { state: { email } });
+          return;
+        }
+        
         throw error;
       }
       
@@ -67,9 +79,7 @@ export function Login() {
       // Mensagens de erro mais específicas
       let errorMessage = "E-mail ou senha inválidos. Tente novamente.";
       
-      if (error.message && error.message.includes("Email not confirmed")) {
-        errorMessage = "E-mail não confirmado. Por favor, verifique sua caixa de entrada.";
-      } else if (error.message && error.message.includes("Invalid login credentials")) {
+      if (error.message && error.message.includes("Invalid login credentials")) {
         errorMessage = "Credenciais de login inválidas. Verifique seu e-mail e senha.";
       }
       

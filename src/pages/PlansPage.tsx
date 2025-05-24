@@ -3,13 +3,25 @@ import { PricingPlans } from "@/components/PricingPlans";
 import { Header } from "@/components/Header";
 import { useEffect } from "react";
 import { useUser } from "@/context/UserContext";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 
 const PlansPage = () => {
-  const { checkSubscriptionStatus } = useUser();
+  const { user, checkSubscriptionStatus, isLoading } = useUser();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
+  const navigate = useNavigate();
+  
+  // Redireciona para login se não estiver autenticado
+  useEffect(() => {
+    if (!isLoading && !user) {
+      toast({
+        title: "Acesso restrito",
+        description: "Por favor, faça login para ver os planos disponíveis.",
+      });
+      navigate("/entrar");
+    }
+  }, [user, isLoading, navigate, toast]);
   
   // Check for checkout success or cancellation
   useEffect(() => {

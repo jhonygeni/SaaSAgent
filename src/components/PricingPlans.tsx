@@ -13,18 +13,53 @@ export function PricingPlans() {
   const { toast } = useToast();
 
   const handleSelectPlan = async (plan: "free" | "starter" | "growth") => {
+    // Verificar se o usuário está autenticado (se não estiver, redirecione para login em vez de registro)
+    // Isso evita um possível loop quando o usuário acabou de se registrar
     if (!user) {
-      navigate("/registrar");
+      toast({
+        title: "Ação necessária",
+        description: "Por favor, faça login antes de selecionar um plano.",
+      });
+      navigate("/entrar");
+      return;
+    }
+    
+    // Garante que temos uma sessão válida antes de continuar
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session) {
+        toast({
+          title: "Sessão expirada",
+          description: "Sua sessão expirou. Por favor, faça login novamente.",
+        });
+        navigate("/entrar");
+        return;
+      }
+    } catch (sessionError) {
+      console.error("Erro ao verificar sessão:", sessionError);
+      toast({
+        title: "Erro de autenticação",
+        description: "Não foi possível verificar sua sessão. Por favor, faça login novamente.",
+      });
+      navigate("/entrar");
       return;
     }
     
     if (plan === "free") {
-      setPlan(plan);
-      toast({
-        title: "Plano atualizado",
-        description: "Você está utilizando o plano Grátis.",
-      });
-      navigate("/dashboard");
+      try {
+        setPlan(plan);
+        toast({
+          title: "Plano atualizado",
+          description: "Você está utilizando o plano Grátis.",
+        });
+        navigate("/dashboard");
+      } catch (error) {
+        console.error("Erro ao atualizar plano:", error);
+        toast({
+          title: "Erro ao atualizar plano",
+          description: "Não foi possível atualizar seu plano. Por favor, tente novamente.",
+        });
+      }
       return;
     }
     
