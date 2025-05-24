@@ -1,7 +1,7 @@
 
 // Evolution API constants
-export const EVOLUTION_API_URL = "https://cloudsaas.geni.chat"; // API URL without trailing slash
-export const EVOLUTION_API_KEY = "a01d49df66f0b9d8f368d3788a32aea8"; // Global API Key
+export const EVOLUTION_API_URL = import.meta.env.VITE_EVOLUTION_API_URL || "https://cloudsaas.geni.chat"; // API URL without trailing slash
+export const EVOLUTION_API_KEY = import.meta.env.VITE_EVOLUTION_API_KEY || ""; // Global API Key - Deve ser configurada como variável de ambiente
 export const USE_BEARER_AUTH = false; // Switch to use apikey header instead of Bearer token
 
 // IMPORTANT: Always use real API calls in production

@@ -9,9 +9,16 @@ if ! docker info > /dev/null 2>&1; then
   exit 1
 fi
 
+# Carregar variáveis de ambiente
+if [ -f .env ]; then
+  source .env
+else
+  echo "Arquivo .env não encontrado. Usando valores padrão."
+fi
+
 # Variáveis
-PROJECT_REF="hpovwcaskorzzrpphgkc"
-NEW_SITE_URL="https://saa-s-agent.vercel.app"
+PROJECT_REF="${PROJECT_REF:-hpovwcaskorzzrpphgkc}"
+NEW_SITE_URL="${SITE_URL:-https://saa-s-agent.vercel.app}"
 
 # Atualizar a variável SITE_URL
 echo "Atualizando a URL do site para: $NEW_SITE_URL"

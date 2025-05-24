@@ -1,9 +1,13 @@
 // Teste de fluxo completo usando a API do Supabase
 import { createClient } from '@supabase/supabase-js';
+import * as dotenv from 'dotenv';
+
+// Carregar variáveis de ambiente
+dotenv.config();
 
 // Configurações do projeto Supabase
-const SUPABASE_URL = 'https://hpovwcaskorzzrpphgkc.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhwb3Z3Y2Fza29yenpycHBoZ2tjIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NTU5NDI5NTYsImV4cCI6MTk3MTUxODk1Nn0.CqtbnT5KwQsCoRiurG-_T2cyOzHS8m7ktmyKmO5T4S8'; // Chave anônima pública
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://hpovwcaskorzzrpphgkc.supabase.co';
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhwb3Z3Y2Fza29yenpycHBoZ2tjIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NTU5NDI5NTYsImV4cCI6MTk3MTUxODk1Nn0.CqtbnT5KwQsCoRiurG-_T2cyOzHS8m7ktmyKmO5T4S8'; // Fallback para a chave pública
 
 // Criar cliente Supabase
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
