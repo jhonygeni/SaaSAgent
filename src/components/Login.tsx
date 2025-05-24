@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -46,16 +45,25 @@ export function Login() {
       });
       
       if (error) {
-        console.error("Erro de login:", error);          // Verificar se é um erro de e-mail não confirmado
+        console.error("Erro de login:", error);
+        // Verificar se é um erro de e-mail não confirmado
         if (error.message.includes("Email not confirmed")) {
-          // Exibir mensagem específica e oferecer opção de reenviar e-mail
           toast({
             title: "E-mail não confirmado",
-            description: "Você precisa confirmar seu e-mail antes de fazer login. Verifique sua caixa de entrada ou solicite um novo e-mail de confirmação.",
+            description: (
+              <div>
+                Você precisa confirmar seu e-mail antes de fazer login.{" "}
+                <Button
+                  variant="link"
+                  className="p-0 h-auto text-primary"
+                  onClick={() => navigate("/reenviar-confirmacao", { state: { email } })}
+                >
+                  Clique aqui para reenviar o email de confirmação
+                </Button>
+              </div>
+            ),
+            duration: 10000,
           });
-          
-          // Redirecionar para a página de reenvio de confirmação
-          navigate("/reenviar-confirmacao", { state: { email } });
           return;
         }
         

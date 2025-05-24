@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -73,20 +72,8 @@ export function Register() {
         description: "Enviamos um link de confirmação para o seu e-mail. Por favor, verifique sua caixa de entrada para ativar sua conta.",
       });
       
-      // Verificando se temos um usuário válido no data
-      if (data.user) {
-        // Esperar pela consulta ao status da assinatura para garantir que o usuário esteja carregado no contexto
-        await checkSubscriptionStatus();
-        
-        // Usar timeout para garantir que o estado do usuário foi atualizado no contexto
-        setTimeout(() => {
-          // Navegar para o dashboard primeiro, depois o usuário pode escolher planos
-          navigate("/dashboard");
-        }, 1000);
-      } else {
-        // Se não tiver usuário válido, redirecionamos para o login
-        navigate("/entrar");
-      }
+      // Redirecionar para a página de sucesso de confirmação de email
+      navigate("/confirmar-email-sucesso");
     } catch (error: any) {
       console.error("Erro completo ao criar conta:", error);
       let errorMessage = "Ocorreu um erro ao criar sua conta. Tente novamente.";
