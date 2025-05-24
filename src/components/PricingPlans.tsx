@@ -156,7 +156,7 @@ export function PricingPlans() {
         </div>
         {/* Growth - DESTAQUE */}
         <div className="relative flex flex-col items-center rounded-2xl border-2 border-blue-600 bg-[#151F33] p-8 min-h-[500px] scale-105 z-10 shadow-lg">
-          <span className="absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white font-bold px-4 py-1 rounded-full text-xs shadow border border-blue-400">Popular</span>
+          <span className="absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white font-bold px-4 py-1 rounded-full text-xl shadow border border-blue-400">Popular</span>
           <h3 className="font-extrabold text-2xl mb-1 text-white">Growth</h3>
           <p className="text-sm text-neutral-400 mb-2">Para empresas em expansão</p>
           <div className="text-4xl font-black text-white mb-1">R$249<span className='text-base font-normal text-neutral-400'>/mês</span></div>

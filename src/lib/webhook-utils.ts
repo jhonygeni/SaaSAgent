@@ -37,6 +37,7 @@ export async function sendWithRetries<T = any>(
       }
       
       // If this isn't the first attempt, wait before retrying
+      
       if (attempt > 0) {
         await new Promise(resolve => setTimeout(resolve, retryDelay * Math.pow(2, attempt - 1)));
       }
