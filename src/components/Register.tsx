@@ -57,7 +57,7 @@ export function Register() {
           data: {
             name: name,
           },
-          emailRedirectTo: `${window.location.origin}/confirmar-email-sucesso`,
+          emailRedirectTo: "https://app.conversaai.com.br/confirmar-email"
         }
       });
       
@@ -67,6 +67,12 @@ export function Register() {
       }
       
       console.log("Conta criada com sucesso:", data);
+      
+      if (!data.user) {
+        console.error("Usuário não foi criado corretamente:", data);
+        throw new Error("Falha ao criar usuário");
+      }
+      
       toast({
         title: "Confirmação de e-mail necessária",
         description: "Enviamos um link de confirmação para o seu e-mail. Por favor, verifique sua caixa de entrada para ativar sua conta.",
