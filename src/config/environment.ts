@@ -92,15 +92,31 @@ function getUniversalEnvVar(viteName: string, nodeName?: string): string | undef
  * Carrega e valida todas as variáveis de ambiente
  */
 function loadEnvironmentConfig(): EnvironmentConfig {
+  console.log('🔧 Carregando configuração de ambiente...');
+  
   // Detectar ambiente
   const nodeEnv = process.env.NODE_ENV || 'development';
   const isProduction = nodeEnv === 'production';
+  const isVite = isViteContext();
+  
+  console.log(`📍 Contexto: ${isVite ? 'Vite (Frontend)' : 'Node.js (Backend)'}`);
+  console.log(`🌍 Ambiente: ${nodeEnv}`);
 
   // Supabase - URLs obrigatórias
   const supabaseUrl = getUniversalEnvVar('VITE_SUPABASE_URL', 'SUPABASE_URL') || 
                       'https://hpovwcaskorzzrpphgkc.supabase.co';
   
+  console.log(`🔗 Supabase URL: ${supabaseUrl}`);
+  
   const supabaseAnonKey = getUniversalEnvVar('VITE_SUPABASE_ANON_KEY', 'SUPABASE_ANON_KEY') || '';
+  
+  // DIAGNÓSTICO: Verificar se as chaves estão vazias
+  if (!supabaseAnonKey || supabaseAnonKey.trim() === '') {
+    console.warn('⚠️  SUPABASE_ANON_KEY está vazia! Algumas funcionalidades podem não funcionar.');
+    console.warn('💡 Configure a variável VITE_SUPABASE_ANON_KEY no .env.local');
+  } else {
+    console.log(`✅ Supabase Anon Key configurada (${supabaseAnonKey.substring(0, 20)}...)`);
+  }
   
   // Service Role Key apenas para backend
   const supabaseServiceRoleKey = isViteContext() ? 

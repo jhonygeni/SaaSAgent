@@ -2,6 +2,7 @@ import { createContext, useContext, useState, ReactNode, useEffect, useCallback 
 import { User, SubscriptionPlan } from '../types';
 import { getMessageLimitByPlan } from '../lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { diagnostic, logStep, logAsyncStep } from '@/utils/diagnostic';
 
 interface UserContextType {
   user: User | null;
@@ -19,20 +20,24 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   
+  console.log('👤 UserProvider: Inicializando...');
+  
   // Função auxiliar para criar um usuário com plano padrão
   const createUserWithDefaultPlan = (supabaseUser: any, defaultPlan: SubscriptionPlan = 'free') => {
-    const newUser: User = {
-      id: supabaseUser.id,
-      email: supabaseUser.email || '',
-      name: supabaseUser.user_metadata?.name || supabaseUser.email || '',
-      plan: defaultPlan,
-      messageCount: 0,
-      messageLimit: getMessageLimitByPlan(defaultPlan),
-      agents: [],
-    };
-    console.log("Criando novo usuário no contexto com plano padrão:", newUser);
-    setUser(newUser);
-    return newUser;
+    return logStep('Create User With Default Plan', () => {
+      const newUser: User = {
+        id: supabaseUser.id,
+        email: supabaseUser.email || '',
+        name: supabaseUser.user_metadata?.name || supabaseUser.email || '',
+        plan: defaultPlan,
+        messageCount: 0,
+        messageLimit: getMessageLimitByPlan(defaultPlan),
+        agents: [],
+      };
+      console.log("Criando novo usuário no contexto com plano padrão:", newUser);
+      setUser(newUser);
+      return newUser;
+    });
   };
   
   // Check subscription status

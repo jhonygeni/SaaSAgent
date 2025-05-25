@@ -8,7 +8,12 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check-env": "node check-environment.mjs",
+    "dev:debug": "npm run check-env && vite",
+    "build:prod": "npm run check-env && vite build && vite preview",
+    "diagnose": "node check-environment.mjs && node verificacao-final.mjs",
+    "test:quick": "node teste-rapido.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
