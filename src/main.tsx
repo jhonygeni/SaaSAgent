@@ -5,6 +5,17 @@ import App from './App.tsx'
 import './index.css'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { diagnostic, logStep } from './utils/diagnostic'
+import './test-env-browser' // TESTE TEMPORÁRIO
+
+// TESTE CRÍTICO - PRIMEIRO LOG
+console.log('🔥 MAIN.TSX CARREGADO! Testando variáveis...');
+console.log('VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL);
+console.log('VITE_SUPABASE_ANON_KEY existe?', !!import.meta.env.VITE_SUPABASE_ANON_KEY);
+
+// Debug para modo desenvolvimento
+if (import.meta.env.DEV) {
+  import('./debug');
+}
 
 // Adicionar diagnóstico global
 console.log('🚀 Iniciando aplicação ConversaAI Brasil...');

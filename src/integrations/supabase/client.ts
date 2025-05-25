@@ -13,11 +13,18 @@ if (!SUPABASE_URL) {
   throw new Error('SUPABASE_URL is required but not configured');
 }
 
-if (!SUPABASE_PUBLISHABLE_KEY) {
-  console.warn('⚠️  SUPABASE_ANON_KEY not configured - some features may not work');
+// FALLBACK TEMPORÁRIO para debug - permitir carregar mesmo com chave vazia
+let effectiveAnonKey = SUPABASE_PUBLISHABLE_KEY;
+if (!SUPABASE_PUBLISHABLE_KEY || SUPABASE_PUBLISHABLE_KEY.trim() === '') {
+  console.error('❌ SUPABASE_ANON_KEY não está configurada!');
+  console.error('💡 Usando fallback temporário para debug');
+  console.error('🔧 Certifique-se de que VITE_SUPABASE_ANON_KEY está no arquivo .env');
+  
+  // Usar uma chave falsa temporariamente para permitir debug
+  effectiveAnonKey = 'debug-mode-key';
 }
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+export const supabase = createClient<Database>(SUPABASE_URL, effectiveAnonKey, {
   auth: {
     storage: localStorage,
     persistSession: true,
