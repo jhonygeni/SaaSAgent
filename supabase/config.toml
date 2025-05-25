@@ -2,11 +2,11 @@ project_id = "hpovwcaskorzzrpphgkc"
 
 [auth]
 # Configuração personalizada para a autenticação
-site_url = "https://app.conversaai.com.br"
+site_url = "https://saa-s-agent.vercel.app"
 additional_redirect_urls = [
-  "https://app.conversaai.com.br/*",
-  "https://conversaai.com.br/*",
-  "http://localhost:3000/*"
+  "https://saa-s-agent.vercel.app/*",
+  "http://localhost:3000/*",
+  "http://localhost:8080/*"
 ]
 
 # Configuração do provedor de e-mail personalizado

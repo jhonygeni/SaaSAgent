@@ -1,274 +1,204 @@
-// filepath: /Users/jhonymonhol/Desktop/conversa-ai-brasil/supabase/functions/custom-email/index.ts
-// @ts-ignore
+/// <reference types="https://deno.land/x/types/index.d.ts" />
+
+// Follow this setup guide to integrate the Deno language server with your editor:
+// https://deno.land/manual/getting_started/setup_your_environment
+// This enables autocomplete, go to definition, etc.
+
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-// @ts-ignore
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+import { connect } from "https://deno.land/x/smtp/mod.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, Authorization",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Max-Age": "86400"
+interface EmailRequest {
+  email: string;
+  template: string;
+  data: Record<string, unknown>;
+}
+
+interface EmailTemplate {
+  subject: string;
+  html: string;
+}
+
+const BASE_URL = 'https://saa-s-agent.vercel.app';
+
+const TEMPLATES: Record<string, (data: Record<string, unknown>) => EmailTemplate> = {
+  confirmacao: (data) => ({
+    subject: "Confirme seu email - Geni Chat",
+    html: `
+      <h1>Olá ${data.nome || ""}!</h1>
+      <p>Bem-vindo(a) ao Geni Chat. Para confirmar seu email, clique no link abaixo:</p>
+      <a href="${BASE_URL}/confirmar?token=${data.token || ""}"">Confirmar Email</a>
+      <p>Se você não criou uma conta, pode ignorar este email.</p>
+    `
+  }),
+  resetSenha: (data) => ({
+    subject: "Redefinição de Senha - Geni Chat",
+    html: `
+      <h1>Redefinição de Senha</h1>
+      <p>Você solicitou a redefinição de sua senha. Clique no link abaixo para criar uma nova senha:</p>
+      <a href="${BASE_URL}/reset-senha?token=${data.token || ""}"">Redefinir Senha</a>
+      <p>Se você não solicitou esta redefinição, pode ignorar este email.</p>
+    `
+  })
 };
 
-// Informações do remetente
-const FROM_EMAIL = "validar@geni.chat";
-const FROM_NAME = "ConversaAI Brasil";
-const REPLY_TO = "suporte@conversaai.com.br";
-
-// Função para registrar logs de e-mail
-const logEmailSend = (email, type, success, errorMessage = null) => {
-  console.log(`EMAIL_LOG: ${new Date().toISOString()} | To: ${email} | Type: ${type} | Success: ${success} ${errorMessage ? '| Error: ' + errorMessage : ''}`);
-};
-
-// Template de e-mail de confirmação
-const generateConfirmationEmailHTML = (confirmationLink, userName) => {
-  const appUrl = "https://app.conversaai.com.br";
-  const supportEmail = "suporte@conversaai.com.br";
+const sendEmail = async (to: string, subject: string, html: string) => {
+  console.log('=== Iniciando processo de envio de email ===');
   
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Confirme seu e-mail - ConversaAI Brasil</title>
-  <style>
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      line-height: 1.6;
-      color: #333;
-      margin: 0;
-      padding: 0;
-    }
-    .container {
-      max-width: 600px;
-      margin: 0 auto;
-      padding: 20px;
-    }
-    .header {
-      text-align: center;
-      padding: 20px 0;
-      background-color: #151F33;
-    }
-    .header img {
-      max-height: 50px;
-    }
-    .content {
-      padding: 30px 20px;
-      background-color: #ffffff;
-      border-radius: 5px;
-    }
-    .button {
-      display: inline-block;
-      background-color: #0066FF;
-      color: #ffffff !important;
-      text-decoration: none;
-      padding: 12px 30px;
-      border-radius: 5px;
-      margin: 20px 0;
-      font-weight: bold;
-    }
-    .footer {
-      text-align: center;
-      padding: 20px;
-      color: #666;
-      font-size: 14px;
-    }
-    .note {
-      font-size: 13px;
-      color: #666;
-      margin-top: 30px;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <img src="${appUrl}/logo.png" alt="ConversaAI Brasil" />
-    </div>
-    <div class="content">
-      <h2>Olá ${userName || "novo usuário"},</h2>
-      <p>Obrigado por se cadastrar na plataforma ConversaAI Brasil.</p>
-      <p>Por favor, confirme seu endereço de e-mail clicando no botão abaixo:</p>
-      <div style="text-align: center;">
-        <a href="${confirmationLink}" class="button">Confirmar meu e-mail</a>
-      </div>
-      <p>Se você não solicitou este e-mail, pode ignorá-lo com segurança.</p>
-      <p>O link de confirmação expira em 24 horas.</p>
-      <div class="note">
-        <p>Se o botão não funcionar, copie e cole o link abaixo em seu navegador:</p>
-        <p style="word-break: break-all;">${confirmationLink}</p>
-      </div>
-    </div>
-    <div class="footer">
-      <p>© ${new Date().getFullYear()} ConversaAI Brasil. Todos os direitos reservados.</p>
-      <p>Em caso de dúvidas, entre em contato conosco: ${supportEmail}</p>
-      <p>Este e-mail foi enviado por validar@geni.chat em nome da ConversaAI Brasil</p>
-    </div>
-  </div>
-</body>
-</html>
-  `;
-};
+  const smtp = {
+    hostname: Deno.env.get('SMTP_HOST') || '',
+    port: parseInt(Deno.env.get('SMTP_PORT') || '465'),
+    username: Deno.env.get('SMTP_USERNAME') || '',
+    password: Deno.env.get('SMTP_PASSWORD') || '',
+    from: Deno.env.get('SMTP_FROM') || ''
+  };
 
-const sendCustomEmail = async (email, type, token, redirectTo, metadata) => {
+  // Log das configurações (sem a senha)
+  console.log('Configurações SMTP:', {
+    hostname: smtp.hostname,
+    port: smtp.port,
+    username: smtp.username,
+    from: smtp.from
+  });
+
+  // Validar configurações SMTP
+  if (!smtp.hostname) throw new Error('SMTP_HOST não configurado');
+  if (!smtp.username) throw new Error('SMTP_USERNAME não configurado');
+  if (!smtp.password) throw new Error('SMTP_PASSWORD não configurado');
+  if (!smtp.from) throw new Error('SMTP_FROM não configurado');
+
+  console.log('Todas as configurações SMTP estão presentes');
+
   try {
-    console.log("Iniciando envio de e-mail personalizado...");
-    
-    // Obter configurações do ambiente (Deno será disponível no ambiente de execução da função Edge)
-    // @ts-ignore - Deno will be available in the Edge Function environment
-    const SMTP_HOST = Deno.env.get("SMTP_HOST");
-    // @ts-ignore - Deno will be available in the Edge Function environment
-    const SMTP_PORT = Number(Deno.env.get("SMTP_PORT"));
-    // @ts-ignore - Deno will be available in the Edge Function environment
-    const SMTP_USERNAME = Deno.env.get("SMTP_USERNAME");
-    // @ts-ignore - Deno will be available in the Edge Function environment
-    const SMTP_PASSWORD = Deno.env.get("SMTP_PASSWORD");
-    
-    // Verificar se todas as variáveis de ambiente necessárias estão definidas
-    if (!SMTP_HOST || !SMTP_PORT || !SMTP_USERNAME || !SMTP_PASSWORD) {
-      throw new Error("Configurações SMTP incompletas. Verifique as variáveis de ambiente.");
-    }
-    
-    console.log(`Usando SMTP: ${SMTP_HOST}:${SMTP_PORT}, usuário: ${SMTP_USERNAME}`);
-    
-    // Configurar cliente SMTP
-    const client = new SMTPClient({
-      connection: {
-        hostname: SMTP_HOST,
-        port: SMTP_PORT,
-        tls: true,
-        auth: {
-          username: SMTP_USERNAME,
-          password: SMTP_PASSWORD,
-        }
-      }
+    console.log('Conectando ao servidor SMTP...');
+    const client = await connect({
+      hostname: smtp.hostname,
+      port: smtp.port,
+      username: smtp.username,
+      password: smtp.password,
     });
 
-    // Determinar o tipo de e-mail e criar o assunto e conteúdo adequados
-    let subject = "";
-    let content = "";
-    let confirmationLink = "";
-    const userName = metadata?.name || email.split("@")[0];
-    
-    // Construir link com base nos parâmetros recebidos
-    const baseUrl = Deno.env.get("SITE_URL") || "https://app.conversaai.com.br";
-    
-    // Adicionar as tabelas de projeto do Supabase
-    const projectRef = "hpovwcaskorzzrpphgkc";
-    
-    // Construir o link de verificação. Importante preservar o formato correto para o Supabase processar
-    let supabaseURL = "";
-    
-    if (type === "signup" || type === "email_signup") {
-      // URL para confirmação de cadastro - mantém o formato do Supabase para verificação
-      supabaseURL = `https://${projectRef}.supabase.co/auth/v1/verify`;
-      confirmationLink = `${supabaseURL}?token=${token}&type=${type}&redirect_to=${encodeURIComponent(redirectTo || baseUrl+"/confirmar-email")}`;
-      subject = "Confirme seu e-mail - ConversaAI Brasil";
-      content = generateConfirmationEmailHTML(confirmationLink, userName);
-    } else if (type === "email_change") {
-      // URL para confirmação de alteração de e-mail
-      supabaseURL = `https://${projectRef}.supabase.co/auth/v1/verify`;
-      confirmationLink = `${supabaseURL}?token=${token}&type=${type}&redirect_to=${encodeURIComponent(redirectTo || baseUrl)}`;
-      subject = "Confirme seu novo e-mail - ConversaAI Brasil";
-      content = generateConfirmationEmailHTML(confirmationLink, userName);
-    } else if (type === "recovery" || type === "password_recovery") {
-      // URL para recuperação de senha
-      supabaseURL = `https://${projectRef}.supabase.co/auth/v1/verify`;
-      confirmationLink = `${supabaseURL}?token=${token}&type=${type}&redirect_to=${encodeURIComponent(redirectTo || baseUrl+"/redefinir-senha")}`;
-      subject = "Redefinição de senha - ConversaAI Brasil";
-      content = generateConfirmationEmailHTML(confirmationLink, userName);
-    } else {
-      // Tipo de e-mail desconhecido ou não tratado
-      console.warn(`Tipo de e-mail não reconhecido: ${type}`);
-      subject = "Notificação - ConversaAI Brasil";
-      content = generateConfirmationEmailHTML(`${baseUrl}`, userName);
-    }
-    
-    console.log(`Enviando e-mail tipo '${type}' para: ${email}`);
-
-    // Enviar e-mail
+    console.log('Enviando email...');
     await client.send({
-      from: `${FROM_NAME} <${FROM_EMAIL}>`,
-      to: [email],
+      from: smtp.username,
+      to: to,
       subject: subject,
-      html: content,
-      headers: {
-        "Reply-To": REPLY_TO,
-        "X-Mailer": "ConversaAI-CustomMailer",
-      },
+      content: html,
+      html: true
     });
 
-    // Registrar sucesso no log
-    logEmailSend(email, type, true);
-    console.log("E-mail enviado com sucesso!");
-
+    console.log('Email enviado com sucesso!');
     await client.close();
-    return { success: true };
-  } catch (error) {
-    // Registrar falha no log
-    logEmailSend(email, type, false, error.message);
+    console.log('Conexão SMTP fechada');
     
-    console.error("Erro ao enviar e-mail:", error);
-    return { success: false, error: error.message };
+  } catch (error) {
+    console.error('=== ERRO DETALHADO NO ENVIO DE EMAIL ===');
+    console.error('Tipo do erro:', error.name);
+    console.error('Mensagem:', error.message);
+    console.error('Stack:', error.stack);
+    throw error;
   }
 };
 
 serve(async (req) => {
-  // Registrar recebimento da solicitação
-  console.log(`Requisição recebida: ${req.method} ${new URL(req.url).pathname}`);
+  const requestId = crypto.randomUUID();
+  console.log(`[${requestId}] Nova requisição recebida`);
   
-  // Handle CORS preflight request
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
-
   try {
-    // Apenas POST é suportado
-    if (req.method !== "POST") {
-      throw new Error(`Method ${req.method} not allowed`);
+    if (req.method !== 'POST') {
+      console.log(`[${requestId}] Método não permitido: ${req.method}`);
+      return new Response(
+        JSON.stringify({ success: false, message: 'Method not allowed' }),
+        { 
+          status: 405,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
     }
 
-    // Recuperar corpo da requisição
-    const body = await req.json();
-    const { email, type, token, redirect_to, metadata } = body;
-
-    // Log para ajudar na depuração
-    console.log("Payload recebido:", {
-      email,
-      type,
-      hasToken: !!token,
-      redirect_to,
-      metadata
+    const data: EmailRequest = await req.json();
+    console.log(`[${requestId}] Dados recebidos:`, {
+      email: data.email,
+      template: data.template,
+      data: data.data
     });
 
-    // Validar parâmetros obrigatórios
-    if (!email || !type || !token) {
-      throw new Error("Missing required parameters: email, type, token");
+    if (!data.email || !data.template || !data.data) {
+      console.error(`[${requestId}] Dados obrigatórios faltando`);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: 'Missing required fields: email, template, and data are required'
+        }),
+        { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
     }
-    
-    // Enviar e-mail personalizado
-    const result = await sendCustomEmail(email, type, token, redirect_to, metadata);
-    
-    if (!result.success) {
-      throw new Error(`Failed to send email: ${result.error}`);
+
+    if (!TEMPLATES[data.template]) {
+      console.error(`[${requestId}] Template não encontrado:`, data.template);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: `Template "${data.template}" not found`
+        }),
+        { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
     }
-    
-    return new Response(JSON.stringify({ success: true }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
-    });
+
+    console.log(`[${requestId}] Gerando template do email...`);
+    const template = TEMPLATES[data.template](data.data);
+
+    console.log(`[${requestId}] Iniciando envio do email...`);
+    await sendEmail(data.email, template.subject, template.html);
+
+    console.log(`[${requestId}] Processo finalizado com sucesso`);
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: `Email sent successfully to ${data.email}`
+      }),
+      { 
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
+
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`[CUSTOM-EMAIL] ERROR: ${errorMessage}`);
+    console.error(`[${requestId}] Erro no processamento:`, {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
     
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({
+        success: false,
+        message: 'Internal server error',
+        error: error.message,
+        stack: error.stack,
+        type: error.name
+      }),
       { 
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400 
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
       }
     );
   }
 });
+
+/* To invoke locally:
+
+  1. Run `supabase start` (see: https://supabase.com/docs/reference/cli/supabase-start)
+  2. Make an HTTP request:
+
+  curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/custom-email' \
+    --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0' \
+    --header 'Content-Type: application/json' \
+    --data '{"name":"Functions"}'
+
+*/
