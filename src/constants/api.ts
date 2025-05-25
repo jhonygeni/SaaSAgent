@@ -1,11 +1,13 @@
 
-// Evolution API constants
-export const EVOLUTION_API_URL = import.meta.env.VITE_EVOLUTION_API_URL || "https://cloudsaas.geni.chat"; // API URL without trailing slash
-export const EVOLUTION_API_KEY = import.meta.env.VITE_EVOLUTION_API_KEY || ""; // Global API Key - Deve ser configurada como variável de ambiente
-export const USE_BEARER_AUTH = false; // Switch to use apikey header instead of Bearer token
+// Evolution API constants - Using centralized environment configuration
+import { EVOLUTION_CONFIG, FEATURE_FLAGS } from '../config/environment';
+
+export const EVOLUTION_API_URL = EVOLUTION_CONFIG.url; // API URL without trailing slash
+export const EVOLUTION_API_KEY = EVOLUTION_CONFIG.key; // Global API Key - Configurada via variáveis de ambiente
+export const USE_BEARER_AUTH = FEATURE_FLAGS.useBearerAuth; // Switch to use apikey header instead of Bearer token
 
 // IMPORTANT: Always use real API calls in production
-export const USE_MOCK_DATA = false; // Disable mock mode to ensure real API calls
+export const USE_MOCK_DATA = FEATURE_FLAGS.useMockData; // Disable mock mode to ensure real API calls
 
 // API endpoints - following official Evolution API documentation
 export const ENDPOINTS = {
