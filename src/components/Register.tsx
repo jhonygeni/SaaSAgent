@@ -48,8 +48,7 @@ export function Register() {
     setLoading(true);
     
     try {
-      console.log("Iniciando processo de registro com:", { email, name });
-      
+      console.log("Tentando criar conta com:", { email, name });
       // Register with Supabase
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -57,25 +56,23 @@ export function Register() {
         options: {
           data: {
             name: name,
-            email: email,
           },
-          emailRedirectTo: "https://saa-s-agent.vercel.app/confirmar-email"
+          emailRedirectTo: "https://app.conversaai.com.br/confirmar-email"
         }
       });
       
       if (error) {
-        console.error("Erro detalhado ao criar conta:", error);
+        console.error("Erro ao criar conta:", error);
         throw error;
       }
       
-      console.log("Resposta do Supabase Auth:", data);
+      console.log("Conta criada com sucesso:", data);
       
       if (!data.user) {
-        console.error("Usuário não foi criado corretamente. Resposta:", data);
-        throw new Error("Falha ao criar usuário no Supabase Auth");
+        console.error("Usuário não foi criado corretamente:", data);
+        throw new Error("Falha ao criar usuário");
       }
-
-      console.log("Conta criada com sucesso!");
+      
       toast({
         title: "Confirmação de e-mail necessária",
         description: "Enviamos um link de confirmação para o seu e-mail. Por favor, verifique sua caixa de entrada para ativar sua conta.",

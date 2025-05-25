@@ -2,9 +2,8 @@
  * Função Edge custom-email para o Supabase
  * 
  * Esta função lida com eventos de autenticação do Supabase e envia emails personalizados.
- * Suporta múltiplos formatos de payload para compatibilidade com diferentes integrações.
  * 
- * FORMATOS DE PAYLOAD SUPORTADOS:
+ * FORMATOS DE PAYLOAD ESPERADOS:
  * 
  * 1. Formato Hook Auth (EventTypes): 
  * {
@@ -30,57 +29,14 @@
  *   }
  * }
  * 
- * 3. Formato template personalizado:
- * {
- *   "email": "user@example.com",
- *   "template": "confirmacao",
- *   "data": {
- *     "token": "verification_token",
- *     "nome": "Nome do Usuário"
- *   }
- * }
- * 
  * @see https://supabase.com/docs/guides/auth/auth-hooks
  */
 
-// Imports necessários
-// @ts-ignore - Usar o padrão de importação do Deno
+// @ts-ignore
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-// @ts-ignore - Usar o padrão de importação do Deno
+// @ts-ignore
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
-// Definição de interfaces para tipagem
-interface EmailRequest {
-  email?: string;
-  template?: string;
-  data?: Record<string, unknown>;
-  type?: string;
-  token?: string;
-  redirect_to?: string;
-  metadata?: Record<string, unknown>;
-  user?: {
-    email?: string;
-    id?: string;
-    user_metadata?: Record<string, unknown>;
-  };
-  event?: string;
-}
-
-interface EmailData {
-  email: string;
-  type: string;
-  token: string;
-  redirectTo?: string;
-  metadata?: Record<string, unknown>;
-  userId?: string;
-}
-
-interface EmailResult {
-  success: boolean;
-  error?: string;
-}
-
-// Configuração de CORS para permitir chamadas de diferentes origens
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, Authorization",
@@ -95,26 +51,24 @@ const REPLY_TO = "suporte@conversaai.com.br";
 
 // Sistema de logging aprimorado com níveis de severidade
 const log = {
-  info: (message: string, data: unknown = {}): void => {
-    console.log(`[INFO] ${new Date().toISOString()} | ${message}`, 
-      typeof data === 'object' && data !== null ? JSON.stringify(data) : '');
+  info: (message, data = {}) => {
+    console.log(`[INFO] ${new Date().toISOString()} | ${message}`, data ? JSON.stringify(data) : '');
   },
-  warn: (message: string, data: unknown = {}): void => {
-    console.warn(`[WARN] ${new Date().toISOString()} | ${message}`, 
-      typeof data === 'object' && data !== null ? JSON.stringify(data) : '');
+  warn: (message, data = {}) => {
+    console.warn(`[WARN] ${new Date().toISOString()} | ${message}`, data ? JSON.stringify(data) : '');
   },
-  error: (message: string, error: unknown = null, data: unknown = {}): void => {
+  error: (message, error = null, data = {}) => {
     console.error(`[ERROR] ${new Date().toISOString()} | ${message}`, 
       error ? `\nError: ${error instanceof Error ? error.message : String(error)}` : '',
-      typeof data === 'object' && data !== null ? `\nData: ${JSON.stringify(data)}` : '');
+      data ? `\nData: ${JSON.stringify(data)}` : '');
   },
-  email: (email: string, type: string, success: boolean, errorMessage: string | null = null): void => {
+  email: (email, type, success, errorMessage = null) => {
     console.log(`[EMAIL] ${new Date().toISOString()} | To: ${email} | Type: ${type} | Success: ${success} ${errorMessage ? '| Error: ' + errorMessage : ''}`);
   }
 };
 
 // Template de e-mail de confirmação
-const generateConfirmationEmailHTML = (confirmationLink: string, userName: string): string => {
+const generateConfirmationEmailHTML = (confirmationLink, userName) => {
   const appUrl = "https://app.conversaai.com.br";
   const supportEmail = "suporte@conversaai.com.br";
   
@@ -208,26 +162,25 @@ const generateConfirmationEmailHTML = (confirmationLink: string, userName: strin
  * Analisa o payload da requisição e extrai os dados necessários,
  * suportando diferentes formatos enviados pelo Supabase
  */
-const parsePayload = (body: EmailRequest): EmailData => {
+const parsePayload = (body) => {
   // Log do payload completo para debug
-  log.info("Payload completo recebido", body);
+  log.info("Payload completo recebido:", body);
 
   // Dados que precisamos extrair
-  let email: string | null = null;
-  let type: string | null = null;
-  let token: string | null = null;
-  let redirectTo: string | undefined = undefined;
-  let metadata: Record<string, unknown> | undefined = undefined;
-  let userId: string | undefined = undefined;
+  let email = null;
+  let type = null;
+  let token = null;
+  let redirectTo = null;
+  let metadata = null;
+  let userId = null;
   
   try {
     // Caso 1: Formato do Auth Hooks do Supabase (formato preferido)
     if (body.type === "auth" && body.event && body.user) {
       log.info("Formato detectado: Auth Hook");
-      email = body.user?.email ?? null;
+      email = body.user?.email;
       type = body.event;  // signup, email_change, recovery, etc.
-      token = (body.data && 'token' in body.data) ? String(body.data.token) : 
-              (body.token ? String(body.token) : null);
+      token = body.data?.token || body.token;
       userId = body.user?.id;
       
       // Construir URL de redirecionamento se não fornecido
@@ -240,68 +193,39 @@ const parsePayload = (body: EmailRequest): EmailData => {
         redirectTo = baseUrl;
       }
       
-      metadata = body.user?.user_metadata;
+      metadata = body.user?.user_metadata || {};
     }
-    // Caso 2: Formato template personalizado
-    else if (body.email && body.template && body.data) {
-      log.info("Formato detectado: Template personalizado");
-      email = body.email;
-      type = body.template;
-      
-      // Para este formato, o token pode estar dentro do objeto data
-      token = body.data && 'token' in body.data ? String(body.data.token) : null;
-      
-      // Se não houver token, verificar se temos um token para confirmação de email
-      if (!token) {
-        const confirmTokenPath = body.data && 'email_confirm' in body.data ? String(body.data.email_confirm) : null;
-        if (confirmTokenPath) {
-          // Extrair token da URL de confirmação se presente
-          try {
-            const url = new URL(confirmTokenPath);
-            const tokenParam = url.searchParams.get('token');
-            if (tokenParam) {
-              token = tokenParam;
-              redirectTo = confirmTokenPath;
-            }
-          } catch (e) {
-            log.warn(`Falha ao analisar URL de confirmação: ${confirmTokenPath}`);
-          }
-        }
-      }
-      
-      // Usar dados do template como metadados
-      metadata = body.data;
-    }
-    // Caso 3: Formato direto da API (legacy)
+    // Caso 2: Formato direto da API (legacy)
     else if (body.email && body.type && body.token) {
       log.info("Formato detectado: API Direta");
       email = body.email;
       type = body.type;
       token = body.token;
       redirectTo = body.redirect_to;
-      metadata = body.metadata;
+      metadata = body.metadata || {};
     }
-    // Caso 4: Tentativa de extrair de qualquer formato
+    // Caso 3: Tentativa de extrair de qualquer formato
     else {
       log.warn("Formato desconhecido, tentando detectar campos");
       
       // Tenta encontrar e-mail em diferentes locais possíveis
-      email = body.user?.email || body.email || 
-              (body.data && 'email' in body.data) ? String(body.data.email) : null;
+      email = body.user?.email || body.email || body.user_email || 
+              body.data?.email || body.payload?.email || null;
       
       // Tenta encontrar tipo em diferentes locais possíveis
-      type = body.event || body.type || body.template ||
-             (body.data && 'type' in body.data) ? String(body.data.type) : "signup";
+      type = body.event || body.type || body.eventType || 
+             body.data?.type || body.action || "signup";
       
       // Tenta encontrar token em diferentes locais possíveis  
-      token = (body.data && 'token' in body.data) ? String(body.data.token) : 
-              body.token || null;
+      token = body.data?.token || body.token || body.verification_token ||
+              body.payload?.token || null;
               
       // Tentativa para metadados
-      metadata = body.user?.user_metadata || body.metadata || body.data;
+      metadata = body.user?.user_metadata || body.metadata || 
+                body.data?.metadata || body.user_data || {};
                 
       // Tentativa para redirect
-      redirectTo = body.redirect_to;
+      redirectTo = body.redirect_to || body.redirectTo || body.redirect_url || null;
     }
     
     // Validação final dos dados extraídos
@@ -316,14 +240,8 @@ const parsePayload = (body: EmailRequest): EmailData => {
     }
     
     if (!token) {
-      // Para alguns formatos de teste, podemos gerar um token aleatório
-      if (email.includes('teste@') || email.includes('test@')) {
-        token = `test-${Math.random().toString(36).substring(2, 15)}`;
-        log.warn(`Token não encontrado, mas gerado para email de teste: ${token}`);
-      } else {
-        log.error("Token não encontrado no payload", null, body);
-        throw new Error("Token não encontrado no payload");
-      }
+      log.error("Token não encontrado no payload", null, body);
+      throw new Error("Token não encontrado no payload");
     }
     
     // Log dos dados extraídos
@@ -343,24 +261,18 @@ const parsePayload = (body: EmailRequest): EmailData => {
   }
 };
 
-/**
- * Envia um email personalizado com base nos dados fornecidos
- */
-const sendCustomEmail = async (
-  email: string, 
-  type: string, 
-  token: string, 
-  redirectTo?: string, 
-  metadata?: Record<string, unknown>
-): Promise<EmailResult> => {
+const sendCustomEmail = async (email, type, token, redirectTo, metadata) => {
   try {
     log.info("Iniciando envio de e-mail personalizado", { email, type });
     
-    // Obter configurações do ambiente
+    // Obter configurações do ambiente (Deno será disponível no ambiente de execução da função Edge)
+    // @ts-ignore - Deno will be available in the Edge Function environment
     const SMTP_HOST = Deno.env.get("SMTP_HOST");
-    const SMTP_PORT_STR = Deno.env.get("SMTP_PORT");
-    const SMTP_PORT = SMTP_PORT_STR ? parseInt(SMTP_PORT_STR) : 465;
+    // @ts-ignore - Deno will be available in the Edge Function environment
+    const SMTP_PORT = Number(Deno.env.get("SMTP_PORT"));
+    // @ts-ignore - Deno will be available in the Edge Function environment
     const SMTP_USERNAME = Deno.env.get("SMTP_USERNAME");
+    // @ts-ignore - Deno will be available in the Edge Function environment
     const SMTP_PASSWORD = Deno.env.get("SMTP_PASSWORD");
     
     // Verificar se todas as variáveis de ambiente necessárias estão definidas
@@ -387,7 +299,7 @@ const sendCustomEmail = async (
     let subject = "";
     let content = "";
     let confirmationLink = "";
-    const userName = metadata && 'name' in metadata ? String(metadata.name) : email.split("@")[0];
+    const userName = metadata?.name || email.split("@")[0];
     
     // Construir link com base nos parâmetros recebidos
     const baseUrl = Deno.env.get("SITE_URL") || "https://app.conversaai.com.br";
@@ -399,10 +311,10 @@ const sendCustomEmail = async (
     const normalizedType = type.toLowerCase();
     
     // Construir o link de verificação. Importante preservar o formato correto para o Supabase processar
-    const supabaseURL = `https://${projectRef}.supabase.co/auth/v1/verify`;
+    let supabaseURL = `https://${projectRef}.supabase.co/auth/v1/verify`;
     
     // Definir configurações com base no tipo de e-mail
-    if (normalizedType.includes("signup") || normalizedType === "signup" || normalizedType === "confirmacao") {
+    if (normalizedType.includes("signup") || normalizedType === "signup") {
       confirmationLink = `${supabaseURL}?token=${token}&type=signup&redirect_to=${encodeURIComponent(redirectTo || baseUrl+"/confirmar-email")}`;
       subject = "Confirme seu e-mail - ConversaAI Brasil";
       content = generateConfirmationEmailHTML(confirmationLink, userName);
@@ -410,7 +322,7 @@ const sendCustomEmail = async (
       confirmationLink = `${supabaseURL}?token=${token}&type=email_change&redirect_to=${encodeURIComponent(redirectTo || baseUrl)}`;
       subject = "Confirme seu novo e-mail - ConversaAI Brasil";
       content = generateConfirmationEmailHTML(confirmationLink, userName);
-    } else if (normalizedType.includes("recovery") || normalizedType === "password_recovery" || normalizedType === "recovery" || normalizedType === "redefinir") {
+    } else if (normalizedType.includes("recovery") || normalizedType === "password_recovery" || normalizedType === "recovery") {
       confirmationLink = `${supabaseURL}?token=${token}&type=recovery&redirect_to=${encodeURIComponent(redirectTo || baseUrl+"/redefinir-senha")}`;
       subject = "Redefinição de senha - ConversaAI Brasil";
       content = generateConfirmationEmailHTML(confirmationLink, userName);
@@ -444,20 +356,17 @@ const sendCustomEmail = async (
     return { success: true };
   } catch (error) {
     // Registrar falha no log
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    log.email(email, type, false, errorMessage);
+    log.email(email, type, false, error.message);
     log.error("Erro ao enviar e-mail", error);
-    return { success: false, error: errorMessage };
+    return { success: false, error: error.message };
   }
 };
 
-// Handler principal para processar todas as requisições
-serve(async (req: Request): Promise<Response> => {
-  // Gerar ID único para rastreamento de requisição
-  const requestId = crypto.randomUUID();
-  log.info(`[${requestId}] Requisição recebida: ${req.method} ${new URL(req.url).pathname}`);
+serve(async (req) => {
+  // Registrar recebimento da solicitação
+  log.info(`Requisição recebida: ${req.method} ${new URL(req.url).pathname}`);
   
-  // Tratar requisição de preflight CORS
+  // Handle CORS preflight request
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -465,21 +374,14 @@ serve(async (req: Request): Promise<Response> => {
   try {
     // Apenas POST é suportado
     if (req.method !== "POST") {
-      log.warn(`[${requestId}] Método não permitido: ${req.method}`);
-      return new Response(
-        JSON.stringify({ 
-          error: `Method ${req.method} not allowed`,
-          message: "Apenas o método POST é aceito"
-        }),
-        { 
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 405
-        }
-      );
+      throw new Error(`Method ${req.method} not allowed`);
     }
 
     // Recuperar corpo da requisição
-    const body = await req.json() as EmailRequest;
+    const body = await req.json();
+    
+    // Registrar o body completo para facilitar diagnóstico
+    log.info("Body completo recebido", body);
     
     // Extrair dados relevantes, suportando diferentes formatos
     const { email, type, token, redirectTo, metadata } = parsePayload(body);
@@ -488,29 +390,27 @@ serve(async (req: Request): Promise<Response> => {
     const result = await sendCustomEmail(email, type, token, redirectTo, metadata);
     
     if (!result.success) {
-      throw new Error(`Falha ao enviar email: ${result.error}`);
+      throw new Error(`Failed to send email: ${result.error}`);
     }
     
     return new Response(JSON.stringify({ 
       success: true,
       message: "E-mail enviado com sucesso",
       email,
-      type,
-      requestId
+      type
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    log.error(`[${requestId}] Erro na função custom-email`, error);
+    log.error("[CUSTOM-EMAIL] Erro na função", error);
     
     return new Response(
       JSON.stringify({ 
         error: errorMessage,
-        message: "Falha ao processar solicitação de email",
-        timestamp: new Date().toISOString(),
-        requestId
+        message: "Falha ao processar solicitação",
+        timestamp: new Date().toISOString() 
       }),
       { 
         headers: { ...corsHeaders, "Content-Type": "application/json" },

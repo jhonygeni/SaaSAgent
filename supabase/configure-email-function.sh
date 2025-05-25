@@ -10,8 +10,8 @@ PROJECT_REF="hpovwcaskorzzrpphgkc"
 SMTP_HOST="smtp.hostinger.com"
 SMTP_PORT="465"
 SMTP_USERNAME="validar@geni.chat"
-SMTP_PASSWORD="${SMTP_PASSWORD:-CONFIGURE_YOUR_SMTP_PASSWORD}" # Substitua por uma senha segura após resolver o problema
-SITE_URL="https://saa-s-agent.vercel.app"
+SMTP_PASSWORD="Vu1@+H*Mw^3" # Substitua por uma senha segura após resolver o problema
+SITE_URL="https://app.conversaai.com.br"
 
 echo "=== Configuração Manual das Variáveis de Ambiente da Função Custom Email ==="
 echo ""
