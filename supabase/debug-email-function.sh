@@ -9,7 +9,7 @@ PROJECT_REF="hpovwcaskorzzrpphgkc"
 SMTP_HOST="smtp.hostinger.com"
 SMTP_PORT="465"
 SMTP_USERNAME="validar@geni.chat"
-SMTP_PASSWORD="Vu1@+H*Mw^3" 
+SMTP_PASSWORD="${SMTP_PASSWORD:-CONFIGURE_YOUR_SMTP_PASSWORD}" 
 SITE_URL="https://app.conversaai.com.br"
 
 echo "=== Depuração da Configuração de Email ==="

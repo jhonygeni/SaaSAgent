@@ -20,7 +20,7 @@ supabase secrets list --project-ref $PROJECT_REF | grep -E "(SMTP|SITE_URL)"
 echo ""
 echo "📧 3. Testando função custom-email:"
 curl -X POST "https://${PROJECT_REF}.supabase.co/functions/v1/custom-email" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhwb3Z3Y2Fza29yenpycHBoZ2tjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc4MjYzODYsImV4cCI6MjA2MzQwMjM4Nn0.3Gx3Gc5xlFKwoMvd0Zk9vELzNbrf0ar4gaM92n9dtDc" \
+  -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
     "email": "teste@exemplo.com",

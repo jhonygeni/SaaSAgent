@@ -45,7 +45,7 @@ echo -e "\n${YELLOW}Verificando se há credenciais hardcoded...${NC}"
 files_to_check=(
   "./supabase/deploy-custom-email.sh:SMTP_PASSWORD=\"Vu1@+H\*Mw\^3\""
   "./README-EMAIL-CUSTOM.md:SMTP_PASSWORD=Vu1@+H\*Mw\^3"
-  "./src/constants/api.ts:EVOLUTION_API_KEY = \"a01d49df66f0b9d8f368d3788a32aea8\""
+  "./src/constants/api.ts:EVOLUTION_API_KEY = \"[REDACTED]\""
 )
 
 # Verificar cada arquivo e padrão

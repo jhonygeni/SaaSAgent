@@ -38,7 +38,7 @@ TEST_PAYLOAD='{
 echo "📤 Enviando payload de teste para webhook..."
 curl -X POST "${WEBHOOK_URL}" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhwb3Z3Y2Fza29yenpycHBoZ2tjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc4MjYzODYsImV4cCI6MjA2MzQwMjM4Nn0.3Gx3Gc5xlFKwoMvd0Zk9vELzNbrf0ar4gaM92n9dtDc" \
+  -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
   -d "${TEST_PAYLOAD}" \
   --max-time 15
 

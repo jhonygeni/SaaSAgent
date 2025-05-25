@@ -23,7 +23,7 @@ supabase secrets set \
     SMTP_HOST="smtp.hostinger.com" \
     SMTP_PORT="465" \
     SMTP_USERNAME="validar@geni.chat" \
-    SMTP_PASSWORD="Vu1@+H*Mw^3" \
+    SMTP_PASSWORD="${SMTP_PASSWORD:-CONFIGURE_YOUR_SMTP_PASSWORD}" \
     SITE_URL="https://saa-s-agent.vercel.app" \
     --project-ref "$PROJECT_REF"
 

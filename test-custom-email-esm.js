@@ -12,7 +12,7 @@ import * as readline from 'readline';
 
 // Configuração do cliente Supabase
 const SUPABASE_URL = 'https://hpovwcaskorzzrpphgkc.supabase.co';
-let SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhwb3Z3Y2Fza29yenpycHBoZ2tjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU0MTIxMTksImV4cCI6MjAzMDk4ODExOX0.yZbLYQ-nDNvHzzLYyKr_K4I-Ypq5niX8Jml0nLsSBT0'; // Chave anônima do projeto
+let SUPABASE_KEY = 'process.env.SUPABASE_ANON_KEY || ""'; // Chave anônima do projeto
 
 // Função para obter input do usuário
 const question = (query) => {

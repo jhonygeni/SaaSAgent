@@ -1,9 +1,8 @@
+// filepath: /Users/jhonymonhol/Desktop/conversa-ai-brasil/supabase/functions/custom-email/index.ts
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-// @ts-ignore 
-import { SmtpClient } from "https://deno.land/x/smtp@v0.7.0/mod.ts";
-// Verificar se estamos em ambiente Deno
-const isDeno = typeof Deno !== 'undefined';
+// @ts-ignore
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,6 +21,18 @@ const SMTP_HOST = Deno.env.get("SMTP_HOST") || "smtp.hostinger.com";
 const SMTP_PORT = Number(Deno.env.get("SMTP_PORT")) || 465;
 const SMTP_USERNAME = Deno.env.get("SMTP_USERNAME") || "validar@geni.chat";
 const SMTP_PASSWORD = Deno.env.get("SMTP_PASSWORD") || "";
+
+// Função para registrar logs de e-mail
+const logEmailSend = async (email, type, success, errorMessage = null) => {
+  try {
+    // Esta função seria idealmente conectada a uma tabela do Supabase
+    // Por enquanto, apenas registra no console
+    console.log(`EMAIL_LOG: ${new Date().toISOString()} | To: ${email} | Type: ${type} | Success: ${success} ${errorMessage ? '| Error: ' + errorMessage : ''}`);
+  } catch (err) {
+    // Não fazer nada se falhar o log, apenas registrar no console
+    console.error("Failed to log email send:", err);
+  }
+};
 
 // Template de e-mail de confirmação
 const generateConfirmationEmailHTML = (confirmationLink, userName) => {
@@ -114,28 +125,19 @@ const generateConfirmationEmailHTML = (confirmationLink, userName) => {
   `;
 };
 
-// Função para registrar logs de e-mail
-const logEmailSend = async (email, type, success, errorMessage = null) => {
-  try {
-    // Esta função seria idealmente conectada a uma tabela do Supabase
-    // Por enquanto, apenas registra no console
-    console.log(`EMAIL_LOG: ${new Date().toISOString()} | To: ${email} | Type: ${type} | Success: ${success} ${errorMessage ? '| Error: ' + errorMessage : ''}`);
-  } catch (err) {
-    // Não fazer nada se falhar o log, apenas registrar no console
-    console.error("Failed to log email send:", err);
-  }
-};
-
 const sendCustomEmail = async (email, type, token, redirectTo, metadata) => {
   try {
     // Configurar cliente SMTP com SSL/TLS na porta 465
-    const client = new SmtpClient();
-    await client.connectTLS({
-      hostname: SMTP_HOST,
-      port: SMTP_PORT,
-      username: SMTP_USERNAME,
-      password: SMTP_PASSWORD,
-      tls: true, // Garante que TLS seja usado (necessário para porta 465)
+    const client = new SMTPClient({
+      connection: {
+        hostname: SMTP_HOST,
+        port: SMTP_PORT,
+        tls: true,
+        auth: {
+          username: SMTP_USERNAME,
+          password: SMTP_PASSWORD,
+        }
+      }
     });
 
     // Determinar o tipo de e-mail e criar o assunto e conteúdo adequados
@@ -178,12 +180,11 @@ const sendCustomEmail = async (email, type, token, redirectTo, metadata) => {
       content = generateConfirmationEmailHTML(`${baseUrl}`, userName);
     }
 
-    // Enviar e-mail com headers personalizados
+    // Enviar e-mail com a nova API
     await client.send({
       from: `${FROM_NAME} <${FROM_EMAIL}>`,
-      to: email,
+      to: [email],
       subject: subject,
-      content: content,
       html: content,
       headers: {
         "Reply-To": REPLY_TO,
@@ -191,9 +192,15 @@ const sendCustomEmail = async (email, type, token, redirectTo, metadata) => {
       },
     });
 
+    // Registrar sucesso no log
+    await logEmailSend(email, type, true);
+
     await client.close();
     return { success: true };
   } catch (error) {
+    // Registrar falha no log
+    await logEmailSend(email, type, false, error.message);
+    
     console.error("Erro ao enviar e-mail:", error);
     return { success: false, error: error.message };
   }

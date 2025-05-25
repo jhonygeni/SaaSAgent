@@ -1,8 +1,22 @@
 #!/usr/bin/env node
 
 // Diagnóstico completo e reparação do sistema
-const serviceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhwb3Z3Y2Fza29yenpycHBoZ2tjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NzgyNjM4NiwiZXhwIjoyMDYzNDAyMzg2fQ.wxxjIh7LBIxHmKJu6P778A9iYm6_zsdC8oQAiE9z0UU';
-const supabaseUrl = 'https://hpovwcaskorzzrpphgkc.supabase.co';
+const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const anonKey = process.env.SUPABASE_ANON_KEY || '';
+const supabaseUrl = process.env.SUPABASE_URL || 'https://hpovwcaskorzzrpphgkc.supabase.co';
+
+// Verificar se as credenciais estão configuradas
+if (!serviceKey) {
+  console.error('❌ ERRO: SUPABASE_SERVICE_ROLE_KEY não configurada');
+  console.error('Configure no arquivo .env: SUPABASE_SERVICE_ROLE_KEY=sua_chave');
+  process.exit(1);
+}
+
+if (!anonKey) {
+  console.error('❌ ERRO: SUPABASE_ANON_KEY não configurada');
+  console.error('Configure no arquivo .env: SUPABASE_ANON_KEY=sua_chave');
+  process.exit(1);
+}
 
 async function diagnosticAndRepair() {
   console.log('🔍 DIAGNÓSTICO COMPLETO DO SISTEMA');
@@ -85,7 +99,7 @@ async function diagnosticAndRepair() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhwb3Z3Y2Fza29yenpycHBoZ2tjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc4MjYzODYsImV4cCI6MjA2MzQwMjM4Nn0.3Gx3Gc5xlFKwoMvd0Zk9vELzNbrf0ar4gaM92n9dtDc'
+        'apikey': anonKey
       },
       body: JSON.stringify({
         email: testEmail,
