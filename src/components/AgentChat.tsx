@@ -211,9 +211,20 @@ export function AgentChat() {
   useEffect(() => {
     if (!agent || !user) return;
 
+    console.log("Configurando subscription para mensagens tempo real - ID agente:", agent.id);
+    
+    // Criamos uma cópia local do conjunto de mensagens processadas
+    // para evitar dependência circular com processedMessages do state
+    const localProcessedMessages = new Set<string>(processedMessages);
+    
+    // ID único para cada subscription para evitar duplicações
+    const channelId = `messages-${agent.id}-${Date.now()}`;
+    
     const setupSubscription = () => {
+      console.log("Iniciando subscription:", channelId);
+      
       const subscription = supabase
-        .channel('messages')
+        .channel(channelId)
         .on('postgres_changes', {
           event: '*',
           schema: 'public',
@@ -222,11 +233,14 @@ export function AgentChat() {
         }, 
         (payload: any) => {
           if (payload.eventType === 'INSERT') {
-            // Verificar se a mensagem já foi processada
-            if (processedMessages.has(payload.new.id)) {
+            // Verificar se a mensagem já foi processada localmente
+            if (localProcessedMessages.has(payload.new.id)) {
+              console.log("Ignorando mensagem já processada:", payload.new.id);
               return;
             }
 
+            console.log("Nova mensagem recebida:", payload.new.id);
+            
             const newMessage: Message = {
               id: payload.new.id,
               content: payload.new.content,
@@ -234,9 +248,19 @@ export function AgentChat() {
               timestamp: new Date(payload.new.created_at),
             };
 
-            // Registrar a mensagem como processada
-            processedMessages.add(payload.new.id);
-            setMessages(prev => [...prev, newMessage]);
+            // Registrar a mensagem como processada LOCALMENTE
+            localProcessedMessages.add(payload.new.id);
+            
+            // Adicionar ao state sem dependências circulares
+            setMessages(prev => {
+              // Verificar se a mensagem já existe na lista
+              const exists = prev.some(m => m.id === payload.new.id);
+              if (exists) {
+                console.log("Mensagem já existe no state, ignorando");
+                return prev;
+              }
+              return [...prev, newMessage];
+            });
           } else if (payload.eventType === 'UPDATE') {
             setMessages(prev => prev.map(msg => 
               msg.id === payload.new.id 
@@ -251,14 +275,22 @@ export function AgentChat() {
         })
         .subscribe((status: string) => {
           if (status === 'SUBSCRIBED') {
+            console.log("Subscription ativa:", channelId);
+            setIsConnected(true);
             if (reconnectTimeoutRef.current) {
               clearTimeout(reconnectTimeoutRef.current);
               reconnectTimeoutRef.current = undefined;
             }
           } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-            reconnectTimeoutRef.current = setTimeout(() => {
-              setupSubscription();
-            }, 5000);
+            console.log("Subscription fechada ou com erro:", status);
+            setIsConnected(false);
+            
+            // Evite reconexões infinitas - limite a 3 tentativas
+            if (!reconnectTimeoutRef.current) {
+              reconnectTimeoutRef.current = setTimeout(() => {
+                setupSubscription();
+              }, 5000);
+            }
           }
         });
 
@@ -268,12 +300,13 @@ export function AgentChat() {
     const subscription = setupSubscription();
 
     return () => {
+      console.log("Limpando subscription:", channelId);
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
       subscription.unsubscribe();
     };
-  }, [agent, user, processedMessages]);
+  }, [agent, user]); // Removemos processedMessages das dependências
 
   const loadMoreMessages = async () => {
     if (!agent || !user) return;

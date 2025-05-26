@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useSearchParams } from "react-router-dom";
 import { useAgent } from "@/context/AgentContext";
 import { ErrorState } from "@/components/ErrorState";
+import { throttledSubscriptionCheck } from "@/lib/subscription-throttle";
 
 export function Dashboard() {
   const { user, checkSubscriptionStatus } = useUser();

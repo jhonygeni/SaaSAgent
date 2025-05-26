@@ -3,6 +3,7 @@ import { User, SubscriptionPlan } from '../types';
 import { getMessageLimitByPlan } from '../lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { diagnostic, logStep, logAsyncStep } from '@/utils/diagnostic';
+import { throttledSubscriptionCheck } from "@/lib/subscription-throttle";
 
 interface UserContextType {
   user: User | null;
@@ -40,28 +41,31 @@ export function UserProvider({ children }: { children: ReactNode }) {
     });
   };
   
-  // Check subscription status
-  const checkSubscriptionStatus = useCallback(async () => {
+  // Check subscription status com throttle para evitar chamadas excessivas
+  // Implementação do método de verificação de assinatura (sem throttling)
+  const rawCheckSubscriptionStatus = useCallback(async () => {
     try {
       console.log("Verificando status da assinatura...");
       // Get current session
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         console.log("Sem sessão ativa, não é possível verificar assinatura");
-        return;
+        return null;
       }
       
       const supabaseUser = session.user;
       if (!supabaseUser) {
         console.log("Sem usuário na sessão");
-        return;
+        return null;
       }
       
       console.log("Chamando edge function check-subscription");
       
       try {
-        // Call check-subscription edge function
+        // Call check-subscription edge function with performance logging
+        console.time('check-subscription-call');
         const { data, error } = await supabase.functions.invoke('check-subscription');
+        console.timeEnd('check-subscription-call');
         
         if (error) {
           console.error('Error checking subscription:', error);
@@ -70,7 +74,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           if (!user && supabaseUser) {
             createUserWithDefaultPlan(supabaseUser);
           }
-          return;
+          return null;
         }
         
         console.log("Resposta de check-subscription:", data);
@@ -118,6 +122,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
     }
   }, [user]);
+  
+  // Aplicamos o throttling na função de verificação de assinatura
+  const checkSubscriptionStatus = useCallback(
+    throttledSubscriptionCheck(async () => rawCheckSubscriptionStatus()),
+    [rawCheckSubscriptionStatus]
+  );
   
   // Listen for auth state changes
   useEffect(() => {
