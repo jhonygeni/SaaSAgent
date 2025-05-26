@@ -52,8 +52,8 @@ export function LandingPage() {
       <section id="pricing-section" className="py-16 bg-gradient-to-br from-slate-50 to-blue-50">
         <div className="container">
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Planos que cabem no seu bolso</h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900">Planos que cabem no seu bolso</h2>
+            <p className="text-xl text-gray-700 max-w-2xl mx-auto font-medium">
               Comece grátis e escale conforme sua empresa cresce. Sem taxas escondidas, sem surpresas.
             </p>
           </div>
