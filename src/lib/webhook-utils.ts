@@ -1,5 +1,5 @@
-
 import { Agent } from "@/types";
+import crypto from 'crypto';
 
 interface WebhookResponse<T> {
   success: boolean;
@@ -124,4 +124,82 @@ export async function generatePromptWithAI(
     },
     { onRetry }
   );
+}
+
+/**
+ * Dispara um webhook para o n8n sempre que uma mensagem é recebida por uma instância conectada ao WhatsApp.
+ * O payload contém todas as informações relevantes para o processamento inteligente pelo agente IA.
+ *
+ * @param webhookUrl URL do webhook do n8n
+ * @param payload Objeto com todos os dados necessários (ver estrutura abaixo)
+ * @param webhookSecret (opcional) Segredo para assinatura HMAC do payload
+ */
+export async function dispararWebhookMensagemRecebida({
+  webhookUrl,
+  payload,
+  webhookSecret
+}: {
+  webhookUrl: string;
+  payload: {
+    usuario: string;
+    plano: string;
+    status_plano: string;
+    nome_instancia: string;
+    telefone_instancia: string;
+    nome_agente: string;
+    site_empresa: string;
+    area_atuacao: string;
+    info_empresa: string;
+    prompt_agente: string;
+    faqs: Array<{ pergunta: string; resposta: string }>;
+    nome_remetente: string;
+    telefone_remetente: string;
+    mensagem: string;
+  };
+  webhookSecret?: string;
+}): Promise<boolean> {
+  // Comentário: Só deve ser chamado se a instância estiver conectada e houver mensagem recebida
+
+  // Gera assinatura HMAC-SHA256 do payload para segurança (opcional)
+  let signature = '';
+  if (webhookSecret) {
+    const payloadString = JSON.stringify(payload);
+    signature = crypto.createHmac('sha256', webhookSecret).update(payloadString).digest('hex');
+  }
+
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (signature) {
+      headers['X-Webhook-Signature'] = signature;
+    }
+
+    // Envia o payload para o n8n
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      // Log detalhado para troubleshooting
+      console.error('Erro ao disparar webhook para n8n:', {
+        webhookUrl,
+        status: response.status,
+        statusText: response.statusText,
+        payload,
+      });
+      return false;
+    }
+    return true;
+  } catch (error) {
+    // Tratamento de erro: log detalhado
+    console.error('Erro ao disparar webhook para n8n:', {
+      webhookUrl,
+      payload,
+      error: error instanceof Error ? error.message : error,
+    });
+    return false;
+  }
 }

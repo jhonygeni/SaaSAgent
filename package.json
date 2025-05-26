@@ -13,7 +13,8 @@
     "dev:debug": "npm run check-env && vite",
     "build:prod": "npm run check-env && vite build && vite preview",
     "diagnose": "node check-environment.mjs && node verificacao-final.mjs",
-    "test:quick": "node teste-rapido.mjs"
+    "test:quick": "node teste-rapido.mjs",
+    "ts-prune": "ts-prune"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -88,6 +89,7 @@
     "lovable-tagger": "^1.1.7",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.11",
+    "ts-prune": "^0.10.3",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.0.1",
     "vite": "^5.4.1"

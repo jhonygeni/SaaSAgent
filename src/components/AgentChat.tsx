@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ArrowLeft, Send } from "lucide-react";
-import { sendWithRetries } from "@/lib/webhook-utils";
+import { sendWithRetries, dispararWebhookMensagemRecebida } from "@/lib/webhook-utils";
 import { supabase } from "@/integrations/supabase/client";
 import { Agent } from "@/types";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
@@ -355,36 +355,48 @@ export function AgentChat() {
         throw new Error('Rate limit exceeded');
       }
 
-      const webhookPayload = buildWebhookPayload({ 
-        agent, 
-        user, 
-        message: messageContent,
-        messageMetadata
-      });
-      
-      const webhookResult = await sendWithRetries(
-        "https://webhooksaas.geni.chat/webhook/principal",
-        webhookPayload,
-        {
-          idempotencyKey: messageMetadata.attemptId,
-          maxRetries: 3,
-          retryDelay: 1000
-        }
-      );
+      // Montagem automática do payload do webhook
+      // Buscar dados adicionais do usuário, plano, empresa, agente, FAQs, etc.
+      // Aqui, supondo que user, agent e outros já estão carregados no contexto
+      // e que agent.status === 'conectado' indica que a instância está conectada
+      if (agent.status === 'conectado') {
+        // Exemplo de busca de dados adicionais (adapte conforme seu modelo real)
+        const plano = user?.plan || 'desconhecido';
+        const status_plano = user?.planStatus || 'ativo';
+        const site_empresa = user?.companySite || '';
+        const area_atuacao = user?.companyArea || '';
+        const info_empresa = user?.companyInfo || '';
+        const faqs = agent.faqs || [];
+        const prompt_agente = agent.prompt || '';
+        const nome_agente = agent.nome || '';
+        const nome_instancia = agent.instanceName || '';
+        const telefone_instancia = agent.instancePhone || '';
 
-      let responseContent = "";
-      let webhookData = webhookResult.data;
+        // Dados do remetente (usuário final do WhatsApp)
+        const nome_remetente = user.name || '';
+        const telefone_remetente = user.phoneNumber || '';
 
-      if (Array.isArray(webhookData) && webhookData.length > 0) {
-        webhookData = webhookData[0];
-      }
-
-      if (webhookResult.success && webhookData && (webhookData.output || webhookData.Respond_to_Webhook_teste)) {
-        responseContent = typeof webhookData.output === "string" 
-          ? webhookData.output 
-          : webhookData.output?.Respond_to_Webhook_teste || webhookData.Respond_to_Webhook_teste || JSON.stringify(webhookData.output);
-      } else {
-        responseContent = "Não foi possível obter uma resposta do agente de teste.";
+        // Disparar o webhook
+        await dispararWebhookMensagemRecebida({
+          webhookUrl: "https://webhooksaas.geni.chat/webhook/principal",
+          payload: {
+            usuario: user.id,
+            plano,
+            status_plano,
+            nome_instancia,
+            telefone_instancia,
+            nome_agente,
+            site_empresa,
+            area_atuacao,
+            info_empresa,
+            prompt_agente,
+            faqs,
+            nome_remetente,
+            telefone_remetente,
+            mensagem: messageContent
+          },
+          webhookSecret: process.env.WEBHOOK_SECRET // opcional, se quiser usar assinatura
+        });
       }
 
       const agentMessageId = `agent-${Date.now()}`;
