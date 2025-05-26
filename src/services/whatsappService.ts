@@ -50,8 +50,8 @@ const whatsappService = {
         enabled: true,
         url: "https://webhooksaas.geni.chat/webhook/principal",
         webhookByEvents: true,
-        webhookBase64: true,
-        events: ["MESSAGES_UPSERT"]
+        webhookBase64: false,
+        events: ["MESSAGES_UPSERT", "MESSAGE_UPDATE"]
       };
       
       const data = await apiClient.post<WebhookConfigResponse>(endpoint, webhookConfig);

@@ -27,8 +27,11 @@
     "test:hooks": "vitest run src/hooks/use-webhook.test.tsx",
     "webhook:setup": "node setup-webhook.mjs",
     "webhook:test": "node test-webhook.mjs",
-    "webhook:dev": "node webhook-dev.mjs all",
-    "webhook:monitor": "echo 'Acesse http://localhost:3000/admin/webhooks para monitorar webhooks'"
+    "webhook:principal": "node test-webhook-principal.mjs",
+    "webhook:server": "node webhook-simple.cjs",
+    "webhook:local-test": "node test-webhook-local.mjs",
+    "webhook:monitor": "node webhook-monitor.mjs",
+    "webhook:dev": "node webhook-dev.mjs all"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -65,9 +68,11 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
+    "cors": "^2.8.5",
     "date-fns": "^3.6.0",
     "dotenv": "^16.5.0",
     "embla-carousel-react": "^8.3.0",
+    "express": "^5.1.0",
     "input-otp": "^1.2.4",
     "lucide-react": "^0.462.0",
     "nanoid": "^4.0.2",

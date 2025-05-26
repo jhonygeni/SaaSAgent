@@ -1,184 +1,204 @@
-# 🔧 Guia de Configuração - Credenciais N8N + Evolution API
+# 🔧 Guia de Configuração - Webhook Principal Evolution API
 
-## 📝 Variáveis de Ambiente Necessárias
-
-### 1. NEXT_PUBLIC_WEBHOOK_BASE_URL
-```bash
-NEXT_PUBLIC_WEBHOOK_BASE_URL=https://seu-dominio.com
+## 🎯 Fluxo Real do Sistema
+```
+WhatsApp → Evolution API → https://webhooksaas.geni.chat/webhook/principal
+                                            ↓
+                                    Processa mensagem
+                                            ↓
+                                    Consulta configuração do bot
+                                            ↓
+                                    N8N processa resposta
+                                            ↓
+                                    Evolution API → WhatsApp
 ```
 
-**Explicação:** URL onde seu sistema receberá webhooks do N8N
-- **Desenvolvimento:** `http://localhost:3000`
-- **Produção:** `https://conversa-ai.seu-dominio.com`
-- **Uso:** N8N enviará para `${URL}/api/webhook/whatsapp`
+## 📝 Configuração para Evolution API
 
-### 2. WEBHOOK_VERIFY_TOKEN
+### URL do Webhook Principal
 ```bash
-WEBHOOK_VERIFY_TOKEN=token-secreto-personalizado-123
+https://webhooksaas.geni.chat/webhook/principal
 ```
 
-**Explicação:** Token de verificação para autenticar N8N
-- **Onde usar:** Configure no N8N como `Authorization: Bearer ${token}`
-- **Propósito:** Verificar que o webhook veio do seu N8N
-- **Recomendação:** Use um token único e seguro
+**Explicação:** Este é o endpoint que a Evolution API chama automaticamente
+- **Quando:** Cliente cria um bot e conecta à Evolution
+- **Como:** Evolution configura automaticamente este webhook
+- **Processamento:** Direto via N8N (sem passar pelo front/back)
 
-### 3. WEBHOOK_SECRET
+### Credenciais Necessárias
+
+**Para este fluxo, você NÃO precisa das variáveis anteriores!**
+
+O webhook principal já está configurado e funcionando. As únicas configurações necessárias são:
+
+### 1. Configuração da Evolution API
 ```bash
-WEBHOOK_SECRET=chave-hmac-super-secreta-456
+# Na Evolution, o webhook já está configurado para:
+WEBHOOK_URL=https://webhooksaas.geni.chat/webhook/principal
 ```
 
-**Explicação:** Chave para validação HMAC-SHA256
-- **Onde usar:** N8N usa para assinar o payload
-- **Propósito:** Garantir integridade dos dados
-- **Recomendação:** Use uma chave longa e aleatória
+### 2. Configuração do Bot no Sistema
+- **Interface:** Configure o bot através da interface web
+- **N8N:** Processamento automático via N8N
+- **Resposta:** Enviada automaticamente via Evolution API
 
-## 🔄 Configuração Passo a Passo
-
-### Passo 1: Crie seu arquivo .env
+### 3. Variáveis de Ambiente (Opcionais)
 ```bash
-# Copie o .env.example
-cp .env.example .env
-
-# Edite com suas configurações
-nano .env
+# Apenas para logs e monitoramento
+WEBHOOK_LOGS_ENABLED=true
+WEBHOOK_DEBUG_MODE=false
 ```
 
-### Passo 2: Configure N8N Workflow
+## 🔄 Como o Sistema Funciona
 
-#### Node 1: Webhook Trigger (Evolution → N8N)
+### 1. Cliente Cria Bot
+- Cliente acessa interface web
+- Configura bot (nome, prompt, FAQs)
+- Sistema cria instância na Evolution API
+- **Evolution configura automaticamente:** `webhook: https://webhooksaas.geni.chat/webhook/principal`
+
+### 2. Cliente Recebe Mensagem no WhatsApp
+- WhatsApp → Evolution API
+- Evolution API → `https://webhooksaas.geni.chat/webhook/principal`
+- Webhook processa mensagem
+- Consulta configuração do bot no banco
+- Envia dados para N8N
+
+### 3. N8N Processa e Responde
+- N8N recebe dados do webhook
+- Processa com IA/regras do bot
+- Gera resposta
+- Envia de volta via Evolution API
+- Evolution API → WhatsApp
+
+### 4. Fluxo Completo
+```
+[Cliente WhatsApp] 
+        ↓ (mensagem)
+[Evolution API] 
+        ↓ (webhook)
+[webhook/principal] 
+        ↓ (dados + config)
+[N8N] 
+        ↓ (resposta processada)
+[Evolution API] 
+        ↓ (resposta)
+[Cliente WhatsApp]
+```
+
+## ✅ Verificação se Está Funcionando
+
+### 1. Teste o Webhook Principal
+```bash
+curl -X GET https://webhooksaas.geni.chat/webhook/principal
+```
+**Resposta esperada:**
 ```json
 {
-  "name": "Evolution Webhook",
-  "type": "n8n-nodes-base.webhook",
-  "parameters": {
-    "path": "evolution-webhook",
-    "httpMethod": "POST",
-    "responseMode": "onReceived",
-    "responseData": "allEntries"
-  }
+  "status": "ok",
+  "webhook": "webhook-principal", 
+  "timestamp": "2025-05-26T...",
+  "version": "1.0.0"
 }
 ```
 
-#### Node 2: HTTP Request (N8N → Seu Sistema)
-```json
-{
-  "name": "Send to Conversa AI",
-  "type": "n8n-nodes-base.httpRequest",
-  "parameters": {
-    "url": "{{ $env.WEBHOOK_BASE_URL }}/api/webhook/whatsapp",
-    "method": "POST",
-    "headers": {
-      "Authorization": "Bearer {{ $env.WEBHOOK_VERIFY_TOKEN }}",
-      "Content-Type": "application/json",
-      "X-Hub-Signature-256": "{{ $node.calculateHMAC($json, 'sha256', $env.WEBHOOK_SECRET) }}"
-    },
-    "body": {
-      "object": "whatsapp_business_account",
-      "entry": [
-        {
-          "id": "{{ $('Evolution Webhook').item.json.instance }}",
-          "changes": [
-            {
-              "value": {
-                "messaging_product": "whatsapp",
-                "metadata": {
-                  "display_phone_number": "{{ $('Evolution Webhook').item.json.from }}",
-                  "phone_number_id": "{{ $('Evolution Webhook').item.json.instance }}"
-                },
-                "messages": [
-                  {
-                    "id": "{{ $('Evolution Webhook').item.json.data.key.id }}",
-                    "from": "{{ $('Evolution Webhook').item.json.data.key.remoteJid }}",
-                    "timestamp": "{{ $('Evolution Webhook').item.json.data.messageTimestamp }}",
-                    "type": "text",
-                    "text": {
-                      "body": "{{ $('Evolution Webhook').item.json.data.message.conversation || $('Evolution Webhook').item.json.data.message.extendedTextMessage.text }}"
-                    }
-                  }
-                ]
-              },
-              "field": "messages"
-            }
-          ]
-        }
-      ]
-    }
-  }
-}
-```
-
-### Passo 3: Configure Variáveis no N8N
+### 2. Verificar Logs
 ```bash
-# No N8N, configure estas variáveis de ambiente:
-WEBHOOK_BASE_URL=https://seu-dominio.com
-WEBHOOK_VERIFY_TOKEN=seu-token-aqui
-WEBHOOK_SECRET=sua-chave-secreta-aqui
-```
-
-### Passo 4: Teste a Configuração
-```bash
-# Execute o script de teste
-npm run webhook:test
-
-# Ou manualmente:
-node test-webhook.mjs
-```
-
-## 🔍 Validação da Configuração
-
-### Checklist ✅
-- [ ] `.env` criado com todas as variáveis
-- [ ] N8N workflow configurado
-- [ ] Variáveis de ambiente do N8N definidas
-- [ ] URL do webhook acessível
-- [ ] Evolution API conectada ao N8N
-- [ ] Teste de webhook realizado
-
-### Logs de Verificação
-```bash
-# Verificar se o webhook está funcionando
-curl -X POST https://seu-dominio.com/api/webhook/whatsapp \
-  -H "Authorization: Bearer seu-token" \
-  -H "Content-Type: application/json" \
-  -d '{"test": true}'
-```
-
-## 🚀 Deployment
-
-### Desenvolvimento Local
-```bash
-# Inicie o servidor
+# No ambiente de desenvolvimento
 npm run dev
 
-# Teste o webhook
-npm run webhook:test
+# Verificar logs do webhook
+tail -f /var/log/webhook-principal.log
 ```
 
-### Produção
+### 3. Teste com Bot Real
+1. Crie um bot na interface
+2. Conecte uma instância WhatsApp
+3. Envie uma mensagem para o número
+4. Verifique se a resposta é processada via N8N
+
+### 4. Monitoramento
+- Acesse: `/admin/webhooks` para ver estatísticas
+- Verifique taxa de sucesso
+- Monitore tempo de resposta
+
+## 🚀 Configuração N8N (Para Processamento)
+
+O N8N recebe dados do webhook principal e processa a resposta. Configure:
+
+### 1. Workflow N8N Básico
+```json
+{
+  "nodes": [
+    {
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook", 
+      "parameters": {
+        "path": "conversa-ai-webhook",
+        "httpMethod": "POST"
+      }
+    },
+    {
+      "name": "Process Message",
+      "type": "n8n-nodes-base.function",
+      "parameters": {
+        "functionCode": `
+          // Dados recebidos do webhook principal
+          const data = $input.first().json;
+          
+          // Processar mensagem com IA/regras
+          const resposta = processarMensagem(data);
+          
+          return { resposta };
+        `
+      }
+    },
+    {
+      "name": "Send Response",
+      "type": "n8n-nodes-base.httpRequest",
+      "parameters": {
+        "url": "{{ $node.evolution_api_url }}",
+        "method": "POST",
+        "body": {
+          "message": "{{ $node.resposta }}"
+        }
+      }
+    }
+  ]
+}
+```
+
+### 2. URL do N8N
+Configure no sistema onde o webhook principal enviará os dados:
 ```bash
-# Build da aplicação
-npm run build
-
-# Configure HTTPS (obrigatório para webhooks)
-# Use Nginx, Cloudflare, ou similar
-
-# Verificar URL pública
-echo $NEXT_PUBLIC_WEBHOOK_BASE_URL
+N8N_WEBHOOK_URL=https://seu-n8n.com/webhook/conversa-ai-webhook
 ```
 
 ## 🔧 Troubleshooting
 
-### Problema: Webhook não recebe dados
-**Solução:** Verificar se `NEXT_PUBLIC_WEBHOOK_BASE_URL` está correto e acessível
+### Problema: Webhook não recebe mensagens
+**Solução:** 
+1. Verifique se `https://webhooksaas.geni.chat/webhook/principal` está acessível
+2. Teste com: `curl -X GET https://webhooksaas.geni.chat/webhook/principal`
+3. Verifique logs da Evolution API
 
-### Problema: Token inválido
-**Solução:** Verificar se `WEBHOOK_VERIFY_TOKEN` é o mesmo no N8N e no `.env`
+### Problema: Bot não responde
+**Solução:**
+1. Verifique configuração do bot na interface
+2. Verifique se N8N está recebendo dados
+3. Teste workflow do N8N manualmente
 
-### Problema: Falha na validação HMAC
-**Solução:** Verificar se `WEBHOOK_SECRET` é o mesmo no N8N e no `.env`
+### Problema: Resposta lenta
+**Solução:**
+1. Verifique latência do N8N
+2. Otimize processamento de IA
+3. Configure cache no webhook principal
 
-### Problema: Evolution API não envia para N8N
-**Solução:** Verificar webhook URL da Evolution API aponta para N8N
+### Problema: Evolution API não conecta
+**Solução:**
+1. Verifique credenciais da Evolution API
+2. Teste conexão manual
+3. Verifique se webhook URL está correto na instância
 
 ## 📞 Suporte
 
