@@ -25,6 +25,13 @@ if (!SUPABASE_PUBLISHABLE_KEY || SUPABASE_PUBLISHABLE_KEY.trim() === '') {
 
 console.log('🔑 SUPABASE_URL:', SUPABASE_URL);
 console.log('🔑 SUPABASE_PUBLISHABLE_KEY:', SUPABASE_PUBLISHABLE_KEY ? SUPABASE_PUBLISHABLE_KEY.substring(0, 8) + '...' : SUPABASE_PUBLISHABLE_KEY);
+console.log('[SUPABASE INIT] VITE_SUPABASE_URL:', SUPABASE_URL);
+console.log('[SUPABASE INIT] VITE_SUPABASE_ANON_KEY:', SUPABASE_PUBLISHABLE_KEY);
+if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+  console.error('[SUPABASE INIT] ❌ ERRO CRÍTICO: Variáveis de ambiente VITE_SUPABASE_URL ou VITE_SUPABASE_ANON_KEY estão undefined!');
+  if (!SUPABASE_URL) console.error('[SUPABASE INIT] VITE_SUPABASE_URL está undefined!');
+  if (!SUPABASE_PUBLISHABLE_KEY) console.error('[SUPABASE INIT] VITE_SUPABASE_ANON_KEY está undefined!');
+}
 
 export const supabase = createClient<Database>(SUPABASE_URL, effectiveAnonKey, {
   auth: {

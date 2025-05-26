@@ -57,7 +57,7 @@ export function Register() {
           data: {
             name: name,
           },
-          emailRedirectTo: "https://app.conversaai.com.br/confirmar-email"
+          emailRedirectTo: "https://ia.geni.chat/confirmar-email"
         }
       });
       
