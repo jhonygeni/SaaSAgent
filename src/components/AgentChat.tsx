@@ -99,7 +99,10 @@ export function AgentChat() {
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
   const [processedMessages] = useState(new Set<string>());
+  const [isConnected, setIsConnected] = useState(false);
+  const [messageQueue, setMessageQueue] = useState<any[]>([]);
   const lastWebhookAttempt = useRef<{ [key: string]: number }>({});
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
   const MIN_WEBHOOK_INTERVAL = 2000;
   const MESSAGES_PER_PAGE = 50;
   const loadingMoreRef = useRef<HTMLDivElement>(null);
@@ -334,7 +337,6 @@ export function AgentChat() {
       const { error: saveError } = await supabase
         .from('messages')
         .insert({
-          id: messageMetadata.originalMessageId,
           content: messageContent,
           direction: "inbound",
           instance_id: agent.id,
@@ -344,7 +346,7 @@ export function AgentChat() {
           recipient_phone: "5511999999999",
           status: "sent",
           created_at: new Date().toISOString(),
-          metadata: messageMetadata
+          metadata: messageMetadata as any
         });
 
       if (saveError) {
@@ -358,23 +360,23 @@ export function AgentChat() {
       // Montagem automática do payload do webhook
       // Buscar dados adicionais do usuário, plano, empresa, agente, FAQs, etc.
       // Aqui, supondo que user, agent e outros já estão carregados no contexto
-      // e que agent.status === 'conectado' indica que a instância está conectada
-      if (agent.status === 'conectado') {
+      // Verificar se o agente está disponível (ativo)
+      if (agent.status === 'ativo') {
         // Exemplo de busca de dados adicionais (adapte conforme seu modelo real)
         const plano = user?.plan || 'desconhecido';
-        const status_plano = user?.planStatus || 'ativo';
-        const site_empresa = user?.companySite || '';
-        const area_atuacao = user?.companyArea || '';
-        const info_empresa = user?.companyInfo || '';
+        const status_plano = (user as any)?.planStatus || 'ativo';
+        const site_empresa = (user as any)?.companySite || '';
+        const area_atuacao = (user as any)?.companyArea || '';
+        const info_empresa = (user as any)?.companyInfo || '';
         const faqs = agent.faqs || [];
         const prompt_agente = agent.prompt || '';
         const nome_agente = agent.nome || '';
         const nome_instancia = agent.instanceName || '';
-        const telefone_instancia = agent.instancePhone || '';
+        const telefone_instancia = (agent as any).instancePhone || '';
 
         // Dados do remetente (usuário final do WhatsApp)
         const nome_remetente = user.name || '';
-        const telefone_remetente = user.phoneNumber || '';
+        const telefone_remetente = (user as any).phoneNumber || '';
 
         // Disparar o webhook
         await dispararWebhookMensagemRecebida({
@@ -399,12 +401,13 @@ export function AgentChat() {
         });
       }
 
+      // Simular resposta do agente (em produção, viria do webhook)
+      const responseContent = `Obrigado pela sua mensagem: "${messageContent}". Como posso ajudar você hoje?`;
       const agentMessageId = `agent-${Date.now()}`;
       
       const { error: saveResponseError } = await supabase
         .from('messages')
         .insert({
-          id: agentMessageId,
           content: responseContent,
           direction: "outbound",
           instance_id: agent.id,
@@ -414,11 +417,10 @@ export function AgentChat() {
           recipient_phone: "5511999999999",
           status: "delivered",
           created_at: new Date().toISOString(),
-          parent_message_id: messageMetadata.originalMessageId,
           metadata: {
             ...messageMetadata,
             responseAttemptId: generateMessageId()
-          }
+          } as any
         });
 
       if (saveResponseError) {
@@ -462,6 +464,36 @@ export function AgentChat() {
       .toUpperCase()
       .substring(0, 2);
   };
+
+  // Guard clause: Return early if agent is not found
+  if (!agent) {
+    return (
+      <div className="container mx-auto py-8 max-w-3xl">
+        <div className="flex items-center mb-6">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="mr-2"
+            onClick={() => navigate("/dashboard")}
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h2 className="text-2xl font-bold">Agente não encontrado</h2>
+        </div>
+        <Card className="p-6 text-center">
+          <p className="text-muted-foreground">
+            O agente solicitado não foi encontrado ou não está disponível.
+          </p>
+          <Button 
+            className="mt-4" 
+            onClick={() => navigate("/dashboard")}
+          >
+            Voltar ao Dashboard
+          </Button>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-8 max-w-3xl">
