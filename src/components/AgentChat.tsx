@@ -10,6 +10,7 @@ import { ArrowLeft, Send } from "lucide-react";
 import { sendWithRetries, dispararWebhookMensagemRecebida } from "@/lib/webhook-utils";
 import { supabase } from "@/integrations/supabase/client";
 import { Agent } from "@/types";
+import { throttleApiCall } from "@/lib/api-throttle";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 import { 
   generateMessageId, 
@@ -108,6 +109,8 @@ export function AgentChat() {
   const loadingMoreRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const loadingMore = useIntersectionObserver(loadingMoreRef);
+  // Ref para controlar o status de carregamento e evitar múltiplas chamadas
+  const isLoadingMoreRef = useRef<boolean>(false);
 
   const shouldSendWebhook = (messageId: string) => {
     const now = Date.now();
@@ -153,23 +156,38 @@ export function AgentChat() {
     }
   };
 
+  // Função throttled para carregar mensagens com cache para evitar chamadas repetidas
+  const loadMessagesThrottled = useRef(
+    throttleApiCall(
+      async ({ instanceId }: { instanceId: string }) => {
+        const { data, error } = await supabase
+          .from('messages')
+          .select('*')
+          .eq('instance_id', instanceId)
+          .order('created_at', { ascending: true });
+          
+        if (error) throw error;
+        return data;
+      },
+      'messages_load_history',
+      { 
+        interval: 60000, // 1 minuto de cache
+        logLabel: 'Chat History' 
+      }
+    )
+  ).current;
+  
   // Load chat history when component mounts
   useEffect(() => {
     const loadChatHistory = async () => {
       if (!agent || !user) return;
+      
+      console.log("Carregando histórico de chat para instância:", agent.id);
 
       try {
-        const { data, error } = await supabase
-          .from('messages')
-          .select('*')
-          .eq('instance_id', agent.id)
-          .order('created_at', { ascending: true });
-
-        if (error) {
-          console.error("Error loading chat history:", error);
-          return;
-        }
-
+        // Usa a função throttled para evitar chamadas repetidas desnecessárias
+        const data = await loadMessagesThrottled({ instanceId: agent.id });
+        
         if (data) {
           const formattedMessages: Message[] = data.map(msg => ({
             id: msg.id,
@@ -186,7 +204,7 @@ export function AgentChat() {
     };
 
     loadChatHistory();
-  }, [agent, user]);
+  }, [agent, user, loadMessagesThrottled]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -207,7 +225,11 @@ export function AgentChat() {
     }
   }, [agent, messages.length]);
 
-  // Real-time message subscription with reconnection logic
+  // Contador para limitar tentativas de reconexão
+  const reconnectAttemptsRef = useRef<number>(0);
+  const MAX_RECONNECT_ATTEMPTS = 5;
+
+  // Real-time message subscription with improved reconnection logic
   useEffect(() => {
     if (!agent || !user) return;
 
@@ -217,11 +239,19 @@ export function AgentChat() {
     // para evitar dependência circular com processedMessages do state
     const localProcessedMessages = new Set<string>(processedMessages);
     
-    // ID único para cada subscription para evitar duplicações
-    const channelId = `messages-${agent.id}-${Date.now()}`;
+    // ID único para cada agente (não mais para cada subscrição) para evitar múltiplas conexões
+    const channelId = `messages-${agent.id}-stable`;
     
     const setupSubscription = () => {
-      console.log("Iniciando subscription:", channelId);
+      // Limitar tentativas de reconexão
+      if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
+        console.log(`Máximo de ${MAX_RECONNECT_ATTEMPTS} tentativas de reconexão atingido. Desistindo.`);
+        setIsConnected(false);
+        return null;
+      }
+      
+      console.log(`Iniciando subscription (tentativa #${reconnectAttemptsRef.current + 1}):`, channelId);
+      reconnectAttemptsRef.current++;
       
       const subscription = supabase
         .channel(channelId)
@@ -277,19 +307,34 @@ export function AgentChat() {
           if (status === 'SUBSCRIBED') {
             console.log("Subscription ativa:", channelId);
             setIsConnected(true);
+            // Reseta o contador quando uma conexão é bem sucedida
+            reconnectAttemptsRef.current = 0;
+            
             if (reconnectTimeoutRef.current) {
               clearTimeout(reconnectTimeoutRef.current);
               reconnectTimeoutRef.current = undefined;
             }
           } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-            console.log("Subscription fechada ou com erro:", status);
+            console.log(`Subscription com problema (${status}):`, channelId);
             setIsConnected(false);
             
-            // Evite reconexões infinitas - limite a 3 tentativas
-            if (!reconnectTimeoutRef.current) {
+            // Exponential backoff para tentativas de reconexão
+            if (!reconnectTimeoutRef.current && reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+              const backoffTime = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
+              console.log(`Tentando reconexão em ${backoffTime/1000}s (tentativa #${reconnectAttemptsRef.current + 1})`);
+              
               reconnectTimeoutRef.current = setTimeout(() => {
-                setupSubscription();
-              }, 5000);
+                reconnectTimeoutRef.current = undefined;
+                // Aqui tentamos uma nova subscription em vez de reusar setupSubscription
+                // para garantir um estado limpo
+                supabase.removeChannel(channelId);
+                const newSubscription = setupSubscription();
+                if (!newSubscription) {
+                  console.log("Falha ao criar nova subscription após problema");
+                }
+              }, backoffTime);
+            } else if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
+              console.log("Máximo de tentativas de reconexão atingido. Não tentaremos novamente.");
             }
           }
         });
@@ -298,31 +343,74 @@ export function AgentChat() {
     };
 
     const subscription = setupSubscription();
+    
+    // Se ultrapassamos o limite de tentativas, não temos subscrição
+    if (!subscription) {
+      console.log("Não foi possível estabelecer subscription após tentativas máximas.");
+      return () => {
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+        }
+      };
+    }
 
     return () => {
       console.log("Limpando subscription:", channelId);
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = undefined;
       }
+      
+      // Reset do contador de tentativas
+      reconnectAttemptsRef.current = 0;
+      
+      // Remover subscription
       subscription.unsubscribe();
     };
   }, [agent, user]); // Removemos processedMessages das dependências
 
+  // Função throttled para carregar mais mensagens com paginação
+  const loadMoreMessagesThrottled = useRef(
+    throttleApiCall(
+      async ({ instanceId, pageNum, perPage }: { instanceId: string, pageNum: number, perPage: number }) => {
+        const { data, error } = await supabase
+          .from('messages')
+          .select('*')
+          .eq('instance_id', instanceId)
+          .order('created_at', { ascending: false })
+          .range(pageNum * perPage, (pageNum + 1) * perPage - 1);
+          
+        if (error) throw error;
+        return data;
+      },
+      'messages_load_more',
+      { 
+        interval: 30000, // 30 segundos de cache
+        logLabel: 'Load More Messages' 
+      }
+    )
+  ).current;
+
   const loadMoreMessages = async () => {
     if (!agent || !user) return;
+    
+    console.log(`Carregando mais mensagens para instância ${agent.id}, página ${page}`);
+    
+    // Evita múltiplas chamadas sequenciais de carregamento
+    if (isLoadingMoreRef.current) {
+      console.log("Já está carregando mais mensagens, ignorando chamada");
+      return;
+    }
+    
+    isLoadingMoreRef.current = true;
 
     try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('instance_id', agent.id)
-        .order('created_at', { ascending: false })
-        .range(page * MESSAGES_PER_PAGE, (page + 1) * MESSAGES_PER_PAGE - 1);
-
-      if (error) {
-        console.error("Error loading more messages:", error);
-        return;
-      }
+      // Usa a função throttled para evitar chamadas repetidas desnecessárias
+      const data = await loadMoreMessagesThrottled({ 
+        instanceId: agent.id, 
+        pageNum: page, 
+        perPage: MESSAGES_PER_PAGE 
+      });
 
       if (data) {
         const formattedMessages = data.map(msg => ({
@@ -338,6 +426,8 @@ export function AgentChat() {
       }
     } catch (error) {
       console.error("Error in loadMoreMessages:", error);
+    } finally {
+      isLoadingMoreRef.current = false;
     }
   };
 

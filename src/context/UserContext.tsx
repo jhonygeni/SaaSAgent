@@ -123,10 +123,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
   
-  // Aplicamos o throttling na função de verificação de assinatura
+  // Aplicamos o throttling na função de verificação de assinatura com contexto específico de usuário
   const checkSubscriptionStatus = useCallback(
-    throttledSubscriptionCheck(async () => rawCheckSubscriptionStatus()),
-    [rawCheckSubscriptionStatus]
+    throttledSubscriptionCheck(
+      async () => rawCheckSubscriptionStatus(),
+      { 
+        userId: user?.id, 
+        interval: 5 * 60 * 1000 // 5 minutos
+      }
+    ),
+    [rawCheckSubscriptionStatus, user?.id]
   );
   
   // Listen for auth state changes
