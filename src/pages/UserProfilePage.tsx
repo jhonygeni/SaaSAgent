@@ -57,32 +57,23 @@ const UserProfilePage = () => {
     }
   }, [user]);
   
-  useEffect(() => {
-    if (user) {
-      checkSubscriptionStatusDetails();
-    }
-  }, [user]);
-  
-  if (!user) {
-    navigate("/entrar");
-    return null;
-  }
-  
+  // Use throttled subscription check from context to prevent infinite loops
   const checkSubscriptionStatusDetails = async () => {
     try {
       setRefreshingSubscription(true);
       
+      // Use the throttled version from context instead of direct Supabase call
+      await checkSubscriptionStatus();
+      
+      // Get subscription details for display
       const { data, error } = await supabase.functions.invoke('check-subscription');
       
       if (error) {
-        throw new Error(error.message);
+        console.warn("Error getting subscription details:", error.message);
+        return;
       }
       
       if (data) {
-        if (data.plan && data.plan !== user.plan) {
-          setPlan(data.plan);
-        }
-        
         setSubscriptionEnd(data.subscription_end);
       }
     } catch (err) {
@@ -96,6 +87,11 @@ const UserProfilePage = () => {
       setRefreshingSubscription(false);
     }
   };
+  
+  if (!user) {
+    navigate("/entrar");
+    return null;
+  }
   
   const openCustomerPortal = async () => {
     try {

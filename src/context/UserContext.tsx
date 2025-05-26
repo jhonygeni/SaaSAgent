@@ -195,7 +195,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
     
     return () => {
       console.log("Removendo listener de autenticação");
-      subscription.unsubscribe();
+      // The subscription object from Supabase auth doesn't have unsubscribe method
+      // Instead, we need to call the subscription function directly
+      subscription?.unsubscribe?.();
     };
   }, [checkSubscriptionStatus]);
 
