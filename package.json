@@ -14,7 +14,21 @@
     "build:prod": "npm run check-env && vite build && vite preview",
     "diagnose": "node check-environment.mjs && node verificacao-final.mjs",
     "test:quick": "node teste-rapido.mjs",
-    "ts-prune": "ts-prune"
+    "ts-prune": "ts-prune",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui",
+    "test:watch": "vitest --watch",
+    "test:webhooks": "vitest run src/lib/webhook-utils.test.ts src/lib/webhook-monitor.test.ts",
+    "test:integration": "vitest run src/api/whatsapp-webhook.integration.test.ts",
+    "test:performance": "vitest run src/test/performance.test.ts",
+    "test:e2e": "vitest run src/test/e2e-webhook-monitor.test.tsx",
+    "test:hooks": "vitest run src/hooks/use-webhook.test.tsx",
+    "webhook:setup": "node setup-webhook.mjs",
+    "webhook:test": "node test-webhook.mjs",
+    "webhook:dev": "node webhook-dev.mjs all",
+    "webhook:monitor": "echo 'Acesse http://localhost:3000/admin/webhooks para monitorar webhooks'"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -77,21 +91,29 @@
   "devDependencies": {
     "@eslint/js": "^9.9.0",
     "@tailwindcss/typography": "^0.5.15",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^22.5.5",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react-swc": "^3.5.0",
+    "@vitest/ui": "^3.1.4",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.9.0",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.9",
     "globals": "^15.9.0",
+    "happy-dom": "^17.4.7",
+    "jsdom": "^26.1.0",
     "lovable-tagger": "^1.1.7",
+    "msw": "^2.8.4",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.11",
     "ts-prune": "^0.10.3",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.0.1",
-    "vite": "^5.4.1"
+    "vite": "^5.4.1",
+    "vitest": "^3.1.4"
   }
 }
