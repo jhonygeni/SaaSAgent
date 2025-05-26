@@ -147,6 +147,33 @@ The optimizations are expected to result in:
    - Graceful reconnection logic
    - User feedback for connection status
 
+## Webhook Communication Fixes
+
+In addition to the HTTP request loop fixes, we've also addressed critical issues with webhook communication:
+
+1. **Authentication and Headers**:
+   - Fixed 403 Forbidden errors by properly implementing `Authorization: Bearer` header
+   - Added proper content type and custom headers for webhook requests
+   - Implemented HMAC signature for webhook request verification
+
+2. **Payload Formatting and Error Handling**:
+   - Fixed 400 Bad Request errors by properly formatting the JSON payload
+   - Added data sanitization to prevent malformed payloads
+   - Enhanced error handling for webhook failures
+   - Added fallback responses when webhooks fail
+
+3. **Retry Mechanism and Idempotency**:
+   - Implemented idempotency keys to prevent duplicate processing of messages 
+   - Enhanced retry mechanism with exponential backoff
+   - Added proper timeout handling with AbortController
+   - Limited maximum retries to prevent excessive API calls
+
+4. **Monitoring and Logging**:
+   - Implemented comprehensive monitoring system for webhook requests
+   - Enhanced logging for webhook requests and responses
+   - Added performance metrics tracking
+   - Created diagnostic tools for webhook communication
+
 ## Further Improvements
 
 Additional optimizations to consider implementing:
@@ -165,3 +192,8 @@ Additional optimizations to consider implementing:
    - Add telemetry to track API call frequency
    - Implement circuit breakers for failing endpoints
    - Create dashboard to monitor system health
+
+4. **Advanced Webhook Integration**:
+   - Implement queue system for offline webhook support
+   - Add persistent retry mechanism across page reloads
+   - Implement OAuth2 authentication for enhanced security

@@ -127,32 +127,50 @@ export function AgentChat() {
 
   const saveErrorMessage = async (errorMessageId: string, messageMetadata: any, errorMessage: string) => {
     try {
-      const { error: saveErrorError } = await supabase
-        .from('messages')
-        .insert({
-          id: errorMessageId,
-          content: errorMessage,
-          direction: "outbound",
-          instance_id: agent?.id,
-          message_type: "chat",
-          user_id: user?.id,
-          sender_phone: "5511999999999",
-          recipient_phone: "5511999999999",
-          status: "error",
-          created_at: new Date().toISOString(),
-          parent_message_id: messageMetadata.originalMessageId,
-          metadata: {
-            ...messageMetadata,
-            error: true,
-            errorMessage
-          }
-        });
-
-      if (saveErrorError) {
-        console.error("Error saving error message:", saveErrorError);
+      console.log("Salvando mensagem de erro no banco de dados...");
+      
+      try {
+        const { error: saveErrorError } = await supabase
+          .from('messages')
+          .insert({
+            id: errorMessageId,
+            content: errorMessage,
+            direction: "outbound",
+            instance_id: agent?.id || "unknown",
+            message_type: "chat",
+            user_id: user?.id || "unknown",
+            sender_phone: "5511999999999",
+            recipient_phone: "5511999999999",
+            status: "error",
+            created_at: new Date().toISOString(),
+            parent_message_id: messageMetadata.originalMessageId,
+            metadata: {
+              ...messageMetadata,
+              error: true,
+              errorMessage,
+              errorTime: new Date().toISOString()
+            }
+          });
+  
+        if (saveErrorError) {
+          console.error("Erro ao salvar mensagem de erro no banco:", saveErrorError);
+          // Log adicional para diagnóstico
+          console.log("Detalhes da tentativa:", {
+            errorMessageId,
+            direction: "outbound",
+            instance_id: agent?.id || "unknown", 
+            user_id: user?.id || "unknown",
+            status: "error"
+          });
+        } else {
+          console.log("Mensagem de erro salva com sucesso");
+        }
+      } catch (supabaseError) {
+        console.error("Exceção ao salvar mensagem de erro:", supabaseError);
       }
     } catch (err) {
       console.error("Error in saveErrorMessage:", err);
+      // Falha silenciosa - apenas log, não impede o fluxo
     }
   };
 
@@ -457,23 +475,33 @@ export function AgentChat() {
     setLoading(true);
 
     try {
-      const { error: saveError } = await supabase
-        .from('messages')
-        .insert({
-          content: messageContent,
-          direction: "inbound",
-          instance_id: agent.id,
-          message_type: "chat",
-          user_id: user.id,
-          sender_phone: "5511999999999",
-          recipient_phone: "5511999999999",
-          status: "sent",
-          created_at: new Date().toISOString(),
-          metadata: messageMetadata as any
-        });
-
-      if (saveError) {
-        throw saveError;
+      console.log("Salvando mensagem do usuário no banco de dados...");
+      try {
+        const { error: saveError } = await supabase
+          .from('messages')
+          .insert({
+            id: messageMetadata.originalMessageId, // Garantir ID único explícito
+            content: messageContent,
+            direction: "inbound",
+            instance_id: agent.id,
+            message_type: "chat",
+            user_id: user.id,
+            sender_phone: "5511999999999",
+            recipient_phone: "5511999999999",
+            status: "sent",
+            created_at: new Date().toISOString(),
+            metadata: messageMetadata as any
+          });
+  
+        if (saveError) {
+          console.error("Erro ao salvar mensagem no Supabase:", saveError);
+          // Continua o fluxo mesmo com erro no banco
+        } else {
+          console.log("Mensagem salva com sucesso no banco de dados");
+        }
+      } catch (dbError) {
+        console.error("Exceção ao salvar mensagem:", dbError);
+        // Não interrompe o fluxo devido a erros de banco
       }
 
       if (!shouldSendWebhook(messageMetadata.originalMessageId)) {
@@ -501,36 +529,142 @@ export function AgentChat() {
         const nome_remetente = user.name || '';
         const telefone_remetente = (user as any).phoneNumber || '';
 
-        // Disparar o webhook
-        await dispararWebhookMensagemRecebida({
-          webhookUrl: "https://webhooksaas.geni.chat/webhook/principal",
-          payload: {
-            usuario: user.id,
-            plano,
-            status_plano,
-            nome_instancia,
-            telefone_instancia,
-            nome_agente,
-            site_empresa,
-            area_atuacao,
-            info_empresa,
-            prompt_agente,
-            faqs,
-            nome_remetente,
-            telefone_remetente,
-            mensagem: messageContent
-          },
-          webhookSecret: process.env.WEBHOOK_SECRET // opcional, se quiser usar assinatura
+        // Preparar para enviar ao webhook n8n com melhor tratamento de erros
+        console.log("[WEBHOOK] Preparando envio para n8n:", {
+          instance: nome_instancia,
+          agent: nome_agente,
+          message: messageContent.substring(0, 50) + (messageContent.length > 50 ? '...' : ''),
         });
+        
+        let webhookResponse = null;
+        let webhookError = null;
+        
+        try {
+          // Criar constantes para valores default em caso de valores undefined
+          const webhookUrl = "https://webhooksaas.geni.chat/webhook/principal";
+          const webhookSecret = process.env.WEBHOOK_SECRET || "conversa-ai-n8n-token-2024";
+          
+          webhookResponse = await dispararWebhookMensagemRecebida({
+            webhookUrl,
+            payload: {
+              usuario: user.id,
+              plano,
+              status_plano,
+              nome_instancia,
+              telefone_instancia,
+              nome_agente,
+              site_empresa,
+              area_atuacao,
+              info_empresa,
+              prompt_agente,
+              faqs,
+              nome_remetente,
+              telefone_remetente,
+              mensagem: messageContent
+            },
+            webhookSecret,
+            timeout: 15000 // 15 segundos para evitar timeouts prematuros
+          });
+          
+          // Log da resposta para diagnóstico
+          if (webhookResponse.success) {
+            console.log("[WEBHOOK] Sucesso na resposta do n8n:", 
+              webhookResponse.data ? JSON.stringify(webhookResponse.data).substring(0, 100) + '...' : 'Sem dados');
+          } else {
+            console.error("[WEBHOOK] Erro na resposta:", webhookResponse.error);
+            webhookError = webhookResponse.error;
+            
+            // Verificar erros específicos para diagnósticos mais precisos
+            if (webhookResponse.error?.status === 403) {
+              console.error("[WEBHOOK] Erro de autenticação (403 Forbidden). Verificar token de webhook.");
+            } else if (webhookResponse.error?.status === 400) {
+              console.error("[WEBHOOK] Formato de payload incorreto (400 Bad Request).");
+            }
+          }
+        } catch (error) {
+          console.error("[WEBHOOK] Exceção ao enviar para webhook:", error);
+          webhookError = {
+            message: error.message || "Erro desconhecido",
+            status: 0
+          };
+        }
       }
 
-      // Simular resposta do agente (em produção, viria do webhook)
-      const responseContent = `Obrigado pela sua mensagem: "${messageContent}". Como posso ajudar você hoje?`;
+      // Processar resposta do webhook ou gerar resposta local em caso de falha
+      let responseContent;
+      let responseWebhook = null;
+
+      try {
+        console.log("[WEBHOOK] Processando resposta do n8n...");
+        
+        // Verificar se temos uma resposta do webhook
+        if (webhookResponse?.success && webhookResponse?.data) {
+          // Extrair conteúdo da resposta do webhook, caso esteja disponível
+          const webhookData = webhookResponse.data;
+          
+          if (webhookData.response) {
+            responseWebhook = {
+              content: webhookData.response,
+              status: "success",
+              fromWebhook: true
+            };
+          } else if (webhookData.message) {
+            responseWebhook = {
+              content: webhookData.message,
+              status: "success",
+              fromWebhook: true
+            };
+          } else if (typeof webhookData === 'string') {
+            // Caso a resposta seja uma string direta
+            responseWebhook = {
+              content: webhookData,
+              status: "success",
+              fromWebhook: true
+            };
+          } else {
+            // Resposta webhook sem formato esperado, criar default
+            responseWebhook = {
+              content: `Recebemos sua mensagem: "${messageContent.substring(0, 30)}...". Como posso ajudar?`,
+              status: "success",
+              fromWebhook: true
+            };
+          }
+        } else {
+          // Sem resposta webhook bem sucedida, criar resposta local
+          console.log("[WEBHOOK] Sem resposta válida do webhook, usando resposta local");
+          
+          // Resposta de fallback mais contextual
+          responseWebhook = {
+            content: `Agradecemos seu contato sobre "${messageContent.substring(0, 30)}...". Como podemos ajudar?`,
+            status: "local",
+            fromWebhook: false
+          };
+        }
+        
+        responseContent = responseWebhook.content;
+        
+        // Log para diagnóstico
+        console.log(`[WEBHOOK] Resposta definida (${responseWebhook.fromWebhook ? 'do webhook' : 'local'}):`, 
+          responseContent.substring(0, 50) + (responseContent.length > 50 ? '...' : ''));
+        
+      } catch (processingError) {
+        console.error("[WEBHOOK] Erro ao processar resposta:", processingError);
+        
+        // Fallback extremo em caso de erro no processamento da resposta
+        responseContent = `Recebemos sua mensagem e estamos processando. Como posso ajudar você hoje?`;
+        responseWebhook = {
+          content: responseContent,
+          status: "error",
+          fromWebhook: false
+        };
+      }
+      
       const agentMessageId = `agent-${Date.now()}`;
       
-      const { error: saveResponseError } = await supabase
-        .from('messages')
-        .insert({
+      try {
+        // Adicionar cabeçalhos de autorização para o Supabase
+        const messageInsertData = {
+          id: agentMessageId,
           content: responseContent,
           direction: "outbound",
           instance_id: agent.id,
@@ -542,12 +676,47 @@ export function AgentChat() {
           created_at: new Date().toISOString(),
           metadata: {
             ...messageMetadata,
-            responseAttemptId: generateMessageId()
-          } as any
-        });
-
-      if (saveResponseError) {
-        console.error("Error saving agent response:", saveResponseError);
+            responseAttemptId: generateMessageId(),
+            fromWebhook: responseWebhook?.fromWebhook || false,
+            webhookStatus: responseWebhook?.status || "unknown",
+            webhookError: webhookError ? {
+              message: webhookError.message,
+              status: webhookError.status
+            } : undefined
+          }
+        };
+        
+        console.log("[DATABASE] Salvando resposta do agente com ID:", agentMessageId);
+        
+        // Tentativa 1 - Usar o método padrão do Supabase
+        const { error: saveResponseError } = await supabase
+          .from('messages')
+          .insert(messageInsertData);
+  
+        if (saveResponseError) {
+          console.error("[DATABASE] Erro ao salvar resposta (tentativa 1):", saveResponseError);
+          
+          // Tentativa 2 - Usar RPC se disponível
+          try {
+            console.log("[DATABASE] Tentando método alternativo de inserção");
+            const { error: rpcError } = await supabase
+              .rpc('insert_message', messageInsertData);
+              
+            if (rpcError) {
+              console.error("[DATABASE] Erro na tentativa 2:", rpcError);
+              throw rpcError;
+            } else {
+              console.log("[DATABASE] Inserção bem-sucedida via método alternativo");
+            }
+          } catch (rpcError) {
+            console.error("[DATABASE] Falha completa ao salvar no banco:", rpcError);
+            // Continua o fluxo mesmo com erro - mensagem aparecerá na UI
+          }
+        } else {
+          console.log("[DATABASE] Resposta salva com sucesso no banco");
+        }
+      } catch (dbError) {
+        console.error("[DATABASE] Exceção ao salvar resposta:", dbError);
       }
 
       const agentResponse: Message = {

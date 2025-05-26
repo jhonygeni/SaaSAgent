@@ -51,7 +51,7 @@ function isRetryableError(error: any, status?: number): boolean {
 export async function sendWithRetries<T = any>(
   url: string,
   data: any,
-  options: RetryOptions = {}
+  options: RetryOptions & { headers?: Record<string, string | undefined> } = {}
 ): Promise<WebhookResponse<T>> {
   const { 
     maxRetries = 3, 
@@ -61,13 +61,18 @@ export async function sendWithRetries<T = any>(
     timeout = 10000,
     exponentialBackoff = true,
     instanceName,
-    phoneNumber
+    phoneNumber,
+    headers = {}
   } = options;
   
   let lastError: any;
   const startTime = Date.now();
   let finalStatus = 0;
   let totalRetries = 0;
+  
+  // Log the webhook attempt for debugging
+  console.log(`[WEBHOOK] Sending webhook to ${url}`);
+  console.log(`[WEBHOOK] Payload: ${JSON.stringify(data, null, 2).substring(0, 150)}...`);
   
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -86,26 +91,33 @@ export async function sendWithRetries<T = any>(
         await new Promise(resolve => setTimeout(resolve, delay));
       }
       
-      const headers: Record<string, string> = {
+      // Prepare request headers with improved defaults
+      const requestHeaders: Record<string, string | undefined> = {
         "Content-Type": "application/json",
         "User-Agent": "ConverseAI-Webhook/1.0",
+        "X-Webhook-Source": "conversa-ai-brasil",
+        ...headers
       };
 
       if (idempotencyKey) {
-        headers["X-Idempotency-Key"] = idempotencyKey;
+        requestHeaders["X-Idempotency-Key"] = idempotencyKey;
       }
 
-      // Fazer requisição com timeout
+      console.log(`[WEBHOOK] Request headers: ${JSON.stringify(requestHeaders)}`);
+      
+      // Fazer requisição com timeout usando AbortController para compatibilidade
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+
       const fetchPromise = fetch(url, {
         method: "POST",
-        headers,
+        headers: requestHeaders,
         body: JSON.stringify(data),
+        signal: controller.signal
       });
 
-      const response = await Promise.race([
-        fetchPromise,
-        createTimeoutPromise(timeout)
-      ]);
+      const response = await fetchPromise;
+      clearTimeout(timeoutId);
       
       finalStatus = response.status;
       
@@ -258,16 +270,38 @@ export async function dispararWebhookMensagemRecebida(options: {
   maxRetries?: number;
   timeout?: number;
 }): Promise<WebhookResponse<any>> {
-  const { webhookUrl, payload, webhookSecret, maxRetries = 3, timeout = 10000 } = options;
+  const { webhookUrl, payload, webhookSecret, maxRetries = 3, timeout = 15000 } = options;
 
-  // Adicionar timestamp se não existir
+  // Validar os campos obrigatórios
+  if (!payload.mensagem) {
+    console.error('[WEBHOOK] Erro: payload.mensagem é obrigatório');
+    return { 
+      success: false,
+      error: { message: 'Payload incompleto: mensagem é obrigatório' }
+    };
+  }
+
+  // Adicionar timestamp e sanitizar o payload para evitar problemas de formatação
   const finalPayload = {
-    ...payload,
+    usuario: payload.usuario || "unknown",
+    plano: payload.plano || "free",
+    status_plano: payload.status_plano || "ativo",
+    nome_instancia: payload.nome_instancia || "unnamed",
+    telefone_instancia: payload.telefone_instancia || "",
+    nome_agente: payload.nome_agente || "Assistente",
+    site_empresa: payload.site_empresa || "",
+    area_atuacao: payload.area_atuacao || "",
+    info_empresa: payload.info_empresa || "",
+    prompt_agente: payload.prompt_agente || "",
+    faqs: Array.isArray(payload.faqs) ? payload.faqs : [],
+    nome_remetente: payload.nome_remetente || "Usuario", 
+    telefone_remetente: payload.telefone_remetente || "",
+    mensagem: payload.mensagem,
     timestamp: payload.timestamp || new Date().toISOString()
   };
 
-  // Gerar chave de idempotência baseada nos dados da mensagem
-  const idempotencyKey = `msg-${payload.telefone_remetente}-${payload.nome_instancia}-${Date.now()}`;
+  // Gerar chave de idempotência baseada nos dados da mensagem para evitar duplicação
+  const idempotencyKey = `msg-${finalPayload.telefone_remetente}-${finalPayload.nome_instancia}-${Date.now()}`;
 
   // Gerar assinatura HMAC-SHA256 para segurança (se secret fornecido)
   let signature = '';
@@ -276,22 +310,46 @@ export async function dispararWebhookMensagemRecebida(options: {
     signature = crypto.createHmac('sha256', webhookSecret).update(payloadString).digest('hex');
   }
 
-  return sendWithRetries(
-    webhookUrl,
-    finalPayload,
-    {
-      maxRetries,
-      retryDelay: 1000,
-      idempotencyKey,
-      timeout,
-      exponentialBackoff: true,
-      instanceName: payload.nome_instancia,
-      phoneNumber: payload.telefone_remetente,
+  // Adicionar cabeçalhos específicos para o webhook n8n com autorização apropriada
+  const webhookHeaders = {
+    "Content-Type": "application/json",
+    "User-Agent": "ConverseAI-Webhook/1.0",
+    "X-Webhook-Source": "conversa-ai-brasil",
+    "X-Webhook-Signature": signature ? `sha256=${signature}` : undefined,
+    "Authorization": webhookSecret ? `Bearer ${webhookSecret}` : undefined
+  };
+  
+  // Registrar tentativa de envio com detalhes úteis para diagnóstico
+  console.log(`[WEBHOOK] Enviando para ${webhookUrl} | Instância: ${finalPayload.nome_instancia}`);
+
+  try {
+    return await sendWithRetries(
+      webhookUrl,
+      finalPayload,
+      {
+        maxRetries,
+        retryDelay: 1000,
+        idempotencyKey,
+        timeout,
+        exponentialBackoff: true,
+        instanceName: finalPayload.nome_instancia,
+        phoneNumber: finalPayload.telefone_remetente,
+      headers: webhookHeaders,
       onRetry: (attempt, maxRetries) => {
-        console.log(`[WEBHOOK] Reenvio ${attempt}/${maxRetries} para ${payload.nome_instancia}`);
+        console.log(`[WEBHOOK] Reenvio ${attempt}/${maxRetries} para ${finalPayload.nome_instancia}`);
       }
     }
   );
+  } catch (error) {
+    console.error('[WEBHOOK] Erro não tratado ao enviar webhook:', error);
+    return {
+      success: false,
+      error: {
+        message: `Erro não tratado: ${error.message || 'Erro desconhecido'}`,
+        status: 0
+      }
+    };
+  }
 }
 
 // Função para validar webhooks recebidos (para verificar assinatura)
