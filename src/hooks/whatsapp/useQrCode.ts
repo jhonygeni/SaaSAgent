@@ -26,22 +26,28 @@ export function useQrCode() {
       }
       
       // Handle all possible response formats from the API
-      if (qrResponse?.code) {
-        console.log("QR code obtained successfully (code)");
-        return qrResponse.code;
-      }
+      const possibleQRProps = ['qrcode', 'base64', 'code', 'qr', 'qrCode', 'data'];
       
-      if (qrResponse?.qrcode) {
-        console.log("QR code obtained successfully (qrcode)");
-        return qrResponse.qrcode;
+      // First check direct properties
+      for (const prop of possibleQRProps) {
+        if (qrResponse?.[prop]) {
+          console.log(`QR code obtained successfully (${prop})`);
+          
+          // If it's a data object, look for QR inside it
+          if (prop === 'data' && typeof qrResponse.data === 'object') {
+            for (const innerProp of possibleQRProps) {
+              if (qrResponse.data?.[innerProp]) {
+                console.log(`QR code found in data.${innerProp}`);
+                return qrResponse.data[innerProp];
+              }
+            }
+          } else {
+            return qrResponse[prop];
+          }
+        }
       }
-      
-      if (qrResponse?.base64) {
-        console.log("QR code obtained successfully (base64)");
-        return qrResponse.base64;
-      }
-      
-      console.warn("QR code not found in API response");
+
+      console.warn("QR code not found in API response. Response keys:", Object.keys(qrResponse || {}));
       return null;
     } catch (error) {
       console.error("Error fetching QR code:", error);

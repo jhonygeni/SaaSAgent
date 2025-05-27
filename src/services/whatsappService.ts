@@ -23,6 +23,7 @@ const whatsappService = {
   /**
    * Configure webhook for an instance
    * Must be called immediately after successful instance creation
+   * Updated to use Evolution API v2 format
    */
   configureWebhook: async (instanceName: string): Promise<WebhookConfigResponse> => {
     try {
@@ -41,16 +42,18 @@ const whatsappService = {
         };
       }
       
-      // Use the endpoint for webhook configuration
+      // Use the endpoint for webhook configuration - using V2 path format
       const endpoint = formatEndpoint(ENDPOINTS.webhookConfig, { instanceName });
       console.log("Webhook configuration URL:", `${apiClient.baseUrl}${endpoint}`);
       
+      // Updated webhook config format for Evolution API V2
       const webhookConfig = {
-        enabled: true,
-        url: "https://webhooksaas.geni.chat/webhook/principal",
-        webhookByEvents: true,
-        webhookBase64: false,
-        events: ["MESSAGES_UPSERT", "MESSAGE_UPDATE"]
+        webhook: {
+          url: "https://webhooksaas.geni.chat/webhook/principal",
+          byEvents: true,  // Changed from webhookByEvents to byEvents for v2
+          base64: false,   // Changed from webhookBase64 to base64 for v2
+          events: ["MESSAGES_UPSERT", "MESSAGE_UPDATE"]
+        }
       };
       
       const data = await apiClient.post<WebhookConfigResponse>(endpoint, webhookConfig);
@@ -267,18 +270,26 @@ const whatsappService = {
       
       // Try multiple authentication approaches to ensure we get the QR code
       let response;
+      
+      // Try different authentication approaches with multiple possible header formats
+      const authHeaders = {
+        'apikey': EVOLUTION_API_KEY,
+        'apiKey': EVOLUTION_API_KEY,
+        'Authorization': `Bearer ${EVOLUTION_API_KEY}`
+      };
+      
       try {
-        // First try with standard apiClient
+        // First try with standard apiClient which already has headers configured
         response = await apiClient.get<QrCodeResponse>(endpoint);
       } catch (apiError) {
         console.warn(`Failed to get QR code using apiClient: ${apiError}`);
         
-        // Try direct fetch with lowercase 'apikey'
+        // Try direct fetch with all auth headers at once
         try {
-          console.log(`Trying direct fetch for QR code with lowercase apikey header`);
+          console.log(`Trying comprehensive fetch approach for QR code`);
           const directResponse = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
             method: 'GET',
-            headers: { 'apikey': EVOLUTION_API_KEY }
+            headers: authHeaders
           });
           
           if (!directResponse.ok) {
@@ -287,24 +298,23 @@ const whatsappService = {
           
           response = await directResponse.json();
         } catch (directError) {
-          console.warn(`Direct fetch with lowercase apikey failed: ${directError}`);
-          
-          // Last attempt with capitalized 'apiKey'
-          console.log(`Trying final fetch approach with capitalized apiKey header`);
-          const finalResponse = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
-            method: 'GET',
-            headers: { 'apiKey': EVOLUTION_API_KEY }
-          });
-          
-          if (!finalResponse.ok) {
-            throw new Error(`All QR code fetch attempts failed`);
-          }
-          
-          response = await finalResponse.json();
+          console.warn(`All fetch attempts failed: ${directError}`);
+          throw new Error(`Failed to get QR code: ${directError.message}`);
         }
       }
       
       console.log(`QR code response for ${instanceName}:`, JSON.stringify(response, null, 2));
+      
+      // Ensure we have a valid QR code in the response
+      if (!response.qrcode && !response.base64 && !response.code) {
+        console.warn(`No QR code found in response for ${instanceName}. Response keys:`, Object.keys(response));
+        
+        // Try extracting QR code from different possible locations in response
+        if (response.qr) response.qrcode = response.qr;
+        if (response.qrCode) response.qrcode = response.qrCode;
+        if (response.data?.qrcode) response.qrcode = response.data.qrcode;
+        if (response.data?.base64) response.base64 = response.data.base64;
+      }
       
       // Save QR code to Supabase if possible
       try {

@@ -9,20 +9,21 @@ export const USE_BEARER_AUTH = FEATURE_FLAGS.useBearerAuth; // Switch to use api
 // IMPORTANT: Always use real API calls in production
 export const USE_MOCK_DATA = FEATURE_FLAGS.useMockData; // Disable mock mode to ensure real API calls
 
-// API endpoints - following official Evolution API documentation
+// API endpoints - following official Evolution API v2 documentation
 export const ENDPOINTS = {
   // Instance management endpoints with correct HTTP methods
   instanceCreate: "/instance/create", // Create new instance (POST)
-  instanceConnectQR: "/instance/connect/{instanceName}", // Connect and get QR code - CRITICAL: correct path
+  instanceConnectQR: "/instance/connect/{instanceName}", // Connect and get QR code (GET)
   instanceInfo: "/instance/info/{instanceName}", // Get instance info (GET)
   connectionState: "/instance/connectionState/{instanceName}", // Check connection status (GET)
   instanceLogout: "/instance/logout/{instanceName}", // Disconnect instance (DELETE)
+  instanceDelete: "/instance/delete/{instanceName}", // Delete instance (DELETE)
   
   // Endpoint for fetching instances
   fetchInstances: "/instance/fetchInstances", // Get instances with filtering (GET)
   
-  // Webhook configuration endpoint - CRITICAL: ensure correct path
-  webhookConfig: "/webhook/set/{instanceName}", // Configure webhook (POST)
+  // Webhook configuration endpoint
+  webhookConfig: "/instance/webhook/{instanceName}", // Configure webhook v2 (POST)
 };
 
 // Only used when USE_MOCK_DATA is true, which should never be in production

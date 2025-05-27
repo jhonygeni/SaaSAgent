@@ -129,8 +129,18 @@ export function WhatsAppConnectionDialog({
     }
   }, [open, fetchUserInstances, toast]);
   
-  // Update modal state based on connection status
+  // Update modal state based on connection status or QR code availability
   useEffect(() => {
+    console.log("Connection status changed or QR code updated:", connectionStatus, "QR data available:", !!qrCodeData);
+
+    // HIGHEST PRIORITY: If we have QR code data and not in terminal states, always show it
+    if (qrCodeData && connectionStatus !== "connected" && connectionStatus !== "failed") {
+      console.log("Forcing QR code display because QR data is available");
+      setModalState("qr_code");
+      return;
+    }
+    
+    // Otherwise follow the status-based flow
     if (connectionStatus === "waiting_qr") {
       // When we have a QR code to scan, show QR code dialog
       setModalState("qr_code");
@@ -143,10 +153,6 @@ export function WhatsAppConnectionDialog({
     } else if (connectionStatus === "waiting" || connectionStatus === "connecting") {
       // Default loading state
       setModalState("loading");
-    }
-    // If we have a QR code at any point, show it - this ensures the QR is displayed
-    if (qrCodeData && connectionStatus !== "connected" && connectionStatus !== "failed") {
-      setModalState("qr_code");
     }
   }, [connectionStatus, qrCodeData]);
   
@@ -330,8 +336,9 @@ export function WhatsAppConnectionDialog({
   const renderDialogContent = () => {
     // CRITICAL FIX: Always show QR code first when available, overriding all other states
     // This ensures Evolution API popup issue is fixed by prioritizing QR display
-    if (qrCodeData && connectionStatus !== "connected") {
-      console.log("QR code available - forcing QR code display");
+    if (qrCodeData && connectionStatus !== "connected" && connectionStatus !== "failed") {
+      console.log("QR code available - forcing QR code display regardless of state");
+      setModalState("qr_code"); // Ensure modal state is set to qr_code
       return (
         <QrCodeState 
           qrCodeData={qrCodeData}

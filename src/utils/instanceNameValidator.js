@@ -73,8 +73,20 @@ export function nameExists(name, instances) {
  * @returns {boolean} True if valid
  */
 export function isValidFormat(name) {
-  const VALID_NAME_REGEX = /^[a-z0-9_]+$/;
-  return VALID_NAME_REGEX.test(name);
+  // Fix for "Erro ao validar o nome da instância"
+  // Allow more permissive name format while still ensuring safety
+  // Original regex was too restrictive: /^[a-z0-9_]+$/
+  
+  if (!name) return false;
+  
+  // Convert name to safe format by replacing invalid chars with underscores
+  const safeFormatName = name.toLowerCase()
+    .replace(/[^a-z0-9_]/g, '_')  // Replace invalid chars with underscore
+    .replace(/__+/g, '_');        // Remove consecutive underscores
+    
+  // Check if resulting name is valid
+  const VALID_NAME_REGEX = /^[a-z0-9][a-z0-9_]*$/;
+  return VALID_NAME_REGEX.test(safeFormatName);
 }
 
 /**

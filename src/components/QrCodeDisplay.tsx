@@ -34,22 +34,31 @@ export function QrCodeDisplay({
         console.log(`QR code value received (length: ${value.length})`);
         console.log("QR code value sample:", value.substring(0, 100) + (value.length > 100 ? '...' : ''));
         
-        // If it looks like it might be base64
+        // FIX: More comprehensive detection of various QR code formats
+        
+        // Check for common base64 patterns
         if (value.indexOf('base64,') !== -1) {
-          console.log("Detected data URL with base64 content");
+          // Full data URL format (e.g. data:image/png;base64,ABC123...)
+          console.log("Detected full data URL with base64 content");
           setQrValue(value);
           setIsBase64(true);
-        } else if (value.length > 100 && !value.startsWith('http') && !value.match(/^[a-zA-Z0-9+/=]+$/)) {
-          // Non-base64 format long string - probably direct code format
-          console.log("Using raw QR code value (non-base64 format)");
+        } else if (value.match(/^data:/i) && value.length > 100) {
+          // Data URL that might be malformed but still usable
+          console.log("Detected possible data URL");
           setQrValue(value);
-          setIsBase64(false);
-        } else if (value.match(/^[a-zA-Z0-9+/=]+$/)) {
+          setIsBase64(true);
+        } else if (value.match(/^[A-Za-z0-9+/=]{50,}$/)) {
           // Looks like raw base64 without data:image prefix
           console.log("Detected raw base64 encoded QR code");
           setQrValue(`data:image/png;base64,${value}`);
           setIsBase64(true);
+        } else if (value.length > 100 && !value.startsWith('http')) {
+          // Very long string that isn't a URL - probably QR code data
+          console.log("Using raw QR code value (long format)");
+          setQrValue(value);
+          setIsBase64(false);
         } else {
+          // Default handling for shorter strings, URLs, etc.
           console.log("Using standard QR code value");
           setQrValue(value);
           setIsBase64(false);
