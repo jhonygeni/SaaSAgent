@@ -2,6 +2,12 @@
 import { useCallback } from 'react';
 import whatsappService from '@/services/whatsappService';
 import { InstancesListResponse } from '@/services/whatsapp/types';
+import { 
+  getInstanceNames,
+  nameExists,
+  isValidFormat,
+  isValidLength 
+} from '@/utils/instanceNameValidator';
 
 // Regular expression for valid instance names - only lowercase letters, numbers and underscores
 const VALID_NAME_REGEX = /^[a-z0-9_]+$/;
@@ -44,16 +50,26 @@ export function useNameValidator() {
       }
       
       // Check if instance with this name already exists
-      const existingInstances: InstancesListResponse = await whatsappService.listInstances();
-      const alreadyExists = existingInstances?.some(instance => 
-        instance.name === name
-      );
-      
-      if (alreadyExists) {
-        return {
-          valid: false,
-          message: "Este nome de instância já está em uso. Por favor, escolha outro nome."
-        };
+      try {
+        console.log(`Validating name: ${name}`);
+        
+        // Use the failsafe mechanism to get instances - either from API or fallback
+        const instances = await getInstanceNames(whatsappService.listInstances);
+        console.log(`Retrieved ${instances.length} instances for validation`);
+        
+        // Check for name duplication using the helper function
+        if (nameExists(name, instances)) {
+          console.log(`Name '${name}' already exists`);
+          return {
+            valid: false,
+            message: "Este nome de instância já está em uso. Por favor, escolha outro nome."
+          };
+        }
+        
+        console.log(`Name '${name}' is available`);
+      } catch (apiError) {
+        console.error("Error in name validation process:", apiError);
+        // Continue with validation - the getInstanceNames function already handles errors
       }
       
       // If all checks pass, name is valid
@@ -62,9 +78,26 @@ export function useNameValidator() {
       };
     } catch (error) {
       console.error("Error validating instance name:", error);
+      
+      // Provide more specific error messages based on error type
+      let errorMessage = "Erro ao validar o nome da instância. Por favor, tente novamente.";
+      
+      // Check for network errors
+      if (error instanceof TypeError && error.message.includes('NetworkError')) {
+        errorMessage = "Erro de conexão. Verifique sua internet e tente novamente.";
+      } 
+      // Check for API authorization errors
+      else if (error.message && (error.message.includes('401') || error.message.includes('403'))) {
+        errorMessage = "Erro de autenticação. Por favor, verifique suas credenciais.";
+      }
+      // Request timeout
+      else if (error.message && error.message.includes('timeout')) {
+        errorMessage = "Tempo de espera excedido. A API pode estar sobrecarregada ou indisponível.";
+      }
+      
       return {
         valid: false,
-        message: "Erro ao validar o nome da instância. Por favor, tente novamente."
+        message: errorMessage
       };
     }
   }, []);

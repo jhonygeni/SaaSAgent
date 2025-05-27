@@ -258,14 +258,52 @@ const whatsappService = {
     }
   },
 
-  // Fetch all instances
+  // Fetch all instances with enhanced error handling and multiple fallbacks
   fetchInstances: async (): Promise<InstancesListResponse> => {
     try {
-      const endpoint = ENDPOINTS.fetchInstances;
-      return await apiClient.get<InstancesListResponse>(endpoint);
+      console.log("Fetching WhatsApp instances list...");
+      
+      // First attempt: Use regular apiClient
+      try {
+        const endpoint = ENDPOINTS.fetchInstances;
+        console.log(`Using endpoint: ${EVOLUTION_API_URL}${endpoint}`);
+        
+        const instances = await apiClient.get<InstancesListResponse>(endpoint);
+        console.log(`Successfully fetched ${instances?.length || 0} instances`);
+        return instances;
+      } catch (apiError) {
+        // Primary method failed, try second method
+        console.warn("Primary API client fetch failed, trying fallback method:", apiError);
+        
+        try {
+          // Second attempt: Use direct fetch with minimal headers
+          const response = await fetch(`${EVOLUTION_API_URL}/instance/fetchInstances`, {
+            method: 'GET',
+            headers: { 'apikey': EVOLUTION_API_KEY }
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Direct fetch failed with status ${response.status}: ${response.statusText}`);
+          }
+          
+          const instances = await response.json();
+          console.log(`Successfully fetched ${instances?.length || 0} instances via direct fetch`);
+          return instances;
+        } catch (directError) {
+          // Second method failed, try third method
+          console.warn("Direct fetch failed, trying emergency method:", directError);
+          
+          // Third attempt: Import and use emergencyFetchInstances
+          const { emergencyFetchInstances } = await import('@/services/directApiClient');
+          const instances = await emergencyFetchInstances();
+          console.log(`Emergency fetch retrieved ${instances?.length || 0} instances`);
+          return instances;
+        }
+      }
     } catch (error) {
-      console.error("Error fetching instances:", error);
-      throw error;
+      console.error("Error fetching instances (all attempts failed):", error);
+      // Return empty array instead of throwing to avoid breaking validation
+      return [];
     }
   },
 
