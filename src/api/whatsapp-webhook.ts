@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { sendWithRetries } from '@/lib/webhook-utils';
+import { checkMessageProcessing } from '@/lib/message-tracking';
 
 // Tipos para melhor type safety
 interface WhatsAppWebhookData {
@@ -201,6 +202,29 @@ export async function processarWebhookWhatsApp(request: WhatsAppWebhookRequest):
       return { success: false, message: validacao.error };
     }
 
+    // 1.1 Verificar loops e mensagens duplicadas
+    const messageId = request.data.key?.id || `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    const remoteJid = request.data.key.remoteJid;
+    const { texto: mensagemConteudo } = extrairMensagem(request.data);
+    
+    const messageProcessingCheck = checkMessageProcessing({
+      messageId,
+      instanceName: request.instance,
+      remoteJid,
+      content: mensagemConteudo
+    });
+    
+    // Se a mensagem não pode ser processada (loop detectado ou duplicada)
+    if (!messageProcessingCheck.canProcess) {
+      console.log(`[WEBHOOK] Mensagem bloqueada: ${messageProcessingCheck.reason} | Contagem: ${messageProcessingCheck.processingCount}`);
+      return { 
+        success: true, // Retornar sucesso para não gerar retry
+        message: `Mensagem não processada: ${messageProcessingCheck.reason}`
+      };
+    }
+
+    console.log(`[WEBHOOK] Mensagem validada: ID=${messageId} | Contagem: ${messageProcessingCheck.processingCount}`);
+
     // 2. Buscar dados completos (com cache)
     const { instancia, usuario, agente, plano } = await buscarDadosCompletos(request.instance);
     
@@ -255,6 +279,15 @@ export async function processarWebhookWhatsApp(request: WhatsAppWebhookRequest):
       message_type: tipoMensagem
     };
 
+    // Log detalhado para rastreamento de processamento
+    console.log(`[WEBHOOK] [ANTI-LOOP] Enviando mensagem processada:`, {
+      instancia: request.instance,
+      telefone: telefoneRemetente,
+      messageId: messageId,
+      processamento: messageProcessingCheck.processingCount,
+      timestamp: new Date().toISOString()
+    });
+
     // 7. Enviar para n8n com retry automático e monitoramento
     const resultado = await sendWithRetries(
       'https://webhooksaas.geni.chat/webhook/principal',
@@ -262,9 +295,16 @@ export async function processarWebhookWhatsApp(request: WhatsAppWebhookRequest):
       {
         maxRetries: 3,
         retryDelay: 1000,
-        idempotencyKey: `${request.instance}-${telefoneRemetente}-${Date.now()}`,
+        // Usar idempotencyKey com informações mais precisas para evitar duplicação
+        idempotencyKey: `${request.instance}-${telefoneRemetente}-${messageId}-${Date.now()}`,
         instanceName: request.instance,
         phoneNumber: telefoneRemetente,
+        headers: {
+          // Adicionar headers para rastreamento anti-loop
+          "X-Message-ID": messageId,
+          "X-Processing-Count": messageProcessingCheck.processingCount.toString(),
+          "X-Anti-Loop-Enabled": "true"
+        },
         onRetry: (attempt, maxRetries) => {
           console.log(`[WEBHOOK] Tentativa ${attempt}/${maxRetries} para instância ${request.instance}`);
         }

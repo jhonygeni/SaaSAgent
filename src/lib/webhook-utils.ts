@@ -70,8 +70,17 @@ export async function sendWithRetries<T = any>(
   let finalStatus = 0;
   let totalRetries = 0;
   
-  // Log the webhook attempt for debugging
+  // Verificar se esta é uma mensagem que deve ser verificada para evitar loops
+  const isAntiLoopEnabled = headers["X-Anti-Loop-Enabled"] === "true";
+  const processingCount = parseInt(headers["X-Processing-Count"] || "0", 10);
+  const messageId = headers["X-Message-ID"];
+  
+  // Log detalhado da tentativa de webhook para depuração
   console.log(`[WEBHOOK] Sending webhook to ${url}`);
+  console.log(`[WEBHOOK] Anti-loop system: ${isAntiLoopEnabled ? "Enabled" : "Disabled"}`);
+  if (isAntiLoopEnabled) {
+    console.log(`[WEBHOOK] Message tracking: ID=${messageId}, Count=${processingCount}`);
+  }
   console.log(`[WEBHOOK] Payload: ${JSON.stringify(data, null, 2).substring(0, 150)}...`);
   
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -259,7 +268,7 @@ interface WebhookMensagemPayload {
 
 /**
  * Dispara um webhook para o n8n sempre que uma mensagem é recebida por uma instância conectada ao WhatsApp.
- * Versão otimizada com retry automático e validação de segurança.
+ * Versão otimizada com retry automático, validação de segurança e sistema anti-loop.
  *
  * @param options Configurações do webhook
  */
@@ -269,8 +278,31 @@ export async function dispararWebhookMensagemRecebida(options: {
   webhookSecret?: string;
   maxRetries?: number;
   timeout?: number;
+  messageId?: string;        // ID único da mensagem para rastreamento
+  processingCount?: number;  // Contador de processamento para detecção de loops
 }): Promise<WebhookResponse<any>> {
-  const { webhookUrl, payload, webhookSecret, maxRetries = 3, timeout = 15000 } = options;
+  const { 
+    webhookUrl, 
+    payload, 
+    webhookSecret, 
+    maxRetries = 3, 
+    timeout = 15000,
+    messageId = `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    processingCount = 1
+  } = options;
+  
+  // Anti-loop: verificar se já excedeu o limite de processamento
+  const PROCESSING_LIMIT = 3; // Limite de processamentos da mesma mensagem
+  if (processingCount > PROCESSING_LIMIT) {
+    console.error(`[WEBHOOK] [ANTI-LOOP] Detectado possível loop! Processamento ${processingCount} > limite ${PROCESSING_LIMIT}`);
+    return { 
+      success: false,
+      error: { 
+        message: `Processamento bloqueado por detecção de loop (${processingCount} > ${PROCESSING_LIMIT})`,
+        status: 429 // Too Many Requests
+      }
+    };
+  }
 
   // Validar os campos obrigatórios
   if (!payload.mensagem) {
@@ -316,11 +348,17 @@ export async function dispararWebhookMensagemRecebida(options: {
     "User-Agent": "ConverseAI-Webhook/1.0",
     "X-Webhook-Source": "conversa-ai-brasil",
     "X-Webhook-Signature": signature ? `sha256=${signature}` : undefined,
-    "Authorization": webhookSecret ? `Bearer ${webhookSecret}` : undefined
+    "Authorization": webhookSecret ? `Bearer ${webhookSecret}` : undefined,
+    // Headers específicos para sistema anti-loop
+    "X-Message-ID": messageId,
+    "X-Processing-Count": processingCount.toString(),
+    "X-Anti-Loop-Enabled": "true",
+    "X-Message-Timestamp": new Date().toISOString()
   };
   
   // Registrar tentativa de envio com detalhes úteis para diagnóstico
   console.log(`[WEBHOOK] Enviando para ${webhookUrl} | Instância: ${finalPayload.nome_instancia}`);
+  console.log(`[WEBHOOK] [ANTI-LOOP] MessageID: ${messageId}, Count: ${processingCount}`);
 
   try {
     return await sendWithRetries(
@@ -329,16 +367,16 @@ export async function dispararWebhookMensagemRecebida(options: {
       {
         maxRetries,
         retryDelay: 1000,
-        idempotencyKey,
+        idempotencyKey: `${idempotencyKey}-${messageId}-${processingCount}`,
         timeout,
         exponentialBackoff: true,
         instanceName: finalPayload.nome_instancia,
         phoneNumber: finalPayload.telefone_remetente,
-      headers: webhookHeaders,
-      onRetry: (attempt, maxRetries) => {
-        console.log(`[WEBHOOK] Reenvio ${attempt}/${maxRetries} para ${finalPayload.nome_instancia}`);
+        headers: webhookHeaders,
+        onRetry: (attempt, maxRetries) => {
+          console.log(`[WEBHOOK] Reenvio ${attempt}/${maxRetries} para ${finalPayload.nome_instancia}`);
+        }
       }
-    }
   );
   } catch (error) {
     console.error('[WEBHOOK] Erro não tratado ao enviar webhook:', error);

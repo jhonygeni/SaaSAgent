@@ -20,6 +20,32 @@ app.use((req, res, next) => {
  * Webhook Principal para Evolution API
  * Este endpoint simula o processamento que seria feito pelo sistema real
  */
+// Sistema anti-loop simples para o servidor webhook
+const processedMessages = new Map();
+const ANTI_LOOP_CONFIG = {
+  MESSAGE_TTL: 30 * 60 * 1000, // 30 minutos
+  MAX_PROCESSING: 3,           // Máximo processamentos permitidos
+  MAX_CACHE_SIZE: 1000         // Tamanho máximo do cache de mensagens
+};
+
+// Limpar mensagens antigas periodicamente
+setInterval(() => {
+  const now = Date.now();
+  let deleted = 0;
+  
+  for (const [key, data] of processedMessages.entries()) {
+    if (now - data.timestamp > ANTI_LOOP_CONFIG.MESSAGE_TTL) {
+      processedMessages.delete(key);
+      deleted++;
+    }
+  }
+  
+  if (deleted > 0) {
+    console.log(`[ANTI-LOOP] Limpeza de cache: ${deleted} mensagens removidas. Total: ${processedMessages.size}`);
+  }
+}, ANTI_LOOP_CONFIG.MESSAGE_TTL / 2);
+
+// Webhook principal com sistema anti-loop
 app.post('/webhook/principal', async (req, res) => {
   const startTime = Date.now();
   
@@ -28,12 +54,72 @@ app.post('/webhook/principal', async (req, res) => {
     
     const evolutionData = req.body;
     
+    // Verificar sistema anti-loop nos headers
+    const messageId = req.headers['x-message-id'] || `auto-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    const processingCount = parseInt(req.headers['x-processing-count'] || '1', 10);
+    const antiLoopEnabled = req.headers['x-anti-loop-enabled'] === 'true';
+    
     console.log('[WEBHOOK-PRINCIPAL] Dados recebidos:', {
       instance: evolutionData.instance,
       event: evolutionData.event,
       hasData: !!evolutionData.data,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      antiLoop: antiLoopEnabled ? `MessageID: ${messageId}, Count: ${processingCount}` : 'Disabled'
     });
+
+    // Anti-loop: verificar se a mensagem já foi processada recentemente
+    if (antiLoopEnabled && messageId) {
+      const cacheKey = messageId;
+      const existingMessage = processedMessages.get(cacheKey);
+      
+      if (existingMessage) {
+        // Se já vimos esta mensagem antes, incrementar contador
+        existingMessage.count++;
+        existingMessage.timestamp = Date.now();
+        
+        console.log(`[WEBHOOK-PRINCIPAL] [ANTI-LOOP] Mensagem repetida detectada: ${messageId}, contagem: ${existingMessage.count}`);
+        
+        // Se exceder o limite, bloquear processamento
+        if (existingMessage.count > ANTI_LOOP_CONFIG.MAX_PROCESSING) {
+          console.error(`[WEBHOOK-PRINCIPAL] [ANTI-LOOP] Possível loop detectado! MessageID: ${messageId}, Count: ${existingMessage.count}`);
+          return res.status(429).json({ 
+            success: false, 
+            message: `Processamento bloqueado por detecção de loop (${existingMessage.count} > ${ANTI_LOOP_CONFIG.MAX_PROCESSING})`,
+            antiLoop: {
+              detected: true,
+              messageId,
+              count: existingMessage.count
+            }
+          });
+        }
+      } else {
+        // LRU: Se o cache está cheio, remover item mais antigo
+        if (processedMessages.size >= ANTI_LOOP_CONFIG.MAX_CACHE_SIZE) {
+          let oldestKey = null;
+          let oldestTime = Infinity;
+          
+          for (const [key, data] of processedMessages.entries()) {
+            if (data.timestamp < oldestTime) {
+              oldestTime = data.timestamp;
+              oldestKey = key;
+            }
+          }
+          
+          if (oldestKey) {
+            processedMessages.delete(oldestKey);
+          }
+        }
+        
+        // Adicionar no cache
+        processedMessages.set(cacheKey, {
+          messageId,
+          timestamp: Date.now(),
+          count: 1
+        });
+        
+        console.log(`[WEBHOOK-PRINCIPAL] [ANTI-LOOP] Nova mensagem registrada: ${messageId}`);
+      }
+    }
 
     // Verificar se é uma mensagem (não um evento de status)
     if (!evolutionData.data || !evolutionData.data.key) {
@@ -102,6 +188,17 @@ app.post('/webhook/principal', async (req, res) => {
 
     const duration = Date.now() - startTime;
     
+    // Para sistemas com anti-loop, incluir informações de rastreamento na resposta
+    const antiLoopInfo = antiLoopEnabled ? {
+      antiLoop: {
+        messageId: messageId,
+        processingCount: processingCount,
+        detectedLoops: processedMessages.size > 0 ? Array.from(processedMessages.values())
+          .filter(msg => msg.count > 2)
+          .map(msg => ({ id: msg.messageId, count: msg.count })) : []
+      }
+    } : {};
+    
     console.log(`[WEBHOOK-PRINCIPAL] Processado com sucesso em ${duration}ms`);
     res.status(200).json({ 
       success: true, 
@@ -112,7 +209,8 @@ app.post('/webhook/principal', async (req, res) => {
         name: nomeRemetente,
         message: mensagem.substring(0, 100),
         instance: evolutionData.instance
-      }
+      },
+      ...antiLoopInfo
     });
 
   } catch (error) {
