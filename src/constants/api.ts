@@ -4,7 +4,7 @@ import { EVOLUTION_CONFIG, FEATURE_FLAGS } from '../config/environment';
 
 export const EVOLUTION_API_URL = EVOLUTION_CONFIG.url; // API URL without trailing slash
 export const EVOLUTION_API_KEY = EVOLUTION_CONFIG.key; // Global API Key - Configurada via variáveis de ambiente
-export const USE_BEARER_AUTH = FEATURE_FLAGS.useBearerAuth; // Switch to use apikey header instead of Bearer token
+export const USE_BEARER_AUTH = true; // Evolution API v2 requires Bearer token authentication
 
 // IMPORTANT: Always use real API calls in production
 export const USE_MOCK_DATA = FEATURE_FLAGS.useMockData; // Disable mock mode to ensure real API calls

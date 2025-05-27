@@ -20,7 +20,7 @@ export const formatEndpoint = (endpoint: string, params: Record<string, string>)
 
 /**
  * Helper function to create API headers with proper authorization
- * CORREÇÃO APLICADA: Evolution API v2 usa EXCLUSIVAMENTE 'apikey'
+ * CORREÇÃO APLICADA: Evolution API v2 usa EXCLUSIVAMENTE 'Authorization: Bearer'
  */
 export const createHeaders = (contentType: boolean = false): HeadersInit => {
   const headers: HeadersInit = {};
@@ -29,9 +29,9 @@ export const createHeaders = (contentType: boolean = false): HeadersInit => {
     headers['Content-Type'] = 'application/json';
   }
   
-  // CORREÇÃO CRÍTICA: Evolution API v2 usa APENAS 'apikey'
-  // Não usar 'Authorization: Bearer' pois causa erros 401
-  headers['apikey'] = EVOLUTION_API_KEY;
+  // CORREÇÃO CRÍTICA: Evolution API v2 usa APENAS 'Authorization: Bearer'
+  // Não usar 'apikey' pois causa erros 401
+  headers['Authorization'] = `Bearer ${EVOLUTION_API_KEY}`;
   headers['Accept'] = 'application/json';
   
   return headers;
@@ -150,9 +150,23 @@ export const apiClient = {
           }`;
           console.error(errorMsg);
           
-          // Special handling for 403/401 errors - don't consume credits
-          if (PREVENT_CREDIT_CONSUMPTION_ON_FAILURE && (response.status === 403 || response.status === 401)) {
-            console.error("Authentication error - canceling operation to prevent credit consumption");
+          // Special handling for authentication errors (401/403)
+          if (response.status === 401 || response.status === 403) {
+            console.error("AUTHENTICATION ERROR: Your token is invalid or has insufficient permissions");
+            console.error("Please verify your Evolution API token is correct in the environment variables");
+            console.error("Token being used (first 4 chars): " + (EVOLUTION_API_KEY ? EVOLUTION_API_KEY.substring(0, 4) + "..." : "MISSING"));
+            
+            // Create a custom error for auth failures to prevent retries
+            const authError = new Error(`Authentication failed: Invalid or expired token. Status: ${response.status}`);
+            authError.name = 'AuthenticationError';
+            authError.status = response.status;
+            
+            // Prevent credit consumption on auth failures
+            if (PREVENT_CREDIT_CONSUMPTION_ON_FAILURE) {
+              console.error("Canceling operation to prevent credit consumption");
+            }
+            
+            throw authError;
           }
           
           throw new Error(errorMsg);
@@ -165,12 +179,17 @@ export const apiClient = {
         throw error;
       }
     }, undefined, undefined, (error) => {
-      // Don't retry on authentication errors
-      return !(error instanceof Error && (
+      // NEVER retry on authentication errors - immediately stop
+      if (error instanceof Error && (
+        error.name === 'AuthenticationError' ||
         error.message.includes("403") || 
         error.message.includes("401") ||
         error.message.includes("Authentication failed")
-      ));
+      )) {
+        console.error("Authentication error detected - will NOT retry");
+        return false; // Do not retry
+      }
+      return true; // Retry other errors
     });
   },
   

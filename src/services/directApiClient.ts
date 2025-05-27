@@ -25,7 +25,10 @@ export const directApiClient = {
       
       const response = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
         method: 'GET',
-        headers: { 'apikey': EVOLUTION_API_KEY }
+        headers: { 
+          'Authorization': `Bearer ${EVOLUTION_API_KEY}`,
+          'Accept': 'application/json'
+        }
       });
       
       if (!response.ok) {

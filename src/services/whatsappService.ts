@@ -86,7 +86,10 @@ const whatsappService = {
       try {
         const directResponse = await fetch(EVOLUTION_API_URL, {
           method: 'GET',
-          headers: { 'apikey': EVOLUTION_API_KEY }
+          headers: { 
+            'Authorization': `Bearer ${EVOLUTION_API_KEY}`,
+            'Accept': 'application/json'
+          }
         });
         
         if (directResponse.ok) {
@@ -188,23 +191,42 @@ const whatsappService = {
       // Try to create instance using corrected Evolution API v2 authentication
       let response: WhatsAppInstanceResponse;
       
-      // Primary attempt with apiClient (uses correct 'apikey' header)
+      // Primary attempt with apiClient (uses correct 'Authorization: Bearer' header)
       try {
         response = await apiClient.post<WhatsAppInstanceResponse>(endpoint, instanceData);
       } catch (apiError) {
         console.warn("API client post failed, trying direct fetch:", apiError);
         
-        // Fallback: Direct fetch with 'apikey' header (Evolution API v2 standard)
+        // Check if this was an authentication error (401/403)
+        if (apiError.name === 'AuthenticationError' || 
+            (apiError instanceof Error && 
+             (apiError.message.includes('401') || apiError.message.includes('403')))) {
+          throw new Error(
+            `Falha na autenticação com Evolution API. Verifique se seu token está correto e ativo no painel Evolution API. ` +
+            `Status: ${apiError.status || 401}. ` +
+            `Detalhes: Por favor, verifique a variável de ambiente EVOLUTION_API_KEY.`
+          );
+        }
+        
+        // Fallback: Direct fetch with 'Authorization: Bearer' header (Evolution API v2 standard)
         const directResponse = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'apikey': EVOLUTION_API_KEY
+            'Authorization': `Bearer ${EVOLUTION_API_KEY}`,
+            'Accept': 'application/json'
           },
           body: JSON.stringify(instanceData)
         });
         
         if (!directResponse.ok) {
+          // Special handling for 401/403 errors
+          if (directResponse.status === 401 || directResponse.status === 403) {
+            throw new Error(
+              `Falha na autenticação com Evolution API (${directResponse.status}). ` +
+              `Verifique seu token no painel Evolution API e atualize a variável de ambiente EVOLUTION_API_KEY.`
+            );
+          }
           throw new Error(`API error: ${directResponse.status} ${directResponse.statusText}`);
         }
         
@@ -255,9 +277,9 @@ const whatsappService = {
       let response;
       
       // Try different authentication approaches with CORREÇÃO APLICADA
-      // IMPORTANTE: Evolution API v2 usa EXCLUSIVAMENTE 'apikey'
+      // IMPORTANTE: Evolution API v2 usa EXCLUSIVAMENTE 'Authorization: Bearer'
       const authHeaders = {
-        'apikey': EVOLUTION_API_KEY,
+        'Authorization': `Bearer ${EVOLUTION_API_KEY}`,
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       };
@@ -268,6 +290,17 @@ const whatsappService = {
       } catch (apiError) {
         console.warn(`Failed to get QR code using apiClient: ${apiError}`);
         
+        // Check if this was an authentication error (401/403)
+        if (apiError.name === 'AuthenticationError' || 
+            (apiError instanceof Error && 
+             (apiError.message.includes('401') || apiError.message.includes('403')))) {
+          throw new Error(
+            `Falha na autenticação com Evolution API. Seu token não foi aceito pelo servidor. ` +
+            `Status: ${apiError.status || 401}. ` +
+            `Por favor, verifique se o token está correto e ativo no painel Evolution API.`
+          );
+        }
+        
         // Try direct fetch with all auth headers at once
         try {
           console.log(`Trying comprehensive fetch approach for QR code`);
@@ -277,6 +310,13 @@ const whatsappService = {
           });
           
           if (!directResponse.ok) {
+            // Special handling for 401/403 errors
+            if (directResponse.status === 401 || directResponse.status === 403) {
+              throw new Error(
+                `Falha na autenticação com Evolution API (${directResponse.status}). ` +
+                `Seu token não é válido ou expirou. Verifique-o no painel Evolution e atualize a variável EVOLUTION_API_KEY.`
+              );
+            }
             throw new Error(`Direct fetch failed: ${directResponse.status}`);
           }
           
@@ -389,14 +429,36 @@ const whatsappService = {
         // Primary method failed, try second method
         console.warn("Primary API client fetch failed, trying fallback method:", apiError);
         
+        // Check if this was an authentication error (401/403)
+        if (apiError.name === 'AuthenticationError' || 
+            (apiError instanceof Error && 
+             (apiError.message.includes('401') || apiError.message.includes('403')))) {
+          console.error("Authentication error detected, stopping further attempts");
+          throw new Error(
+            `Falha na autenticação com Evolution API. ` +
+            `Status: ${apiError.status || 401}. ` +
+            `Detalhes: Seu token não foi aceito pelo servidor. Verifique no painel Evolution API se o token está ativo e com permissões corretas.`
+          );
+        }
+        
         try {
-          // Second attempt: Use direct fetch with minimal headers
+          // Second attempt: Use direct fetch with proper Authorization header
           const response = await fetch(`${EVOLUTION_API_URL}/instance/fetchInstances`, {
             method: 'GET',
-            headers: { 'apikey': EVOLUTION_API_KEY }
+            headers: { 
+              'Authorization': `Bearer ${EVOLUTION_API_KEY}`,
+              'Accept': 'application/json' 
+            }
           });
           
           if (!response.ok) {
+            // Special handling for 401/403 errors
+            if (response.status === 401 || response.status === 403) {
+              throw new Error(
+                `Falha na autenticação com Evolution API (${response.status}). ` +
+                `Seu token não foi aceito. Verifique-o no painel Evolution e atualize a variável EVOLUTION_API_KEY.`
+              );
+            }
             throw new Error(`Direct fetch failed with status ${response.status}: ${response.statusText}`);
           }
           
