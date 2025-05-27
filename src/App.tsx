@@ -36,6 +36,14 @@ const queryClient = logStep('Query Client Creation', () => new QueryClient({
   },
 }));
 
+import injectAuthDebugger from "@/utils/injectAuthDebugger";
+import { AuthDiagnosticButton } from "@/components/AuthDiagnosticButton";
+
+// Injeta o debugger em desenvolvimento
+if (process.env.NODE_ENV !== 'production') {
+  injectAuthDebugger();
+}
+
 const App = () => {
   console.log('🎯 Renderizando componente App...');
   
@@ -49,6 +57,7 @@ const App = () => {
                 <Toaster />
                 <Sonner />
                 <BrowserRouter>
+                  {process.env.NODE_ENV !== 'production' && <AuthDiagnosticButton />}
                   <Routes>
                     <Route path="/" element={<Index />} />
                     <Route path="/dashboard" element={<DashboardPage />} />

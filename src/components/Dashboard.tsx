@@ -1,4 +1,3 @@
-
 import { useUser } from "@/context/UserContext";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button-extensions";
@@ -16,16 +15,17 @@ import { DashboardHeader } from "@/components/DashboardHeader";
 import { DashboardAnalytics } from "@/components/DashboardAnalytics";
 import { InterestedClients } from "@/components/InterestedClients";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useConnection } from "@/context/ConnectionContext";
 import { useToast } from "@/hooks/use-toast";
 import { useSearchParams } from "react-router-dom";
 import { useAgent } from "@/context/AgentContext";
 import { ErrorState } from "@/components/ErrorState";
-import { throttledSubscriptionCheck } from "@/lib/subscription-throttle";
+import { resetSubscriptionCache } from "@/lib/subscription-throttle";
+import { throttledSubscriptionCheck, resetSubscriptionCache } from "@/lib/subscription-throttle";
 
 export function Dashboard() {
-  const { user, checkSubscriptionStatus } = useUser();
+  const { user, checkSubscriptionStatus, isLoading: isUserLoading } = useUser();
   const { loadAgentsFromSupabase, isLoading: isLoadingAgents, agents } = useAgent();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -36,6 +36,25 @@ export function Dashboard() {
   const [searchParams] = useSearchParams();
   const [loadAttempts, setLoadAttempts] = useState(0);
   const [forceShowContent, setForceShowContent] = useState(false);
+  const dashboardLoadedRef = useRef(false);
+  
+  // Check if redirected from successful checkout
+  useEffect(() => {
+    const checkoutSuccess = searchParams.get('checkout_success');
+    
+    if (checkoutSuccess && user) {
+      // Limpar cache antes de recarregar status da assinatura
+      resetSubscriptionCache();
+      
+      // Refresh subscription status after successful checkout
+      checkSubscriptionStatus();
+      
+      toast({
+        title: "Assinatura ativada",
+        description: "Sua assinatura foi ativada com sucesso. Aproveite seu novo plano!",
+      });
+    }
+  }, [searchParams, user, checkSubscriptionStatus, toast]);
   
   // Force complete loading after a timeout to prevent infinite spinner
   useEffect(() => {
@@ -54,12 +73,32 @@ export function Dashboard() {
   
   // Load data when component mounts or when user changes
   useEffect(() => {
+    // Evitar recarregar se já carregamos com sucesso anteriormente
+    if (dashboardLoadedRef.current && agents.length > 0) {
+      console.log("Dashboard já carregado anteriormente, ignorando nova carga");
+      setIsLoading(false);
+      return;
+    }
+    
     const loadDashboard = async () => {
       try {
+        // Não iniciar carregamento caso o usuário esteja sendo carregado
+        if (isUserLoading) {
+          console.log("Usuário ainda está carregando, aguardando...");
+          return;
+        }
+        
         setIsLoading(true);
         setLoadError(null);
         setLoadAttempts(prev => prev + 1);
         console.log(`Dashboard loading attempt ${loadAttempts + 1}`);
+        
+        // Se não temos usuário após várias tentativas, redirecione para login
+        if (!user && loadAttempts >= 2) {
+          console.warn("Usuário não encontrado após múltiplas tentativas, redirecionando para login");
+          navigate("/entrar");
+          return;
+        }
         
         // Only try to load agents if we have a user and we haven't exceeded max attempts
         if (user && loadAttempts < 3) {
@@ -74,6 +113,9 @@ export function Dashboard() {
               loadAgentsFromSupabase(),
               timeoutPromise
             ]);
+            
+            // Marcar como carregado para evitar recargas desnecessárias
+            dashboardLoadedRef.current = true;
           } catch (loadError) {
             console.error("Failed to load agents:", loadError);
             // Don't set error state yet - we'll still show the dashboard
@@ -113,22 +155,7 @@ export function Dashboard() {
     }, 10000); // 10 seconds absolute maximum
     
     return () => clearTimeout(backupTimeout);
-  }, [user, toast, loadAgentsFromSupabase]);
-  
-  // Check if redirected from successful checkout
-  useEffect(() => {
-    const checkoutSuccess = searchParams.get('checkout_success');
-    
-    if (checkoutSuccess && user) {
-      // Refresh subscription status after successful checkout
-      checkSubscriptionStatus();
-      
-      toast({
-        title: "Assinatura ativada",
-        description: "Sua assinatura foi ativada com sucesso. Aproveite seu novo plano!",
-      });
-    }
-  }, [searchParams, user, checkSubscriptionStatus, toast]);
+  }, [user, toast, loadAgentsFromSupabase, isUserLoading, loadAttempts, navigate, agents.length]);
 
   // Handler to retry loading if it fails
   const handleRetryLoading = () => {
@@ -136,7 +163,23 @@ export function Dashboard() {
     setLoadError(null);
     setIsLoading(true);
     setForceShowContent(false);
+    dashboardLoadedRef.current = false; // Reset the loaded state
+    
+    // Limpar cache antes de recarregar
+    resetSubscriptionCache();
   };
+
+  // Se o usuário ainda está carregando, mostre um indicador de carregamento
+  if (isUserLoading) {
+    return (
+      <div className="container mx-auto p-4 md:py-8 flex justify-center items-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <p>Verificando sessão...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return (

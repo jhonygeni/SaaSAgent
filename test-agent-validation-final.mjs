@@ -128,9 +128,7 @@ async function testAgentValidation() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': API_KEY,
-        'apiKey': API_KEY,
-        'Authorization': `Bearer ${API_KEY}`
+        ...workingMethod.headers  // Use the working authentication method we found earlier
       },
       body: JSON.stringify({
         instanceName: testInstanceName,
@@ -160,9 +158,7 @@ async function testAgentValidation() {
     const qrResponse = await fetch(`${API_URL}/instance/connect/${testInstanceName}`, {
       method: 'GET',
       headers: {
-        'apikey': API_KEY,
-        'apiKey': API_KEY,
-        'Authorization': `Bearer ${API_KEY}`
+        ...workingMethod.headers  // Use the working authentication method we found earlier
       }
     });
     
@@ -187,6 +183,28 @@ async function testAgentValidation() {
       throw new Error('QR code data not found');
     }
     
+    // Clean up - Delete the test instance
+    console.log(`\nCleaning up: Deleting test instance ${testInstanceName}...`);
+    try {
+      const deleteResponse = await fetch(`${API_URL}/instance/delete/${testInstanceName}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...workingMethod.headers
+        }
+      });
+      
+      if (deleteResponse.ok) {
+        console.log(`✅ Test instance ${testInstanceName} deleted successfully`);
+      } else {
+        const text = await deleteResponse.text();
+        console.log(`⚠️ Failed to delete test instance: ${deleteResponse.status} ${deleteResponse.statusText}`);
+        console.log(`   Response: ${text}`);
+      }
+    } catch (deleteError) {
+      console.log(`⚠️ Error deleting test instance: ${deleteError.message}`);
+    }
+
     console.log('\n🎉 All tests completed successfully!');
     console.log('\nThe agent validation and QR code generation are working properly.');
     console.log('If the popup is still not appearing in the UI, the issue is in the frontend rendering logic.');
