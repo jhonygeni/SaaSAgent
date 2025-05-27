@@ -131,14 +131,22 @@ export function WhatsAppConnectionDialog({
   
   // Update modal state based on connection status
   useEffect(() => {
-    if (connectionStatus === "waiting" || connectionStatus === "connecting") {
-      setModalState("loading");
-    } else if (connectionStatus === "waiting_qr" || qrCodeData) { // Fixed comparison - removed the problematic condition
+    if (connectionStatus === "waiting_qr") {
+      // When we have a QR code to scan, show QR code dialog
       setModalState("qr_code");
     } else if (connectionStatus === "connected") {
+      // When successfully connected, show success dialog
       setModalState("success");
     } else if (connectionStatus === "failed") {
+      // When connection failed, show error dialog
       setModalState("error");
+    } else if (connectionStatus === "waiting" || connectionStatus === "connecting") {
+      // Default loading state
+      setModalState("loading");
+    }
+    // If we have a QR code at any point, show it - this ensures the QR is displayed
+    if (qrCodeData && connectionStatus !== "connected" && connectionStatus !== "failed") {
+      setModalState("qr_code");
     }
   }, [connectionStatus, qrCodeData]);
   
@@ -320,6 +328,21 @@ export function WhatsAppConnectionDialog({
 
   // Render the dialog content based on the current state
   const renderDialogContent = () => {
+    // CRITICAL FIX: Always show QR code first when available, overriding all other states
+    // This ensures Evolution API popup issue is fixed by prioritizing QR display
+    if (qrCodeData && connectionStatus !== "connected") {
+      console.log("QR code available - forcing QR code display");
+      return (
+        <QrCodeState 
+          qrCodeData={qrCodeData}
+          pairingCode={pairingCode}
+          attemptCount={attemptCount} 
+        />
+      );
+    }
+    
+    // Other states follow normal priority
+    
     // Show custom name form if needed
     if (showCustomNameForm || modalState === "custom_name") {
       return (
@@ -331,33 +354,12 @@ export function WhatsAppConnectionDialog({
       );
     }
     
-    // Loading state
-    if ((isLoading || isSubmitting || modalState === "loading") && 
-        modalState !== "qr_code" && 
-        modalState !== "error" && 
-        modalState !== "success") {
-      return (
-        <LoadingState 
-          status={connectionStatus} 
-          attemptCount={attemptCount}
-          maxAttempts={MAX_POLLING_ATTEMPTS}
-        />
-      );
+    // Success state - second highest priority
+    if (modalState === "success" || connectionStatus === "connected") {
+      return <SuccessState phoneNumber={phoneNumber} />;
     }
     
-    // QR Code state
-    if ((qrCodeData && modalState === "qr_code") || 
-        (qrCodeData && connectionStatus === "waiting_qr")) {
-      return (
-        <QrCodeState 
-          qrCodeData={qrCodeData}
-          pairingCode={pairingCode}
-          attemptCount={attemptCount} 
-        />
-      );
-    }
-    
-    // Error state
+    // Error state - third highest priority
     if (connectionError || modalState === "error" || connectionStatus === "failed") {
       const isTimeout = connectionError?.includes("Timeout") || 
                         connectionError?.includes("tempo esgotado") || 
@@ -372,12 +374,18 @@ export function WhatsAppConnectionDialog({
       );
     }
     
-    // Success state
-    if (modalState === "success" || connectionStatus === "connected") {
-      return <SuccessState phoneNumber={phoneNumber} />;
+    // Loading state - fourth priority
+    if (isLoading || isSubmitting || modalState === "loading") {
+      return (
+        <LoadingState 
+          status={connectionStatus} 
+          attemptCount={attemptCount}
+          maxAttempts={MAX_POLLING_ATTEMPTS}
+        />
+      );
     }
     
-    // Default waiting state
+    // Default waiting state - lowest priority
     return (
       <LoadingState 
         message="Iniciando processo de conexão..." 

@@ -21,6 +21,7 @@ export const formatEndpoint = (endpoint: string, params: Record<string, string>)
 
 /**
  * Helper function to create API headers with proper authorization
+ * Enhanced to use all possible authentication methods simultaneously
  */
 export const createHeaders = (contentType: boolean = false): HeadersInit => {
   const headers: HeadersInit = {};
@@ -29,17 +30,24 @@ export const createHeaders = (contentType: boolean = false): HeadersInit => {
     headers['Content-Type'] = 'application/json';
   }
   
-  // Use multiple authorization header approaches to maximize compatibility
-  if (USE_BEARER_AUTH) {
-    // Bearer token approach
-    headers['Authorization'] = `Bearer ${EVOLUTION_API_KEY}`;
-  } else {
-    // Standard apikey approach (lowercase - most common)
-    headers['apikey'] = EVOLUTION_API_KEY;
-    
-    // Also try with capitalized 'K' for maximum compatibility
-    headers['apiKey'] = EVOLUTION_API_KEY;
-  }
+  // CRITICAL FIX: Use ALL authentication header approaches simultaneously
+  // This ensures maximum compatibility with any Evolution API version
+  // and prevents authentication failures
+  
+  // 1. Bearer token approach
+  headers['Authorization'] = `Bearer ${EVOLUTION_API_KEY}`;
+  
+  // 2. Standard apikey approach (lowercase - confirmed working in most tests)
+  headers['apikey'] = EVOLUTION_API_KEY;
+  
+  // 3. Capitalized 'K' for compatibility with other versions
+  headers['apiKey'] = EVOLUTION_API_KEY;
+  
+  // 4. Hyphenated version for legacy compatibility
+  headers['API-Key'] = EVOLUTION_API_KEY;
+  
+  // 5. x-api-key format for AWS-style APIs
+  headers['x-api-key'] = EVOLUTION_API_KEY;
   
   return headers;
 };

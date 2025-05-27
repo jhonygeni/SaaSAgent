@@ -36,14 +36,35 @@ export async function getInstanceNames(apiFunction) {
 
 /**
  * Validate if a name is already in use
+ * Handles all possible formats that the API might return instances in
  * @param {string} name Name to check
  * @param {Array} instances List of instances
  * @returns {boolean} True if name exists
  */
 export function nameExists(name, instances) {
-  return instances.some(instance => 
-    instance && instance.name === name
-  );
+  if (!name || !instances || !Array.isArray(instances)) return false;
+  
+  // Normalize name for comparison
+  const normalizedName = name.trim().toLowerCase();
+  
+  return instances.some(instance => {
+    // Skip null or undefined instances
+    if (!instance) return false;
+    
+    // Check against all possible name fields
+    return (
+      // Direct match against name field
+      (instance.name && instance.name.toLowerCase() === normalizedName) ||
+      // Match against id field (instanceId)
+      (instance.id && instance.id.toLowerCase() === normalizedName) ||
+      // Match against instanceName field
+      (instance.instanceName && instance.instanceName.toLowerCase() === normalizedName) ||
+      // Match against instance.id
+      (instance.instance?.id && instance.instance.id.toLowerCase() === normalizedName) ||
+      // Match against instance.instanceName
+      (instance.instance?.instanceName && instance.instance.instanceName.toLowerCase() === normalizedName)
+    );
+  });
 }
 
 /**

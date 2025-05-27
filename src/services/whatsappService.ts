@@ -1,4 +1,3 @@
-
 import { 
   EVOLUTION_API_URL, 
   EVOLUTION_API_KEY, 
@@ -64,15 +63,54 @@ const whatsappService = {
     }
   },
 
-  // Check API health by using the fetchInstances endpoint
+  // Check API health by using multiple methods
   checkApiHealth: async (): Promise<boolean> => {
     try {
-      const endpoint = ENDPOINTS.fetchInstances;
-      console.log("Checking API health with endpoint:", endpoint);
-      const response = await apiClient.get(endpoint);
-      return !!response; // Return true if response exists
+      console.log("Checking API health with multiple fallback mechanisms");
+      
+      // Try method 1: Use apiClient to check root endpoint
+      try {
+        const rootResponse = await apiClient.get<any>(""); // Root endpoint with explicit any type
+        if (rootResponse) {
+          console.log("API health check passed using root endpoint");
+          return true;
+        }
+      } catch (error1) {
+        console.log("Method 1 failed, trying next method");
+      }
+      
+      // Try method 2: Direct fetch with minimal options
+      try {
+        const directResponse = await fetch(EVOLUTION_API_URL, {
+          method: 'GET',
+          headers: { 'apikey': EVOLUTION_API_KEY }
+        });
+        
+        if (directResponse.ok) {
+          console.log("API health check passed using direct fetch");
+          return true;
+        }
+      } catch (error2) {
+        console.log("Method 2 failed, trying next method");
+      }
+      
+      // Try method 3: Fetch instances as a final check
+      try {
+        const endpoint = ENDPOINTS.fetchInstances;
+        const instancesResponse = await apiClient.get<any>(endpoint); // Add explicit any type
+        if (instancesResponse) {
+          console.log("API health check passed using instances endpoint");
+          return true;
+        }
+      } catch (error3) {
+        console.log("Method 3 failed, API is likely down");
+      }
+      
+      // If we get here, all methods failed
+      console.error("API health check failed with all methods");
+      return false;
     } catch (error) {
-      console.error("API health check failed:", error);
+      console.error("API health check failed with unexpected error:", error);
       return false;
     }
   },
