@@ -185,47 +185,30 @@ const whatsappService = {
       console.log("API URL:", EVOLUTION_API_URL);
       console.log("API Key (first 4 chars):", EVOLUTION_API_KEY ? EVOLUTION_API_KEY.substring(0, 4) + "..." : "Missing");
       
-      // Try first with apiClient
+      // Try to create instance using corrected Evolution API v2 authentication
+      let response: WhatsAppInstanceResponse;
+      
+      // Primary attempt with apiClient (uses correct 'apikey' header)
       try {
-        const response = await apiClient.post<WhatsAppInstanceResponse>(endpoint, instanceData);
-        return response;
+        response = await apiClient.post<WhatsAppInstanceResponse>(endpoint, instanceData);
       } catch (apiError) {
-        // If first attempt fails, try direct POST with both header variations
         console.warn("API client post failed, trying direct fetch:", apiError);
         
-        // Try with lowercase 'apikey' header
-        try {
-          const directResponse = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'apikey': EVOLUTION_API_KEY
-            },
-            body: JSON.stringify(instanceData)
-          });
-          
-          if (!directResponse.ok) {
-            throw new Error(`API error: ${directResponse.status} ${directResponse.statusText}`);
-          }
-          
-          return await directResponse.json();
-        } catch (directError) {
-          // Last attempt with capitalized 'apiKey' header
-          const finalResponse = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'apiKey': EVOLUTION_API_KEY
-            },
-            body: JSON.stringify(instanceData)
-          });
-          
-          if (!finalResponse.ok) {
-            throw new Error(`API error: ${finalResponse.status} ${finalResponse.statusText}`);
-          }
-          
-          return await finalResponse.json();
+        // Fallback: Direct fetch with 'apikey' header (Evolution API v2 standard)
+        const directResponse = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': EVOLUTION_API_KEY
+          },
+          body: JSON.stringify(instanceData)
+        });
+        
+        if (!directResponse.ok) {
+          throw new Error(`API error: ${directResponse.status} ${directResponse.statusText}`);
         }
+        
+        response = await directResponse.json();
       }
       
       // Store instance data in Supabase if possible
@@ -271,11 +254,12 @@ const whatsappService = {
       // Try multiple authentication approaches to ensure we get the QR code
       let response;
       
-      // Try different authentication approaches with multiple possible header formats
+      // Try different authentication approaches with CORREÇÃO APLICADA
+      // IMPORTANTE: Evolution API v2 usa EXCLUSIVAMENTE 'apikey'
       const authHeaders = {
         'apikey': EVOLUTION_API_KEY,
-        'apiKey': EVOLUTION_API_KEY,
-        'Authorization': `Bearer ${EVOLUTION_API_KEY}`
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
       };
       
       try {
