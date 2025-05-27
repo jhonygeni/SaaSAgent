@@ -21,7 +21,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useSearchParams } from "react-router-dom";
 import { useAgent } from "@/context/AgentContext";
 import { ErrorState } from "@/components/ErrorState";
-import { resetSubscriptionCache } from "@/lib/subscription-throttle";
 import { throttledSubscriptionCheck, resetSubscriptionCache } from "@/lib/subscription-throttle";
 
 export function Dashboard() {

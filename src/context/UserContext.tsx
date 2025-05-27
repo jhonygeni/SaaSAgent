@@ -5,12 +5,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { diagnostic, logStep, logAsyncStep } from '@/utils/diagnostic';
 import { throttledSubscriptionCheck, resetSubscriptionCache, getThrottleStats } from "@/lib/subscription-throttle";
 import { logAuthEvent, getAuthDiagnostics } from '@/utils/auth-diagnostic';
-import { User, SubscriptionPlan } from '../types';
-import { getMessageLimitByPlan } from '../lib/utils';
-import { supabase } from '@/integrations/supabase/client';
-import { diagnostic, logStep, logAsyncStep } from '@/utils/diagnostic';
-import { throttledSubscriptionCheck, resetSubscriptionCache, getThrottleStats } from "@/lib/subscription-throttle";
-import { logAuthEvent, getAuthDiagnostics } from '@/utils/auth-diagnostic';
 
 interface UserContextType {
   user: User | null;
