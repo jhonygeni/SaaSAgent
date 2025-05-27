@@ -10,10 +10,10 @@ This document outlines a comprehensive testing plan to verify that the Bearer to
    - [ ] Confirm `USE_BEARER_AUTH` is set to `true` in `constants/api.ts`
 
 2. **API Client Configuration**
-   - [ ] Verify `apiClient.ts` is using `Authorization: Bearer ${token}` header
-   - [ ] Verify `directApiClient.ts` is using `Authorization: Bearer ${token}` header
-   - [ ] Verify all direct fetch calls in `whatsappService.ts` are using `Authorization: Bearer ${token}` header
-   - [ ] Ensure no instances of the `apikey` header remain in any file
+   - [ ] Verify `apiClient.ts` is using `apikey: ${token}` header
+   - [ ] Verify `directApiClient.ts` is using `apikey: ${token}` header
+   - [ ] Verify all direct fetch calls in `whatsappService.ts` are using `apikey: ${token}` header
+   - [ ] Ensure no instances of the `Authorization: Bearer` header remain in any file
 
 3. **API Endpoint Tests**
    - [ ] Test API info endpoint (`GET /`)
@@ -38,7 +38,7 @@ To automate the verification process, the following tests should be executed:
 async function testAuthentication() {
   const response = await fetch(`${EVOLUTION_API_URL}/`, {
     headers: {
-      'Authorization': `Bearer ${EVOLUTION_API_KEY}`,
+      'apikey': EVOLUTION_API_KEY,
       'Accept': 'application/json'
     }
   });
@@ -57,7 +57,7 @@ async function testInstanceCreation() {
   const response = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${EVOLUTION_API_KEY}`,
+      'apikey': EVOLUTION_API_KEY,
       'Content-Type': 'application/json',
       'Accept': 'application/json'
     },

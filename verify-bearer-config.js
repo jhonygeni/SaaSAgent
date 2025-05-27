@@ -29,14 +29,14 @@ filesToCheck.forEach(filePath => {
       const content = fs.readFileSync(fullPath, 'utf8');
       console.log(`Checking ${filePath}...`);
       
-      // Check for Bearer authentication
-      if (content.includes("Authorization': `Bearer ${EVOLUTION_API_KEY}`") || 
-          content.includes('Authorization": `Bearer ${EVOLUTION_API_KEY}`') ||
-          content.includes("Authorization'] = `Bearer ${EVOLUTION_API_KEY}`") ||
-          content.includes('Authorization"] = `Bearer ${EVOLUTION_API_KEY}`')) {
-        console.log(' ✅ Uses Bearer token authentication');
-      } else if (content.includes('apikey')) {
-        console.log(' ❌ Still using apikey header - needs to be updated to Bearer token');
+      // Check for apikey authentication
+      if (content.includes("apikey': EVOLUTION_API_KEY") || 
+          content.includes('apikey": EVOLUTION_API_KEY') ||
+          content.includes("apikey'] = EVOLUTION_API_KEY") ||
+          content.includes('apikey"] = EVOLUTION_API_KEY')) {
+        console.log(' ✅ Uses apikey authentication');
+      } else if (content.includes('Authorization': `Bearer ${EVOLUTION_API_KEY}')) {
+        console.log(' ❌ Still using Authorization: Bearer header - needs to be updated to apikey');
       }
       
       // Check for USE_BEARER_AUTH setting

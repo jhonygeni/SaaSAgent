@@ -56,7 +56,7 @@ echo -e "• API URL: ${BOLD}$API_URL${NC}"
 # Mask the API key for security
 MASKED_KEY="${API_KEY:0:4}...${API_KEY: -4}"
 echo -e "• API Key: ${BOLD}$MASKED_KEY${NC} (using Bearer token authentication)"
-echo -e "• Headers: ${BOLD}Authorization: Bearer TOKEN${NC}"
+echo -e "• Headers: ${BOLD}apikey: TOKEN${NC}"
 echo -e "• Date: ${BOLD}$(date)${NC}"
 echo -e "\n${BLUE}${BOLD}Running diagnostic tests...${NC}\n"
 
@@ -72,7 +72,7 @@ test_endpoint() {
     
     # Build the curl command
     curl_cmd="curl -s -X ${method} \"${API_URL}${endpoint}\" \
-      -H \"Authorization: Bearer ${API_KEY}\" \
+      -H \"apikey: ${API_KEY}\" \
       -H \"Accept: application/json\""
       
     # Add content-type and payload for POST requests

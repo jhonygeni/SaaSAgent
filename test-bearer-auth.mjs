@@ -43,26 +43,25 @@ async function testAuthentication() {
   console.log(`${colors.bright}${colors.blue}└───────────────────────────────────────────┘${colors.reset}`);
   console.log(`${colors.dim}Testing against: ${EVOLUTION_API_URL}${colors.reset}\n`);
 
-  // Display the token format we're using
-  console.log(`${colors.yellow}Using authentication format:${colors.reset}`);
-  console.log(`${colors.dim}Headers: {${colors.reset}`);
-  console.log(`  'Authorization': 'Bearer ${EVOLUTION_API_KEY.substring(0, 4)}...${EVOLUTION_API_KEY.substring(EVOLUTION_API_KEY.length - 4)}',`);
-  console.log(`  'Accept': 'application/json'${colors.dim}`);
-  console.log(`}${colors.reset}\n`);
+  // Display the token format we're using    console.log(`${colors.yellow}Using authentication format:${colors.reset}`);
+    console.log(`${colors.dim}Headers: {${colors.reset}`);
+    console.log(`  'apikey': '${EVOLUTION_API_KEY.substring(0, 4)}...${EVOLUTION_API_KEY.substring(EVOLUTION_API_KEY.length - 4)}',`);
+    console.log(`  'Accept': 'application/json'${colors.dim}`);
+    console.log(`}${colors.reset}\n`);
 
-  // Test each endpoint
-  for (const endpoint of endpoints) {
-    try {
-      console.log(`${colors.bright}Testing endpoint: ${endpoint.name}${colors.reset}`);
-      console.log(`${colors.dim}GET ${EVOLUTION_API_URL}${endpoint.path}${colors.reset}`);
+    // Test each endpoint
+    for (const endpoint of endpoints) {
+      try {
+        console.log(`${colors.bright}Testing endpoint: ${endpoint.name}${colors.reset}`);
+        console.log(`${colors.dim}GET ${EVOLUTION_API_URL}${endpoint.path}${colors.reset}`);
 
-      const response = await fetch(`${EVOLUTION_API_URL}${endpoint.path}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${EVOLUTION_API_KEY}`,
-          'Accept': 'application/json'
-        }
-      });
+        const response = await fetch(`${EVOLUTION_API_URL}${endpoint.path}`, {
+          method: 'GET',
+          headers: {
+            'apikey': EVOLUTION_API_KEY,
+            'Accept': 'application/json'
+          }
+        });
 
       const statusColor = response.ok ? colors.green : colors.red;
       console.log(`${statusColor}Status: ${response.status} ${response.statusText}${colors.reset}`);

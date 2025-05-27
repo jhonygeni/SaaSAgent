@@ -87,7 +87,7 @@ const whatsappService = {
         const directResponse = await fetch(EVOLUTION_API_URL, {
           method: 'GET',
           headers: { 
-            'Authorization': `Bearer ${EVOLUTION_API_KEY}`,
+            'apikey': EVOLUTION_API_KEY,
             'Accept': 'application/json'
           }
         });
@@ -208,12 +208,12 @@ const whatsappService = {
           );
         }
         
-        // Fallback: Direct fetch with 'Authorization: Bearer' header (Evolution API v2 standard)
+        // Fallback: Direct fetch with 'apikey' header (Evolution API v2 standard)
         const directResponse = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${EVOLUTION_API_KEY}`,
+            'apikey': EVOLUTION_API_KEY,
             'Accept': 'application/json'
           },
           body: JSON.stringify(instanceData)
@@ -277,9 +277,9 @@ const whatsappService = {
       let response;
       
       // Try different authentication approaches with CORREÇÃO APLICADA
-      // IMPORTANTE: Evolution API v2 usa EXCLUSIVAMENTE 'Authorization: Bearer'
+      // IMPORTANTE: Evolution API v2 usa EXCLUSIVAMENTE 'apikey'
       const authHeaders = {
-        'Authorization': `Bearer ${EVOLUTION_API_KEY}`,
+        'apikey': EVOLUTION_API_KEY,
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       };
@@ -442,11 +442,11 @@ const whatsappService = {
         }
         
         try {
-          // Second attempt: Use direct fetch with proper Authorization header
+          // Second attempt: Use direct fetch with proper apikey header
           const response = await fetch(`${EVOLUTION_API_URL}/instance/fetchInstances`, {
             method: 'GET',
             headers: { 
-              'Authorization': `Bearer ${EVOLUTION_API_KEY}`,
+              'apikey': EVOLUTION_API_KEY,
               'Accept': 'application/json' 
             }
           });

@@ -20,7 +20,7 @@ export const formatEndpoint = (endpoint: string, params: Record<string, string>)
 
 /**
  * Helper function to create API headers with proper authorization
- * CORREÇÃO APLICADA: Evolution API v2 usa EXCLUSIVAMENTE 'Authorization: Bearer'
+ * CORREÇÃO APLICADA: Evolution API v2 usa EXCLUSIVAMENTE 'apikey' header
  */
 export const createHeaders = (contentType: boolean = false): HeadersInit => {
   const headers: HeadersInit = {};
@@ -29,9 +29,9 @@ export const createHeaders = (contentType: boolean = false): HeadersInit => {
     headers['Content-Type'] = 'application/json';
   }
   
-  // CORREÇÃO CRÍTICA: Evolution API v2 usa APENAS 'Authorization: Bearer'
-  // Não usar 'apikey' pois causa erros 401
-  headers['Authorization'] = `Bearer ${EVOLUTION_API_KEY}`;
+  // CORREÇÃO CRÍTICA: Evolution API v2 usa APENAS 'apikey' header
+  // Não usar 'Authorization: Bearer' pois causa erros 401
+  headers['apikey'] = EVOLUTION_API_KEY;
   headers['Accept'] = 'application/json';
   
   return headers;
@@ -179,17 +179,12 @@ export const apiClient = {
         throw error;
       }
     }, undefined, undefined, (error) => {
-      // NEVER retry on authentication errors - immediately stop
-      if (error instanceof Error && (
-        error.name === 'AuthenticationError' ||
+      // Don't retry on authentication errors
+      return !(error instanceof Error && (
         error.message.includes("403") || 
         error.message.includes("401") ||
         error.message.includes("Authentication failed")
-      )) {
-        console.error("Authentication error detected - will NOT retry");
-        return false; // Do not retry
-      }
-      return true; // Retry other errors
+      ));
     });
   },
   

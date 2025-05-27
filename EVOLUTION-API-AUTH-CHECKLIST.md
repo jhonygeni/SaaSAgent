@@ -7,9 +7,9 @@
 
 ## Configuration Verification
 - [ ] Run `npm run test:evolution-api` to check if code is properly configured
-- [ ] Verify that `USE_BEARER_AUTH` is set to `true` in `constants/api.ts`
-- [ ] Confirm all API clients use `Authorization: Bearer TOKEN` header format
-- [ ] Ensure no `apikey` headers remain in the codebase
+- [ ] Verify that `USE_BEARER_AUTH` is set to `false` in `constants/api.ts`
+- [ ] Confirm all API clients use `apikey: TOKEN` header format
+- [ ] Ensure no `Authorization: Bearer` headers remain in the codebase
 
 ## Testing Authentication
 - [ ] Run `npm run test:auth` to test basic API connectivity

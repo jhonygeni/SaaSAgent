@@ -199,7 +199,7 @@ async function testAuthenticationError() {
   try {
     const response = await fetch(`${EVOLUTION_API_URL}/instance/fetchInstances`, {
       headers: {
-        'Authorization': 'Bearer INVALID_TOKEN_FOR_TESTING',
+        'apikey': 'INVALID_TOKEN_FOR_TESTING',
         'Accept': 'application/json'
       }
     });
@@ -226,7 +226,7 @@ async function testAuthenticationError() {
  */
 function getHeaders() {
   return {
-    'Authorization': `Bearer ${EVOLUTION_API_KEY}`,
+    'apikey': EVOLUTION_API_KEY,
     'Content-Type': 'application/json',
     'Accept': 'application/json'
   };

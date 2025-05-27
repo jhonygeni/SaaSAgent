@@ -63,12 +63,12 @@ node debug-api-headers.mjs
 ## 📊 ANÁLISE TÉCNICA
 
 ### Causa Raiz Identificada:
-- **Evolution API v2** usa EXCLUSIVAMENTE o header `Authorization: Bearer`
-- Headers como `apikey` e variantes causam rejeição 401
+- **Evolution API v2** usa EXCLUSIVAMENTE o header `apikey`
+- Headers como `Authorization: Bearer` e variantes causam rejeição 401
 - Múltiplos headers de autenticação criam conflitos
 
 ### Solução Implementada:
-- **Header único**: `Authorization: Bearer {token}`
+- **Header único**: `apikey: {token}`
 - **Padrão consistente** em todos os endpoints
 - **Retry logic robusta** mantida intacta
 - **Logs detalhados** para debugging futuro
@@ -77,7 +77,7 @@ node debug-api-headers.mjs
 
 ```mermaid
 graph TD
-    A[Frontend] -->|Authorization: Bearer| B[Evolution API v2]
+    A[Frontend] -->|apikey| B[Evolution API v2]
     B -->|201 Created| C[Instance Created]
     C -->|QR Code| D[WhatsApp Connection]
     D -->|Success| E[Instance Active]
@@ -159,7 +159,7 @@ app.get('/health/evolution', async (req, res) => {
 ## 📋 CHECKLIST FINAL
 
 - [x] ✅ Erros 401 Unauthorized eliminados
-- [x] ✅ Headers corretos implementados (`Authorization: Bearer` apenas)
+- [x] ✅ Headers corretos implementados (`apikey` apenas)
 - [x] ✅ Código limpo e sem imports desnecessários
 - [x] ✅ Variáveis de escopo corrigidas
 - [x] ✅ Testes automatizados passando 100%

@@ -25,7 +25,7 @@ async function checkApiAuthentication() {
     const response = await fetch(`${EVOLUTION_API_URL}/`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${EVOLUTION_API_KEY}`,
+        'apikey': EVOLUTION_API_KEY,
         'Accept': 'application/json'
       }
     });

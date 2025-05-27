@@ -2,7 +2,7 @@
 
 ## Configuração do Token de Autenticação
 
-A Evolution API v2 utiliza exclusivamente o formato de autenticação **`Authorization: Bearer TOKEN`**. Este guia explica como configurar corretamente sua autenticação.
+A Evolution API v2 utiliza exclusivamente o formato de autenticação **`apikey: TOKEN`**. Este guia explica como configurar corretamente sua autenticação.
 
 ### 1. Obter o Token da Evolution API
 
@@ -32,7 +32,7 @@ O sistema está configurado para enviar os headers exatamente como a Evolution A
 
 ```javascript
 headers = {
-  'Authorization': `Bearer ${EVOLUTION_API_KEY}`,
+  'apikey': EVOLUTION_API_KEY,
   'Content-Type': 'application/json',
   'Accept': 'application/json'
 };
@@ -49,7 +49,7 @@ Se você encontrar erros 401 Unauthorized ou 403 Forbidden:
 
 ```bash
 curl -X GET https://sua-api-evolution.com/instance/fetchInstances \
-  -H "Authorization: Bearer seu_token_aqui" \
+  -H "apikey: seu_token_aqui" \
   -H "Accept: application/json"
 ```
 
