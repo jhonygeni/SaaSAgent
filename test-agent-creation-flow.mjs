@@ -33,7 +33,7 @@ async function listInstances() {
     
     const instances = await response.json();
     console.log(`✅ API retornou ${instances.length} instâncias`);
-    return { instances };
+    return instances;
     
   } catch (error) {
     console.error('❌ Erro em listInstances:', error);
@@ -74,7 +74,7 @@ async function validateInstanceName(name) {
     
     console.log(`  • Verificando se o nome já existe...`);
     const existingInstances = await listInstances();
-    const alreadyExists = existingInstances.instances?.some(instance => 
+    const alreadyExists = existingInstances?.some(instance => 
       instance.name === name
     );
     

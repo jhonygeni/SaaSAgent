@@ -119,11 +119,8 @@ export interface QrCodeResponse {
 
 /**
  * List instances response from WhatsApp API
+ * Evolution API returns a direct array of instances with 'name' property
  */
-export interface InstancesListResponse {
-  instances: Array<{
-    instanceName: string;
-    instanceId: string;
-    status: string;
-  }>;
-}
+export type InstancesListResponse = Array<{
+  name: string;
+}>;

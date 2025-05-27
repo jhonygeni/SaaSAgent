@@ -45,8 +45,8 @@ export function useNameValidator() {
       
       // Check if instance with this name already exists
       const existingInstances: InstancesListResponse = await whatsappService.listInstances();
-      const alreadyExists = existingInstances.instances?.some(instance => 
-        instance.instanceName === name
+      const alreadyExists = existingInstances?.some(instance => 
+        instance.name === name
       );
       
       if (alreadyExists) {
