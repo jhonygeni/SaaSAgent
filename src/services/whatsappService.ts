@@ -124,6 +124,8 @@ const whatsappService = {
   // Create a new WhatsApp instance
   createInstance: async (instanceName: string, userId?: string) => {
     try {
+      console.log(`Attempting to create WhatsApp instance: ${instanceName}`);
+      
       const endpoint = ENDPOINTS.instanceCreate;
       const instanceData: WhatsAppInstanceRequest = {
         instanceName,
@@ -139,8 +141,51 @@ const whatsappService = {
       };
       
       console.log("Creating instance with exact data:", JSON.stringify(instanceData, null, 2));
+      console.log("API URL:", EVOLUTION_API_URL);
+      console.log("API Key (first 4 chars):", EVOLUTION_API_KEY ? EVOLUTION_API_KEY.substring(0, 4) + "..." : "Missing");
       
-      const response = await apiClient.post<WhatsAppInstanceResponse>(endpoint, instanceData);
+      // Try first with apiClient
+      try {
+        const response = await apiClient.post<WhatsAppInstanceResponse>(endpoint, instanceData);
+        return response;
+      } catch (apiError) {
+        // If first attempt fails, try direct POST with both header variations
+        console.warn("API client post failed, trying direct fetch:", apiError);
+        
+        // Try with lowercase 'apikey' header
+        try {
+          const directResponse = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': EVOLUTION_API_KEY
+            },
+            body: JSON.stringify(instanceData)
+          });
+          
+          if (!directResponse.ok) {
+            throw new Error(`API error: ${directResponse.status} ${directResponse.statusText}`);
+          }
+          
+          return await directResponse.json();
+        } catch (directError) {
+          // Last attempt with capitalized 'apiKey' header
+          const finalResponse = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apiKey': EVOLUTION_API_KEY
+            },
+            body: JSON.stringify(instanceData)
+          });
+          
+          if (!finalResponse.ok) {
+            throw new Error(`API error: ${finalResponse.status} ${finalResponse.statusText}`);
+          }
+          
+          return await finalResponse.json();
+        }
+      }
       
       // Store instance data in Supabase if possible
       if (userId) {
@@ -182,8 +227,45 @@ const whatsappService = {
       const endpoint = formatEndpoint(ENDPOINTS.instanceConnectQR, { instanceName });
       console.log(`Getting QR code using connect endpoint: ${endpoint}`);
       
-      // Make the request and log the full response for debugging
-      const response = await apiClient.get<QrCodeResponse>(endpoint);
+      // Try multiple authentication approaches to ensure we get the QR code
+      let response;
+      try {
+        // First try with standard apiClient
+        response = await apiClient.get<QrCodeResponse>(endpoint);
+      } catch (apiError) {
+        console.warn(`Failed to get QR code using apiClient: ${apiError}`);
+        
+        // Try direct fetch with lowercase 'apikey'
+        try {
+          console.log(`Trying direct fetch for QR code with lowercase apikey header`);
+          const directResponse = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
+            method: 'GET',
+            headers: { 'apikey': EVOLUTION_API_KEY }
+          });
+          
+          if (!directResponse.ok) {
+            throw new Error(`Direct fetch failed: ${directResponse.status}`);
+          }
+          
+          response = await directResponse.json();
+        } catch (directError) {
+          console.warn(`Direct fetch with lowercase apikey failed: ${directError}`);
+          
+          // Last attempt with capitalized 'apiKey'
+          console.log(`Trying final fetch approach with capitalized apiKey header`);
+          const finalResponse = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
+            method: 'GET',
+            headers: { 'apiKey': EVOLUTION_API_KEY }
+          });
+          
+          if (!finalResponse.ok) {
+            throw new Error(`All QR code fetch attempts failed`);
+          }
+          
+          response = await finalResponse.json();
+        }
+      }
+      
       console.log(`QR code response for ${instanceName}:`, JSON.stringify(response, null, 2));
       
       // Save QR code to Supabase if possible

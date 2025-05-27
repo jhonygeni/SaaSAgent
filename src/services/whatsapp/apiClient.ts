@@ -29,11 +29,16 @@ export const createHeaders = (contentType: boolean = false): HeadersInit => {
     headers['Content-Type'] = 'application/json';
   }
   
-  // Use apikey header instead of Bearer token based on config
+  // Use multiple authorization header approaches to maximize compatibility
   if (USE_BEARER_AUTH) {
+    // Bearer token approach
     headers['Authorization'] = `Bearer ${EVOLUTION_API_KEY}`;
   } else {
+    // Standard apikey approach (lowercase - most common)
     headers['apikey'] = EVOLUTION_API_KEY;
+    
+    // Also try with capitalized 'K' for maximum compatibility
+    headers['apiKey'] = EVOLUTION_API_KEY;
   }
   
   return headers;
@@ -106,10 +111,22 @@ export const apiClient = {
     
     return retryOperation(async () => {
       try {
+        // Enhanced logging for debugging
+        console.log(`GET request details:
+          URL: ${url}
+          Headers: ${JSON.stringify(headers)}
+        `);
+        
         const response = await fetch(url, {
           method: 'GET',
-          headers
+          headers,
+          mode: 'cors',
+          credentials: 'same-origin'
         });
+        
+        // Log response headers for debugging
+        console.log(`Response status: ${response.status} ${response.statusText}`);
+        console.log(`Response headers: ${JSON.stringify([...response.headers.entries()])}`);
         
         // Parse response regardless of success/failure for debugging
         let responseData;
@@ -176,11 +193,25 @@ export const apiClient = {
     
     return retryOperation(async () => {
       try {
+        // Enhanced logging for debugging
+        console.log(`POST request details:
+          URL: ${url}
+          Headers: ${JSON.stringify(headers)}
+          Body: ${JSON.stringify(data)}
+        `);
+        
+        // Set proper mode for CORS and credentials
         const response = await fetch(url, {
           method: 'POST',
           headers,
-          body: JSON.stringify(data)
+          body: JSON.stringify(data),
+          mode: 'cors',
+          credentials: 'same-origin'
         });
+        
+        // Log response headers for debugging
+        console.log(`Response status: ${response.status} ${response.statusText}`);
+        console.log(`Response headers: ${JSON.stringify([...response.headers.entries()])}`);
         
         // Parse response regardless of success/failure for debugging
         let responseData;
