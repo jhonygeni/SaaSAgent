@@ -20,6 +20,12 @@ export function useQrCode() {
       const qrResponse: QrCodeResponse = await whatsappService.getQrCode(formattedName);
       console.log("QR code response:", qrResponse);
       
+      // Check if we got an error from normalization
+      if (qrResponse?.error) {
+        console.error('QR code normalization error:', qrResponse.error);
+        throw new Error(qrResponse.error);
+      }
+      
       // Check if we got a pairing code
       if (qrResponse?.pairingCode) {
         console.log(`Pairing code received: ${qrResponse.pairingCode}`);
@@ -38,16 +44,29 @@ export function useQrCode() {
             for (const innerProp of possibleQRProps) {
               if (qrResponse.data?.[innerProp]) {
                 console.log(`QR code found in data.${innerProp}`);
-                return qrResponse.data[innerProp];
+                
+                // Validate the QR code data before returning
+                const qrData = qrResponse.data[innerProp];
+                if (typeof qrData === 'string' && qrData.length > 0 && qrData.length <= 2000) {
+                  return qrData;
+                } else {
+                  console.warn(`Invalid QR data from data.${innerProp}:`, typeof qrData, qrData?.length);
+                }
               }
             }
           } else {
-            return qrResponse[prop];
+            // Validate the QR code data before returning
+            const qrData = qrResponse[prop];
+            if (typeof qrData === 'string' && qrData.length > 0 && qrData.length <= 2000) {
+              return qrData;
+            } else {
+              console.warn(`Invalid QR data from ${prop}:`, typeof qrData, qrData?.length);
+            }
           }
         }
       }
 
-      console.warn("QR code not found in API response. Response keys:", Object.keys(qrResponse || {}));
+      console.warn("No valid QR code found in API response. Response keys:", Object.keys(qrResponse || {}));
       return null;
     } catch (error) {
       console.error("Error fetching QR code:", error);

@@ -64,15 +64,53 @@ const whatsappService = {
   normalizeQrCodeResponse: (response: any) => {
     // Padroniza o campo do QR code para sempre ser 'qrcode' e 'base64' se disponível
     let normalized = { ...response };
-    if (!normalized.qrcode && (normalized.qr || normalized.qrCode)) {
-      normalized.qrcode = normalized.qr || normalized.qrCode;
+    
+    // Extract QR code data from various possible fields
+    let qrCodeData = null;
+    
+    if (normalized.qrcode) {
+      qrCodeData = normalized.qrcode;
+    } else if (normalized.qr) {
+      qrCodeData = normalized.qr;
+      normalized.qrcode = normalized.qr;
+    } else if (normalized.qrCode) {
+      qrCodeData = normalized.qrCode;
+      normalized.qrcode = normalized.qrCode;
+    } else if (normalized.data?.qrcode) {
+      qrCodeData = normalized.data.qrcode;
+      normalized.qrcode = normalized.data.qrcode;
+    } else if (normalized.data?.base64) {
+      qrCodeData = normalized.data.base64;
+      normalized.qrcode = normalized.data.base64;
     }
+    
+    // Validate QR code data
+    if (qrCodeData && typeof qrCodeData === 'string') {
+      // Check for reasonable length (QR codes shouldn't be extremely long)
+      if (qrCodeData.length > 2000) {
+        console.warn(`QR code data suspiciously long (${qrCodeData.length} chars). Possible API error.`);
+        console.warn('QR data preview:', qrCodeData.substring(0, 100) + '...');
+        
+        // Try to extract actual QR data if it's embedded in a larger response
+        const qrMatch = qrCodeData.match(/^[A-Za-z0-9+/]+=*$/);
+        if (qrMatch) {
+          normalized.qrcode = qrMatch[0];
+        } else {
+          // If no valid QR pattern found, mark as invalid
+          console.error('QR code data does not match expected format');
+          normalized.qrcode = null;
+          normalized.error = 'Invalid QR code format received from API';
+        }
+      } else {
+        normalized.qrcode = qrCodeData;
+      }
+    }
+    
+    // Handle base64 field
     if (!normalized.base64 && normalized.data?.base64) {
       normalized.base64 = normalized.data.base64;
     }
-    if (!normalized.qrcode && normalized.data?.qrcode) {
-      normalized.qrcode = normalized.data.qrcode;
-    }
+    
     return normalized;
   },
 

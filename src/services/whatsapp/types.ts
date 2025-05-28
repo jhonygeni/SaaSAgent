@@ -113,8 +113,17 @@ export interface QrCodeResponse {
   qrcode?: string;
   base64?: string;
   code?: string;
+  qr?: string;
+  qrCode?: string;
   pairingCode?: string;
   count?: number; // Adicionado para corresponder à resposta da API
+  data?: {
+    qrcode?: string;
+    base64?: string;
+    [key: string]: any;
+  };
+  error?: string; // Para capturar erros de normalização
+  [key: string]: any; // Para permitir propriedades dinâmicas da API
 }
 
 /**
