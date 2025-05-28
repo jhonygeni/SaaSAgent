@@ -73,35 +73,12 @@ export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
 
   // Validate agent name when it changes
   useEffect(() => {
-    const debounceValidate = setTimeout(async () => {
-      if (currentAgent.nome && currentAgent.nome.trim() !== '') {
-        setIsValidatingName(true);
-        try {
-          // Format the name as it would be for the instance
-          const formattedName = currentAgent.nome.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-          const result = await validateInstanceName(formattedName);
-          
-          setNameValidated(result.valid);
-          setNameError(result.valid ? null : result.message || "Nome inválido");
-          
-          if (!result.valid) {
-            console.log("Name validation failed:", result.message);
-          }
-        } catch (error) {
-          console.error("Error validating agent name:", error);
-          setNameValidated(false);
-          setNameError("Erro ao validar o nome");
-        } finally {
-          setIsValidatingName(false);
-        }
-      } else {
-        setNameValidated(false);
-        setNameError(null);
-      }
-    }, 500); // Debounce the validation to prevent too many requests
-    
-    return () => clearTimeout(debounceValidate);
-  }, [currentAgent.nome, validateInstanceName]);
+    // Como os nomes agora são gerados automaticamente pelo sistema,
+    // não fazemos mais validação do nome do agente
+    setNameValidated(true);
+    setNameError(null);
+    setIsValidatingName(false);
+  }, [currentAgent.nome]);
 
   // Helper function for both submission pathways
   const validateAndPrepareAgent = async (): Promise<Agent | null> => {
@@ -113,28 +90,13 @@ export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
       return null;
     }
     
-    // Final name validation before submission
-    if (currentAgent.nome) {
-      const formattedName = currentAgent.nome.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-      try {
-        const validation = await validateInstanceName(formattedName);
-        
-        if (!validation.valid) {
-          setErrors([validation.message || "Nome inválido"]);
-          return null;
-        }
-      } catch (error) {
-        console.error("Error validating instance name:", error);
-        setErrors(["Erro ao validar o nome da instância"]);
-        return null;
-      }
-    }
-
-    // Prepare the agent with proper instanceName 
-    const formattedName = currentAgent.nome.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+    // Como os nomes agora são gerados automaticamente pelo sistema,
+    // não fazemos mais validação de nome da instância aqui
+    console.log("Nome da instância será gerado automaticamente pelo sistema");
+    
     return {
       ...currentAgent,
-      instanceName: formattedName
+      // Remove instanceName - será gerado automaticamente
     };
   };
 
