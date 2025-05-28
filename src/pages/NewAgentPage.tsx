@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { NewAgentForm } from "@/components/NewAgentForm";
+import { ImprovedAgentForm } from "@/components/ImprovedAgentForm";
 import { WhatsAppConnectionDialog } from "@/components/WhatsAppConnectionDialog";
 import { useConnection } from "@/context/ConnectionContext";
 import { USE_MOCK_DATA, EVOLUTION_API_URL } from "@/constants/api";
@@ -185,7 +185,7 @@ const NewAgentPage = () => {
   return (
     <div className="flex flex-col min-h-screen">
       <main className="flex-grow">
-        <NewAgentForm onAgentCreated={handleAgentCreated} />
+        <ImprovedAgentForm onAgentCreated={handleAgentCreated} />
         <WhatsAppConnectionDialog 
           open={showConnectionDialog} 
           onOpenChange={handleConnectionDialogClose}
