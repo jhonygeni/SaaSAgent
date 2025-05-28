@@ -14,7 +14,7 @@ const agentService = {
     try {
       // Set timeout for the operation
       const timeoutPromise = new Promise<null>((_, reject) => {
-        setTimeout(() => reject(new Error("Tempo limite excedido - createAgent")), 15000);
+        setTimeout(() => reject(new Error("Tempo limite excedido - createAgent")), 8000); // Reduced from 15000ms
       });
       
       const createPromise = (async () => {

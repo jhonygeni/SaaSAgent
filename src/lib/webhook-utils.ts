@@ -221,7 +221,7 @@ export async function sendAgentToWebhookWithRetry(
     { 
       onRetry,
       idempotencyKey: `agent-${agent.nome}-${Date.now()}`,
-      timeout: 15000 // Timeout maior para agentes
+      timeout: 8000 // Reduced from 15000ms to prevent excessive timeout
     }
   );
 }
@@ -286,7 +286,7 @@ export async function dispararWebhookMensagemRecebida(options: {
     payload, 
     webhookSecret, 
     maxRetries = 3, 
-    timeout = 15000,
+    timeout = 8000, // Reduced from 15000ms to prevent excessive timeout
     messageId = `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
     processingCount = 1
   } = options;

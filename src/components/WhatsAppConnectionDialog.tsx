@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +22,7 @@ import {
 import whatsappService from "@/services/whatsappService";
 import { InstancesListResponse } from "@/services/whatsapp/types";
 import { ConnectionStatus } from "@/hooks/whatsapp/types";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 // Import our refactored components
 import { LoadingState } from "./whatsapp/LoadingState";
@@ -42,7 +43,8 @@ interface WhatsAppConnectionDialogProps {
   instanceName?: string; // Add instanceName prop
 }
 
-export function WhatsAppConnectionDialog({
+// Internal component wrapped by ErrorBoundary
+function WhatsAppConnectionDialogInternal({
   open,
   onOpenChange,
   onComplete,
@@ -83,14 +85,21 @@ export function WhatsAppConnectionDialog({
   // Cleanup polling when component unmounts or dialog closes
   useEffect(() => {
     return () => {
+      console.log("Component unmounting - cleaning up polling");
       clearPolling();
     };
   }, [clearPolling]);
 
-  // Also cleanup polling when dialog closes
+  // Also cleanup polling when dialog closes and reset states
   useEffect(() => {
     if (!open) {
+      console.log("Dialog closed - cleaning up states and polling");
       clearPolling();
+      // Reset local states when dialog closes
+      setIsSubmitting(false);
+      setShowCustomNameForm(false);
+      setCustomInstanceName(null);
+      setModalState("loading");
     }
   }, [open, clearPolling]);
 
@@ -135,7 +144,7 @@ export function WhatsAppConnectionDialog({
 
     // HIGHEST PRIORITY: If we have QR code data and not in terminal states, always show it
     if (qrCodeData && connectionStatus !== "connected" && connectionStatus !== "failed") {
-      console.log("Forcing QR code display because QR data is available");
+      console.log("Setting modal state to QR code because QR data is available");
       setModalState("qr_code");
       return;
     }
@@ -164,7 +173,6 @@ export function WhatsAppConnectionDialog({
       const initConnection = async () => {
         try {
           setIsSubmitting(true);
-          setModalState("loading");
           // If we have an initial instance name, use it; otherwise, generate one
           const instanceNameToUse = initialInstanceName || customInstanceName || null;
           await startConnection(instanceNameToUse);
@@ -182,7 +190,12 @@ export function WhatsAppConnectionDialog({
         }
       };
       
-      initConnection();
+      // Add a small delay to prevent race conditions
+      const timeoutId = setTimeout(() => {
+        initConnection();
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
     }
   }, [open, connectionStatus, isLoading, startConnection, initialInstanceName, customInstanceName, isSubmitting, showCustomNameForm]);
 
@@ -336,9 +349,9 @@ export function WhatsAppConnectionDialog({
   const renderDialogContent = () => {
     // CRITICAL FIX: Always show QR code first when available, overriding all other states
     // This ensures Evolution API popup issue is fixed by prioritizing QR display
+    // FIXED: Removed setState call from render function to prevent React #301 error
     if (qrCodeData && connectionStatus !== "connected" && connectionStatus !== "failed") {
-      console.log("QR code available - forcing QR code display regardless of state");
-      setModalState("qr_code"); // Ensure modal state is set to qr_code
+      console.log("QR code available - showing QR code display");
       return (
         <QrCodeState 
           qrCodeData={qrCodeData}
@@ -480,5 +493,51 @@ export function WhatsAppConnectionDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// Main exported component with ErrorBoundary wrapper
+export function WhatsAppConnectionDialog(props: WhatsAppConnectionDialogProps) {
+  const { toast } = useToast();
+  
+  const handleError = useCallback((error: Error, errorInfo: React.ErrorInfo) => {
+    console.error('[WhatsAppConnectionDialog] React Error:', error, errorInfo);
+    
+    // Show user-friendly error message
+    toast({
+      title: "Erro de Conexão",
+      description: "Ocorreu um erro inesperado durante a conexão. Tente novamente.",
+      variant: "destructive",
+    });
+    
+    // Close dialog if it's open to reset state
+    if (props.open) {
+      props.onOpenChange(false);
+    }
+  }, [props, toast]);
+
+  return (
+    <ErrorBoundary 
+      onError={handleError}
+      fallback={
+        <Dialog open={props.open} onOpenChange={props.onOpenChange}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Erro de Conexão</DialogTitle>
+              <DialogDescription>
+                Ocorreu um erro inesperado. Por favor, feche esta janela e tente novamente.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button onClick={() => props.onOpenChange(false)}>
+                Fechar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      }
+    >
+      <WhatsAppConnectionDialogInternal {...props} />
+    </ErrorBoundary>
   );
 }

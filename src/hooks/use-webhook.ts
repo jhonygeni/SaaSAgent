@@ -286,7 +286,7 @@ export function useWebhook(url: string, options: UseWebhookOptions = {}) {
   // Hooks predefinidos para diferentes endpoints
 export const useAgentWebhook = (options?: UseWebhookOptions) => {
   return useWebhook("https://webhooksaas.geni.chat/webhook/principal", {
-    timeout: 15000, // Timeout maior para agentes
+    timeout: 8000, // Reduced from 15000ms to prevent excessive timeout
     showToasts: true,
     ...options
   });
