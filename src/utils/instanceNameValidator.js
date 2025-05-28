@@ -1,5 +1,6 @@
 // This is a failsafe implementation for agent name validation
 // It provides a list of known instance names in case the API is unreachable
+// Updated to work with unique name generation system
 
 /**
  * Failsafe data - only used as a fallback when API is unreachable
@@ -14,6 +15,7 @@ const knownInstances = [
 /**
  * Get instance names from API or fallback to known instances
  * This provides a safety mechanism in case the API fails
+ * Updated to work with the unique name generation system
  */
 export async function getInstanceNames(apiFunction) {
   try {
@@ -69,24 +71,40 @@ export function nameExists(name, instances) {
 
 /**
  * Check if name follows the required format
+ * Updated to align with new unique name generation system
  * @param {string} name Name to validate
  * @returns {boolean} True if valid
  */
 export function isValidFormat(name) {
-  // Fix for "Erro ao validar o nome da instância"
-  // Allow more permissive name format while still ensuring safety
-  // Original regex was too restrictive: /^[a-z0-9_]+$/
-  
+  // Updated validation to work with unique name format: "nome_agente_token"
   if (!name) return false;
   
-  // Convert name to safe format by replacing invalid chars with underscores
-  const safeFormatName = name.toLowerCase()
-    .replace(/[^a-z0-9_]/g, '_')  // Replace invalid chars with underscore
-    .replace(/__+/g, '_');        // Remove consecutive underscores
-    
-  // Check if resulting name is valid
-  const VALID_NAME_REGEX = /^[a-z0-9][a-z0-9_]*$/;
-  return VALID_NAME_REGEX.test(safeFormatName);
+  // Accept names that follow the pattern: letters, numbers, underscores
+  // Must start with letter or number, can contain underscores, must end with letter or number
+  const VALID_NAME_REGEX = /^[a-z0-9][a-z0-9_]*[a-z0-9]$|^[a-z0-9]$/;
+  
+  return VALID_NAME_REGEX.test(name.toLowerCase()) && 
+         name.length >= 1 && 
+         name.length <= 50; // Reasonable limit for instance names
+}
+
+/**
+ * Generate a safe instance name from user input
+ * This function sanitizes and creates a base name that can be used with the unique generator
+ * @param {string} inputName Original name from user
+ * @returns {string} Sanitized base name
+ */
+export function generateSafeBaseName(inputName) {
+  if (!inputName) return "";
+  
+  return inputName
+    .toLowerCase()
+    .normalize('NFD') // Normalize accented characters
+    .replace(/[\u0300-\u036f]/g, '') // Remove accents
+    .replace(/[^a-z0-9\s]/g, '') // Remove special characters
+    .replace(/\s+/g, '_') // Replace spaces with underscore
+    .replace(/_+/g, '_') // Remove consecutive underscores
+    .replace(/^_|_$/g, ''); // Remove leading/trailing underscores
 }
 
 /**

@@ -2,6 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { Agent, BusinessSector, FAQ } from "@/types";
 import { nanoid } from "nanoid";
+import { getUniqueInstanceName } from "@/utils/uniqueNameGenerator";
 
 /**
  * Service for agent data management in Supabase
@@ -28,9 +29,8 @@ const agentService = {
         // Generate a custom ID identifier (but don't use it for the primary key)
         const customId = agent.id || `agent-${nanoid(8)}`;
         
-        // Ensure instanceName is set properly
-        const instanceName = agent.instanceName || 
-                              agent.nome.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+        // Generate unique instance name to prevent duplicates
+        const instanceName = await getUniqueInstanceName(agent.nome, user.id);
         
         // Format the agent data for insertion - store most data in the settings field as JSON
         const supabaseAgent = {

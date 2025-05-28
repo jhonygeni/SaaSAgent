@@ -4,6 +4,7 @@ import { EXAMPLE_AGENT } from "../lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import agentService from "@/services/agentService";
 import { useUser } from "./UserContext";
+import { getUniqueInstanceName } from "@/utils/uniqueNameGenerator";
 
 interface AgentContextType {
   currentAgent: Agent;
@@ -151,11 +152,25 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     try {
       setIsLoading(true);
       
-      // Make sure instanceName is set correctly
-      const formattedName = agent.nome.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+      // Generate unique instance name to prevent duplicates with Evolution API
+      let uniqueInstanceName: string;
+      
+      try {
+        uniqueInstanceName = await getUniqueInstanceName(agent.nome, user?.id);
+        console.log(`Generated unique instance name: ${uniqueInstanceName}`);
+      } catch (nameError) {
+        console.error("Error generating unique name:", nameError);
+        toast({
+          title: "Erro ao gerar nome único",
+          description: "Não foi possível gerar um nome único para a instância. Tente novamente.",
+          variant: "destructive",
+        });
+        return null;
+      }
+      
       const agentToCreate = {
         ...agent,
-        instanceName: agent.instanceName || formattedName
+        instanceName: uniqueInstanceName
       };
       
       // Create agent in Supabase with retry logic
