@@ -406,43 +406,101 @@ const whatsappService = {
     }
   },
 
-  // Get information about an instance
-  getInstanceInfo: async (instanceName: string): Promise<InstanceInfo> => {
+  // Get information about an instance with anti-loop protection
+  getInstanceInfo: async (instanceName: string, attempt = 1, maxAttempts = 3): Promise<InstanceInfo> => {
     try {
-      const endpoint = formatEndpoint(ENDPOINTS.instanceInfo, { instanceName });
-      const response = await apiClient.get<InstanceInfo>(endpoint);
+      console.log(`Getting instance info for ${instanceName} (attempt ${attempt}/${maxAttempts})`);
       
-      // If we have a phone number, update Supabase
-      if (response?.instance?.user?.id) {
-        try {
-          // Extract phone number from user.id (format: "number@s.whatsapp.net")
-          const phoneNumber = response.instance.user.id.split('@')[0];
-          
-          // Check if user is logged in
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user?.id && phoneNumber) {
-            const { error } = await supabase
-              .from('whatsapp_instances')
-              .update({ 
-                phone_number: phoneNumber,
-                status: 'connected',
-                updated_at: new Date().toISOString()
-              })
-              .eq('name', instanceName)
-              .eq('user_id', user.id);
-              
-            if (error) {
-              console.error("Error saving phone number to Supabase:", error);
-            }
+      // Anti-loop: verificar se já excedeu tentativas máximas
+      if (attempt > maxAttempts) {
+        console.warn(`Máximo de tentativas (${maxAttempts}) excedido para ${instanceName}. Retornando dados parciais.`);
+        // Retorna objeto vazio mas com estrutura válida para não quebrar UI
+        return {
+          instance: {
+            instanceName,
+            status: "disconnected",
           }
-        } catch (saveError) {
-          console.error("Failed to save phone number to Supabase:", saveError);
-        }
+        } as InstanceInfo;
       }
       
-      return response;
+      const endpoint = formatEndpoint(ENDPOINTS.instanceInfo, { instanceName });
+      
+      // Timeout maior para instâncias novas
+      const timeoutMs = 8000 + (attempt * 2000); // 8s, 10s, 12s...
+      
+      try {
+        const response = await apiClient.get<InstanceInfo>(endpoint, { timeout: timeoutMs });
+        
+        // Verificar se temos dados reais ou resposta vazia
+        if (!response || !response.instance) {
+          throw new Error("Resposta sem dados válidos da instância");
+        }
+        
+        // If we have a phone number, update Supabase
+        if (response?.instance?.user?.id) {
+          try {
+            // Extract phone number from user.id (format: "number@s.whatsapp.net")
+            const phoneNumber = response.instance.user.id.split('@')[0];
+            
+            // Check if user is logged in
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user?.id && phoneNumber) {
+              const { error } = await supabase
+                .from('whatsapp_instances')
+                .update({ 
+                  phone_number: phoneNumber,
+                  status: 'connected',
+                  updated_at: new Date().toISOString()
+                })
+                .eq('name', instanceName)
+                .eq('user_id', user.id as string);
+                
+              if (error) {
+                console.error("Error saving phone number to Supabase:", error);
+              }
+            }
+          } catch (saveError) {
+            console.error("Failed to save phone number to Supabase:", saveError);
+          }
+        }
+        
+        return response;
+      } catch (apiError) {
+        // Se for erro 404 para instância nova, podemos esperar e tentar novamente
+        // Isso acontece quando a instância ainda está inicializando
+        if (apiError.status === 404 || 
+            (apiError instanceof Error && apiError.message.includes("404"))) {
+          
+          console.warn(`Instância ${instanceName} não encontrada (404). Pode estar inicializando.`);
+          
+          // Backoff exponencial antes da próxima tentativa
+          const delayMs = Math.min(1000 * Math.pow(2, attempt), 8000); // 1s, 2s, 4s, 8s máx
+          console.log(`Aguardando ${delayMs}ms antes da próxima tentativa...`);
+          
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+          
+          // Tentar novamente com incremento do contador
+          return whatsappService.getInstanceInfo(instanceName, attempt + 1, maxAttempts);
+        }
+        
+        // Outros erros, repassar
+        throw apiError;
+      }
     } catch (error) {
       console.error(`Error getting instance info for ${instanceName}:`, error);
+      
+      // Se já estamos na última tentativa, retornar objeto mínimo para não quebrar UI
+      if (attempt >= maxAttempts) {
+        console.warn(`Retornando objeto mínimo para ${instanceName} após falhas múltiplas`);
+        return {
+          instance: {
+            instanceName,
+            status: "error",
+            errorMessage: error instanceof Error ? error.message : "Erro desconhecido"
+          }
+        } as InstanceInfo;
+      }
+      
       throw error;
     }
   },
