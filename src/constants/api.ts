@@ -24,6 +24,9 @@ export const ENDPOINTS = {
   
   // Webhook configuration endpoint
   webhookConfig: "/instance/webhook/{instanceName}", // Configure webhook v2 (POST)
+  
+  // Settings configuration endpoint
+  settingsConfig: "/settings/set/{instanceName}", // Configure instance settings (POST)
 };
 
 // Only used when USE_MOCK_DATA is true, which should never be in production

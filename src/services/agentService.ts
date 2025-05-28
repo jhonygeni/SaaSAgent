@@ -206,15 +206,52 @@ const agentService = {
   },
 
   /**
-   * Delete an agent in Supabase
+   * Delete an agent and its WhatsApp instance from both Evolution API and Supabase
    */
   deleteAgent: async (id: string): Promise<boolean> => {
     try {
       const timeoutPromise = new Promise<boolean>((_, reject) => {
-        setTimeout(() => reject(new Error("Request timeout - deleteAgent")), 8000);
+        setTimeout(() => reject(new Error("Request timeout - deleteAgent")), 15000); // Increased timeout for API cleanup
       });
       
       const deletePromise = (async () => {
+        // First, get the agent to retrieve its instance name
+        const { data: agent, error: fetchError } = await supabase
+          .from('agents')
+          .select('*')
+          .eq('id', id)
+          .single();
+        
+        if (fetchError) {
+          console.error("Error fetching agent for deletion:", fetchError);
+          // Continue with database deletion even if we can't fetch the agent
+        }
+        
+        // Try to delete the WhatsApp instance from Evolution API first
+        let evolutionApiCleanupSuccess = false;
+        if (agent?.instance_name) {
+          try {
+            console.log(`Attempting to delete Evolution API instance: ${agent.instance_name}`);
+            
+            // Dynamic import to avoid circular dependencies
+            const { default: whatsappService } = await import('./whatsappService');
+            evolutionApiCleanupSuccess = await whatsappService.deleteInstance(agent.instance_name);
+            
+            if (evolutionApiCleanupSuccess) {
+              console.log(`Successfully deleted Evolution API instance: ${agent.instance_name}`);
+            } else {
+              console.warn(`Failed to delete Evolution API instance: ${agent.instance_name}`);
+            }
+          } catch (evolutionError) {
+            console.error(`Error deleting Evolution API instance ${agent.instance_name}:`, evolutionError);
+            // Don't fail the entire operation if Evolution API cleanup fails
+            // The instance might already be deleted or the API might be down
+          }
+        } else {
+          console.log("No instance name found for agent, skipping Evolution API cleanup");
+        }
+
+        // Always proceed with database deletion regardless of Evolution API result
         const { error } = await supabase
           .from('agents')
           .delete()
@@ -223,6 +260,14 @@ const agentService = {
         if (error) {
           console.error("Error deleting agent from Supabase:", error);
           return false;
+        }
+
+        // If Evolution API cleanup failed but database deletion succeeded, log a warning
+        if (agent?.instance_name && !evolutionApiCleanupSuccess) {
+          console.warn(
+            `Agent deleted from database but Evolution API instance ${agent.instance_name} may still exist. ` +
+            `You may need to manually delete it from the Evolution API dashboard.`
+          );
         }
 
         return true;

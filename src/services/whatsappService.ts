@@ -60,6 +60,95 @@ const whatsappService = {
     }
   },
 
+  /**
+   * Configure instance settings with recommended defaults
+   * Must be called after successful instance creation and connection
+   * Configures settings like rejectCall, alwaysOnline, readMessages, etc.
+   */
+  configureInstanceSettings: async (instanceName: string): Promise<any> => {
+    try {
+      console.log(`Configuring instance settings for: ${instanceName}`);
+      
+      if (USE_MOCK_DATA) {
+        console.warn("MOCK MODE IS ACTIVE - This should never be used in production!");
+        return {
+          status: "success",
+          message: "Instance settings configured successfully (mock)",
+          settings: {
+            rejectCall: true,
+            alwaysOnline: true,
+            readMessages: true
+          }
+        };
+      }
+
+      const endpoint = formatEndpoint(ENDPOINTS.settingsConfig, { instanceName });
+      console.log("Instance settings configuration URL:", `${apiClient.baseUrl}${endpoint}`);
+      
+      // Configurações recomendadas para todas as instâncias
+      const instanceSettings = {
+        rejectCall: true,
+        msgCall: "Chamadas não são aceitas neste número. Por favor, envie uma mensagem de texto.",
+        groupsIgnore: true,
+        alwaysOnline: true,
+        readMessages: true,
+        readStatus: true,
+        syncFullHistory: true
+      };
+
+      let response;
+      
+      // Primary attempt with apiClient
+      try {
+        response = await apiClient.post(endpoint, instanceSettings);
+        console.log("Instance settings configuration successful via apiClient:", response);
+      } catch (apiError) {
+        console.warn("API client post failed for settings, trying direct fetch:", apiError);
+        
+        // Check if this was an authentication error (401/403)
+        if (apiError.name === 'AuthenticationError' || 
+            (apiError instanceof Error && 
+             (apiError.message.includes('401') || apiError.message.includes('403')))) {
+          throw new Error(
+            `Falha na autenticação com Evolution API ao configurar settings. Verifique se seu token está correto e ativo no painel Evolution API. ` +
+            `Status: ${apiError.status || 401}. ` +
+            `Detalhes: Por favor, verifique a variável de ambiente EVOLUTION_API_KEY.`
+          );
+        }
+        
+        // Fallback: Direct fetch with 'apikey' header (Evolution API v2 standard)
+        const directResponse = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': EVOLUTION_API_KEY,
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(instanceSettings)
+        });
+        
+        if (!directResponse.ok) {
+          // Special handling for 401/403 errors
+          if (directResponse.status === 401 || directResponse.status === 403) {
+            throw new Error(
+              `Falha na autenticação com Evolution API (${directResponse.status}) ao configurar settings. ` +
+              `Verifique seu token no painel Evolution API e atualize a variável de ambiente EVOLUTION_API_KEY.`
+            );
+          }
+          throw new Error(`API error: ${directResponse.status} ${directResponse.statusText}`);
+        }
+        
+        response = await directResponse.json();
+        console.log("Instance settings configuration successful via direct fetch:", response);
+      }
+      
+      return response;
+    } catch (error) {
+      console.error("Error configuring instance settings:", error);
+      throw error;
+    }
+  },
+
   // Função utilitária para normalizar resposta de QR code
   normalizeQrCodeResponse: (response: any) => {
     // Padroniza o campo do QR code para sempre ser 'qrcode' e 'base64' se disponível
@@ -281,6 +370,18 @@ const whatsappService = {
         response = await directResponse.json();
       }
       
+      // ETAPA ADICIONAL: Configurar automaticamente as configurações da instância
+      try {
+        console.log(`Configuring instance settings automatically for: ${instanceName}`);
+        await whatsappService.configureInstanceSettings(instanceName);
+        console.log(`Instance settings configured successfully for: ${instanceName}`);
+      } catch (settingsError) {
+        console.warn(`Failed to configure instance settings for ${instanceName}:`, settingsError);
+        // Não falhar a criação da instância se as configurações falharem
+        // A instância ainda foi criada com sucesso, apenas as configurações não foram aplicadas
+        console.log("Instance creation was successful, but settings configuration failed. The instance will work with default settings.");
+      }
+
       // Store instance data in Supabase if possible
       if (userId) {
         try {
@@ -417,8 +518,9 @@ const whatsappService = {
         // Retorna objeto vazio mas com estrutura válida para não quebrar UI
         return {
           instance: {
-            instanceName,
+            name: instanceName,
             status: "disconnected",
+            isConnected: false
           }
         } as InstanceInfo;
       }
@@ -429,7 +531,7 @@ const whatsappService = {
       const timeoutMs = 8000 + (attempt * 2000); // 8s, 10s, 12s...
       
       try {
-        const response = await apiClient.get<InstanceInfo>(endpoint, { timeout: timeoutMs });
+        const response = await apiClient.get<InstanceInfo>(endpoint);
         
         // Verificar se temos dados reais ou resposta vazia
         if (!response || !response.instance) {
@@ -494,8 +596,9 @@ const whatsappService = {
         console.warn(`Retornando objeto mínimo para ${instanceName} após falhas múltiplas`);
         return {
           instance: {
-            instanceName,
+            name: instanceName,
             status: "error",
+            isConnected: false,
             errorMessage: error instanceof Error ? error.message : "Erro desconhecido"
           }
         } as InstanceInfo;
@@ -607,6 +710,130 @@ const whatsappService = {
       return response;
     } catch (error) {
       console.error(`Error logging out instance ${instanceName}:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Delete a WhatsApp instance from Evolution API
+   * This will permanently remove the instance from the Evolution API server
+   */
+  deleteInstance: async (instanceName: string): Promise<boolean> => {
+    try {
+      console.log(`Attempting to delete WhatsApp instance: ${instanceName}`);
+      
+      if (USE_MOCK_DATA) {
+        console.warn("MOCK MODE IS ACTIVE - This should never be used in production!");
+        console.log(`Mock: Instance ${instanceName} would be deleted`);
+        return true;
+      }
+
+      const endpoint = formatEndpoint(ENDPOINTS.instanceDelete, { instanceName });
+      console.log("Delete instance URL:", `${apiClient.baseUrl}${endpoint}`);
+
+      try {
+        // Primary attempt with apiClient
+        await apiClient.delete(endpoint);
+        console.log(`Instance ${instanceName} deleted successfully via apiClient`);
+        
+        // Update Supabase to reflect deletion
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user?.id) {
+            const { error } = await supabase
+              .from('whatsapp_instances')
+              .update({ 
+                status: 'deleted',
+                updated_at: new Date().toISOString()
+              })
+              .eq('name', instanceName)
+              .eq('user_id', user.id);
+              
+            if (error) {
+              console.error("Error updating instance status in Supabase:", error);
+            }
+          }
+        } catch (saveError) {
+          console.error("Failed to update instance status in Supabase:", saveError);
+        }
+
+        return true;
+      } catch (apiError) {
+        console.warn("API client delete failed, trying direct fetch:", apiError);
+        
+        // Check if this was an authentication error (401/403)
+        if (apiError.name === 'AuthenticationError' || 
+            (apiError instanceof Error && 
+             (apiError.message.includes('401') || apiError.message.includes('403')))) {
+          throw new Error(
+            `Falha na autenticação com Evolution API. Verifique se seu token está correto e ativo no painel Evolution API. ` +
+            `Status: ${apiError.status || 401}. ` +
+            `Detalhes: Por favor, verifique a variável de ambiente EVOLUTION_API_KEY.`
+          );
+        }
+        
+        // Fallback: Direct fetch with 'apikey' header (Evolution API v2 standard)
+        const directResponse = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': EVOLUTION_API_KEY,
+            'Accept': 'application/json'
+          }
+        });
+        
+        if (!directResponse.ok) {
+          // Special handling for 401/403 errors
+          if (directResponse.status === 401 || directResponse.status === 403) {
+            throw new Error(
+              `Falha na autenticação com Evolution API (${directResponse.status}). ` +
+              `Verifique seu token no painel Evolution API e atualize a variável de ambiente EVOLUTION_API_KEY.`
+            );
+          }
+          
+          // If instance not found (404), consider it already deleted
+          if (directResponse.status === 404) {
+            console.log(`Instance ${instanceName} not found (404), considering it already deleted`);
+            return true;
+          }
+          
+          throw new Error(`API error: ${directResponse.status} ${directResponse.statusText}`);
+        }
+        
+        console.log(`Instance ${instanceName} deleted successfully via direct fetch`);
+        
+        // Update Supabase to reflect deletion
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user?.id) {
+            const { error } = await supabase
+              .from('whatsapp_instances')
+              .update({ 
+                status: 'deleted',
+                updated_at: new Date().toISOString()
+              })
+              .eq('name', instanceName)
+              .eq('user_id', user.id);
+              
+            if (error) {
+              console.error("Error updating instance status in Supabase:", error);
+            }
+          }
+        } catch (saveError) {
+          console.error("Failed to update instance status in Supabase:", saveError);
+        }
+
+        return true;
+      }
+    } catch (error) {
+      console.error(`Error deleting instance ${instanceName}:`, error);
+      
+      // If the error is that the instance doesn't exist, we can consider it successful
+      if (error instanceof Error && error.message.includes('404')) {
+        console.log(`Instance ${instanceName} was already deleted or never existed`);
+        return true;
+      }
+      
       throw error;
     }
   },

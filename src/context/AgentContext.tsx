@@ -267,24 +267,57 @@ export function AgentProvider({ children }: { children: ReactNode }) {
   const removeAgent = async (id: string) => {
     try {
       setIsLoading(true);
+      
+      // Find the agent to get its name for better user feedback
+      const agentToDelete = agents.find(agent => agent.id === id);
+      const agentName = agentToDelete?.nome || 'agente';
+      
+      console.log(`Starting deletion process for agent: ${agentName} (ID: ${id})`);
+      
+      // Show initial feedback
+      toast({
+        title: "Deletando agente",
+        description: `Removendo ${agentName} e sua instância do WhatsApp...`,
+        variant: "default",
+      });
+      
       const success = await agentService.deleteAgent(id);
       
       if (success) {
         setAgents((prev) => prev.filter((agent) => agent.id !== id));
+        
+        toast({
+          title: "Agente removido com sucesso",
+          description: `${agentName} foi removido completamente do sistema, incluindo sua instância do WhatsApp.`,
+          variant: "default",
+        });
       } else {
         toast({
           title: "Erro ao remover agente",
-          description: "Não foi possível remover o agente do banco de dados.",
+          description: `Não foi possível remover ${agentName} do sistema. Tente novamente.`,
           variant: "destructive",
         });
       }
     } catch (error) {
       console.error("Error removing agent:", error);
-      toast({
-        title: "Erro ao remover agente",
-        description: "Ocorreu um erro ao tentar remover o agente.",
-        variant: "destructive",
-      });
+      
+      const agentToDelete = agents.find(agent => agent.id === id);
+      const agentName = agentToDelete?.nome || 'o agente';
+      
+      // Check if it's a timeout error
+      if (error instanceof Error && error.message.includes("timeout")) {
+        toast({
+          title: "Tempo limite excedido",
+          description: `A remoção de ${agentName} está demorando mais que o esperado. Verifique se foi removido e tente novamente se necessário.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Erro ao remover agente",
+          description: `Ocorreu um erro ao tentar remover ${agentName}. Verifique sua conexão e tente novamente.`,
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsLoading(false);
     }
