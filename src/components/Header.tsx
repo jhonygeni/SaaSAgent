@@ -17,8 +17,12 @@ export function Header() {
   return (
     <header className="border-b">
       <div className="container flex h-16 items-center justify-between">
-        <Link to="/" className="font-bold text-2xl text-brand-500">
-          WhatSaaS
+        <Link to="/" className="flex items-center">
+          <img 
+            src="/geni.chat.png" 
+            alt="Geni.Chat" 
+            className="h-8 w-auto"
+          />
         </Link>
 
         <nav className="flex items-center gap-4">

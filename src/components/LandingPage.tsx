@@ -448,7 +448,13 @@ export function LandingPage() {
         <div className="container">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div className="md:col-span-2">
-              <h3 className="font-bold text-xl mb-4 text-white">WhatSaaS</h3>
+              <div className="flex items-center mb-4">
+                <img 
+                  src="/geni.chat.png" 
+                  alt="Geni.Chat" 
+                  className="h-8 w-auto"
+                />
+              </div>
               <p className="text-gray-400 mb-4 max-w-md">
                 A maneira mais fácil de automatizar seu WhatsApp com assistentes de IA. 
                 Comece grátis e aumente suas vendas em minutos.
@@ -504,7 +510,7 @@ export function LandingPage() {
           </div>
           <div className="border-t border-gray-700 mt-12 pt-6 flex flex-col md:flex-row justify-between items-center">
             <p className="text-sm text-gray-400">
-              &copy; {new Date().getFullYear()} WhatSaaS. Todos os direitos reservados.
+              &copy; {new Date().getFullYear()} Geni.Chat. Todos os direitos reservados.
             </p>
             <div className="flex gap-4 mt-4 md:mt-0">
               <Button variant="link" className="p-0 h-auto text-gray-400 hover:text-white text-sm">
