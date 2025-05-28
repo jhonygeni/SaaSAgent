@@ -11,29 +11,16 @@ const SUPABASE_PUBLISHABLE_KEY = SUPABASE_CONFIG.anonKey;
 if (!SUPABASE_URL) {
   throw new Error('SUPABASE_URL is required but not configured');
 }
-
-// FALLBACK TEMPORÁRIO para debug - permitir carregar mesmo com chave vazia
-let effectiveAnonKey = SUPABASE_PUBLISHABLE_KEY;
 if (!SUPABASE_PUBLISHABLE_KEY || SUPABASE_PUBLISHABLE_KEY.trim() === '') {
-  console.error('❌ SUPABASE_ANON_KEY não está configurada!');
-  console.error('💡 Usando fallback temporário para debug');
-  console.error('🔧 Certifique-se de que VITE_SUPABASE_ANON_KEY está no arquivo .env');
-  
-  // Usar uma chave falsa temporariamente para permitir debug
-  effectiveAnonKey = 'debug-mode-key';
+  throw new Error('SUPABASE_ANON_KEY (VITE_SUPABASE_ANON_KEY) is required but not configured!');
 }
 
 console.log('🔑 SUPABASE_URL:', SUPABASE_URL);
 console.log('🔑 SUPABASE_PUBLISHABLE_KEY:', SUPABASE_PUBLISHABLE_KEY ? SUPABASE_PUBLISHABLE_KEY.substring(0, 8) + '...' : SUPABASE_PUBLISHABLE_KEY);
 console.log('[SUPABASE INIT] VITE_SUPABASE_URL:', SUPABASE_URL);
 console.log('[SUPABASE INIT] VITE_SUPABASE_ANON_KEY:', SUPABASE_PUBLISHABLE_KEY);
-if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-  console.error('[SUPABASE INIT] ❌ ERRO CRÍTICO: Variáveis de ambiente VITE_SUPABASE_URL ou VITE_SUPABASE_ANON_KEY estão undefined!');
-  if (!SUPABASE_URL) console.error('[SUPABASE INIT] VITE_SUPABASE_URL está undefined!');
-  if (!SUPABASE_PUBLISHABLE_KEY) console.error('[SUPABASE INIT] VITE_SUPABASE_ANON_KEY está undefined!');
-}
 
-export const supabase = createClient<Database>(SUPABASE_URL, effectiveAnonKey, {
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: localStorage,
     persistSession: true,

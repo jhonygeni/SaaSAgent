@@ -28,7 +28,6 @@ const whatsappService = {
   configureWebhook: async (instanceName: string): Promise<WebhookConfigResponse> => {
     try {
       console.log(`Configuring webhook for instance: ${instanceName}`);
-      
       if (USE_MOCK_DATA) {
         console.warn("MOCK MODE IS ACTIVE - This should never be used in production!");
         return {
@@ -41,29 +40,40 @@ const whatsappService = {
           }
         };
       }
-      
-      // Use the endpoint for webhook configuration - using V2 path format
       const endpoint = formatEndpoint(ENDPOINTS.webhookConfig, { instanceName });
       console.log("Webhook configuration URL:", `${apiClient.baseUrl}${endpoint}`);
-      
-      // Updated webhook config format for Evolution API V2
+      // Padronizar payload para Evolution API v2 (sem campos legados)
       const webhookConfig = {
         webhook: {
           url: "https://webhooksaas.geni.chat/webhook/principal",
-          byEvents: true,  // Changed from webhookByEvents to byEvents for v2
-          base64: false,   // Changed from webhookBase64 to base64 for v2
+          byEvents: true,
+          base64: false,
           events: ["MESSAGES_UPSERT", "MESSAGE_UPDATE"]
         }
       };
-      
       const data = await apiClient.post<WebhookConfigResponse>(endpoint, webhookConfig);
       console.log("Webhook configuration successful:", data);
-      
       return data;
     } catch (error) {
       console.error("Error configuring webhook:", error);
       throw error;
     }
+  },
+
+  // Função utilitária para normalizar resposta de QR code
+  normalizeQrCodeResponse: (response: any) => {
+    // Padroniza o campo do QR code para sempre ser 'qrcode' e 'base64' se disponível
+    let normalized = { ...response };
+    if (!normalized.qrcode && (normalized.qr || normalized.qrCode)) {
+      normalized.qrcode = normalized.qr || normalized.qrCode;
+    }
+    if (!normalized.base64 && normalized.data?.base64) {
+      normalized.base64 = normalized.data.base64;
+    }
+    if (!normalized.qrcode && normalized.data?.qrcode) {
+      normalized.qrcode = normalized.data.qrcode;
+    }
+    return normalized;
   },
 
   // Check API health by using multiple methods
@@ -269,23 +279,15 @@ const whatsappService = {
   // Get the QR code for an instance using the correct connect endpoint
   getQrCode: async (instanceName: string): Promise<QrCodeResponse> => {
     try {
-      // IMPORTANTE: Using the correct endpoint name from ENDPOINTS
       const endpoint = formatEndpoint(ENDPOINTS.instanceConnectQR, { instanceName });
       console.log(`Getting QR code using connect endpoint: ${endpoint}`);
-      
-      // Try multiple authentication approaches to ensure we get the QR code
       let response;
-      
-      // Try different authentication approaches with CORREÇÃO APLICADA
-      // IMPORTANTE: Evolution API v2 usa EXCLUSIVAMENTE 'apikey'
       const authHeaders = {
         'apikey': EVOLUTION_API_KEY,
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       };
-      
       try {
-        // First try with standard apiClient which already has headers configured
         response = await apiClient.get<QrCodeResponse>(endpoint);
       } catch (apiError) {
         console.warn(`Failed to get QR code using apiClient: ${apiError}`);
@@ -326,18 +328,13 @@ const whatsappService = {
           throw new Error(`Failed to get QR code: ${directError.message}`);
         }
       }
-      
+      // Normalizar resposta do QR code
+      response = whatsappService.normalizeQrCodeResponse(response);
       console.log(`QR code response for ${instanceName}:`, JSON.stringify(response, null, 2));
       
       // Ensure we have a valid QR code in the response
       if (!response.qrcode && !response.base64 && !response.code) {
         console.warn(`No QR code found in response for ${instanceName}. Response keys:`, Object.keys(response));
-        
-        // Try extracting QR code from different possible locations in response
-        if (response.qr) response.qrcode = response.qr;
-        if (response.qrCode) response.qrcode = response.qrCode;
-        if (response.data?.qrcode) response.qrcode = response.data.qrcode;
-        if (response.data?.base64) response.base64 = response.data.base64;
       }
       
       // Save QR code to Supabase if possible
