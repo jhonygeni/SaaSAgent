@@ -68,7 +68,7 @@ export function Dashboard() {
     }, 5000); // Optimized from 8 seconds to 5 seconds max loading time
     
     return () => clearTimeout(loadingTimeout);
-  }, [isLoading, loadAttempts]);
+  }, [isLoading]);
   
   // Load data when component mounts or when user changes
   useEffect(() => {
@@ -154,7 +154,7 @@ export function Dashboard() {
     }, 10000); // 10 seconds absolute maximum
     
     return () => clearTimeout(backupTimeout);
-  }, [user, toast, loadAgentsFromSupabase, isUserLoading, loadAttempts, navigate]);
+  }, [user, toast, loadAgentsFromSupabase, isUserLoading, navigate]);
 
   // Handler to retry loading if it fails
   const handleRetryLoading = () => {
