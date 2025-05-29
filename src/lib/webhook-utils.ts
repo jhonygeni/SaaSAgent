@@ -58,7 +58,7 @@ export async function sendWithRetries<T = any>(
     retryDelay = 500, // Reduzido de 1000ms para 500ms
     idempotencyKey,
     onRetry,
-    timeout = 3000, // Reduzido de 10000ms para 3000ms
+    timeout = 15000, // Increased timeout to prevent network timeouts
     exponentialBackoff = false, // Desabilitar backoff exponencial para manter delays consistentes
     instanceName,
     phoneNumber,

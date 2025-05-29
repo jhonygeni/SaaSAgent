@@ -68,6 +68,12 @@ function WhatsAppConnectionDialogInternal({
     clearPolling
   } = useConnection();
   
+  // Debug: Log quando qrCodeData muda
+  useEffect(() => {
+    console.log("🔍 WhatsAppConnectionDialog - qrCodeData changed:", qrCodeData ? `QR available (${qrCodeData.length} chars)` : "null");
+    console.log("🔍 WhatsAppConnectionDialog - connectionStatus:", connectionStatus);
+  }, [qrCodeData, connectionStatus]);
+  
   const { updateAgentById } = useAgent();
   const { toast } = useToast();
   const { user } = useUser();

@@ -171,11 +171,17 @@ export function useWhatsAppConnection() {
       const qrCode = await initializeWhatsAppInstance(instanceId);
       
       if (qrCode) {
+        console.log("🎯 QR code obtained successfully:", qrCode.substring(0, 50) + "...");
         setQrCodeData(qrCode);
+        console.log("✅ setQrCodeData called with QR code");
         // Now we're waiting for QR code scan
         setConnectionStatus("waiting_qr");
+        console.log("📱 Connection status set to waiting_qr");
         // Start polling for connection status
         startStatusPolling(instanceId);
+        console.log("🔄 Status polling started for instance:", instanceId);
+      } else {
+        console.error("❌ No QR code returned from initializeWhatsAppInstance");
       }
       
       console.log("Connection process started successfully");

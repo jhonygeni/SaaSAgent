@@ -12,7 +12,14 @@ import { ConnectionStateResponse, QrCodeResponse, InstanceInfo } from '@/service
 export function useWhatsAppStatus() {
   const { toast } = useToast();
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("waiting");
-  const [qrCodeData, setQrCodeData] = useState<string | null>(null);
+  const [qrCodeData, setQrCodeDataInternal] = useState<string | null>(null);
+  
+  // Wrapper para debug do setQrCodeData
+  const setQrCodeData = useCallback((data: string | null) => {
+    console.log("🔧 setQrCodeData called with:", data ? `QR data (${data.length} chars)` : "null");
+    setQrCodeDataInternal(data);
+  }, []);
+  
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [attemptCount, setAttemptCount] = useState(0);
