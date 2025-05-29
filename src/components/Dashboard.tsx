@@ -65,7 +65,7 @@ export function Dashboard() {
           setForceShowContent(true); // Force show content even with errors
         }
       }
-    }, 8000); // 8 seconds max loading time
+    }, 5000); // Optimized from 8 seconds to 5 seconds max loading time
     
     return () => clearTimeout(loadingTimeout);
   }, [isLoading, loadAttempts]);
@@ -154,7 +154,7 @@ export function Dashboard() {
     }, 10000); // 10 seconds absolute maximum
     
     return () => clearTimeout(backupTimeout);
-  }, [user, toast, loadAgentsFromSupabase, isUserLoading, loadAttempts, navigate, agents.length]);
+  }, [user, toast, loadAgentsFromSupabase, isUserLoading, loadAttempts, navigate]);
 
   // Handler to retry loading if it fails
   const handleRetryLoading = () => {

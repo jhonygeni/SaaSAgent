@@ -563,7 +563,7 @@ export function AgentChat() {
               mensagem: messageContent
             },
             webhookSecret,
-            timeout: 8000 // Reduced from 15000ms to prevent excessive timeout
+            timeout: 5000 // Optimized from 8000ms to prevent excessive timeout
           });
           
           // Log da resposta para diagnóstico

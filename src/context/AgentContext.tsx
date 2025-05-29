@@ -66,7 +66,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       
       // Add timeout protection
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error("Tempo limite excedido ao carregar agentes")), 10000);
+        setTimeout(() => reject(new Error("Tempo limite excedido ao carregar agentes")), 5000); // Optimized from 10000ms
       });
       
       const loadPromise = agentService.fetchUserAgents();
@@ -284,7 +284,11 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       const success = await agentService.deleteAgent(id);
       
       if (success) {
+        // Update the agents list first
         setAgents((prev) => prev.filter((agent) => agent.id !== id));
+        
+        // Force dashboard to refresh state
+        setIsLoading(false);
         
         toast({
           title: "Agente removido com sucesso",

@@ -15,7 +15,7 @@ const agentService = {
     try {
       // Set timeout for the operation
       const timeoutPromise = new Promise<null>((_, reject) => {
-        setTimeout(() => reject(new Error("Tempo limite excedido - createAgent")), 8000); // Reduced from 15000ms
+        setTimeout(() => reject(new Error("Tempo limite excedido - createAgent")), 5000); // Optimized from 8000ms
       });
       
       const createPromise = (async () => {
@@ -93,7 +93,7 @@ const agentService = {
     try {
       // Set timeout for the operation
       const timeoutPromise = new Promise<Agent[]>((_, reject) => {
-        setTimeout(() => reject(new Error("Tempo limite excedido - fetchUserAgents")), 8000);
+        setTimeout(() => reject(new Error("Tempo limite excedido - fetchUserAgents")), 5000);
       });
       
       const fetchPromise = (async () => {
@@ -134,7 +134,7 @@ const agentService = {
   updateAgent: async (id: string, updates: Partial<Agent>): Promise<boolean> => {
     try {
       const timeoutPromise = new Promise<boolean>((_, reject) => {
-        setTimeout(() => reject(new Error("Request timeout - updateAgent")), 8000);
+        setTimeout(() => reject(new Error("Request timeout - updateAgent")), 5000);
       });
       
       const updatePromise = (async () => {

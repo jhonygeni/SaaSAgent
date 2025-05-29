@@ -286,7 +286,7 @@ export function useWebhook(url: string, options: UseWebhookOptions = {}) {
   // Hooks predefinidos para diferentes endpoints
 export const useAgentWebhook = (options?: UseWebhookOptions) => {
   return useWebhook("https://webhooksaas.geni.chat/webhook/principal", {
-    timeout: 8000, // Reduced from 15000ms to prevent excessive timeout
+    timeout: 5000, // Optimized from 8000ms to prevent excessive timeout
     showToasts: true,
     ...options
   });
@@ -296,7 +296,7 @@ export const usePromptWebhook = (options?: UseWebhookOptions) => {
   return useWebhook("https://webhooksaas.geni.chat/webhook/4d77007b-a6c3-450f-93de-ec97a8db140f", {
     maxRetries: 2, // Reduzido para acelerar
     retryDelay: 500,
-    timeout: 8000, // Reduzido de 20000ms para 8000ms
+    timeout: 5000, // Otimizado de 8000ms para 5000ms
     showToasts: true,
     ...options
   });

@@ -742,7 +742,7 @@ const whatsappService = {
       const endpoint = formatEndpoint(ENDPOINTS.instanceInfo, { instanceName });
       
       // Timeout maior para instâncias novas
-      const timeoutMs = 8000 + (attempt * 2000); // 8s, 10s, 12s...
+      const timeoutMs = 5000 + (attempt * 1500); // 5s, 6.5s, 8s... (optimized from 8s base)
       
       try {
         const response = await apiClient.get<InstanceInfo>(endpoint);
@@ -790,7 +790,7 @@ const whatsappService = {
           console.warn(`Instância ${instanceName} não encontrada (404). Pode estar inicializando.`);
           
           // Backoff exponencial antes da próxima tentativa
-          const delayMs = Math.min(1000 * Math.pow(2, attempt), 8000); // 1s, 2s, 4s, 8s máx
+          const delayMs = Math.min(1000 * Math.pow(2, attempt), 5000); // 1s, 2s, 4s, 5s max (optimized from 8s)
           console.log(`Aguardando ${delayMs}ms antes da próxima tentativa...`);
           
           await new Promise(resolve => setTimeout(resolve, delayMs));
