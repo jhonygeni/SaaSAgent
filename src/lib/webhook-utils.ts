@@ -54,12 +54,12 @@ export async function sendWithRetries<T = any>(
   options: RetryOptions & { headers?: Record<string, string | undefined> } = {}
 ): Promise<WebhookResponse<T>> {
   const { 
-    maxRetries = 3, 
-    retryDelay = 1000,
+    maxRetries = 2, // Reduzido de 3 para 2 tentativas
+    retryDelay = 500, // Reduzido de 1000ms para 500ms
     idempotencyKey,
     onRetry,
-    timeout = 10000,
-    exponentialBackoff = true,
+    timeout = 3000, // Reduzido de 10000ms para 3000ms
+    exponentialBackoff = false, // Desabilitar backoff exponencial para manter delays consistentes
     instanceName,
     phoneNumber,
     headers = {}
@@ -285,8 +285,8 @@ export async function dispararWebhookMensagemRecebida(options: {
     webhookUrl, 
     payload, 
     webhookSecret, 
-    maxRetries = 3, 
-    timeout = 8000, // Reduced from 15000ms to prevent excessive timeout
+    maxRetries = 2, // Reduzido de 3 para acelerar
+    timeout = 3000, // Reduzido drasticamente de 8000ms para 3000ms 
     messageId = `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
     processingCount = 1
   } = options;
@@ -594,4 +594,49 @@ export function extractMessageFromWebhook(webhookData: any): {
     console.error('Error extracting message from webhook:', error);
     return null;
   }
+}
+
+/**
+ * Fire-and-forget webhook call - não bloqueia o fluxo principal
+ * Usado quando queremos enviar webhook sem aguardar resposta
+ */
+export async function sendWebhookNonBlocking<T = any>(
+  url: string,
+  data: any,
+  options: RetryOptions & { headers?: Record<string, string | undefined> } = {}
+): Promise<void> {
+  // Configurações otimizadas para não-bloqueio
+  const optimizedOptions = {
+    ...options,
+    maxRetries: 1, // Apenas 1 retry para não-bloqueante
+    timeout: 2000, // Timeout reduzido para 2 segundos
+    retryDelay: 300, // Delay mínimo entre tentativas
+    exponentialBackoff: false
+  };
+
+  // Executar em background sem aguardar resultado
+  sendWithRetries<T>(url, data, optimizedOptions).catch(error => {
+    console.warn('[WEBHOOK NON-BLOCKING] Falha no webhook (não crítico):', error);
+  });
+}
+
+/**
+ * Wrapper para webhook crítico com timeouts otimizados
+ * Usado quando precisamos do resultado mas queremos ser mais rápidos
+ */
+export async function sendWebhookOptimized<T = any>(
+  url: string,
+  data: any,
+  options: RetryOptions & { headers?: Record<string, string | undefined> } = {}
+): Promise<WebhookResponse<T>> {
+  // Configurações otimizadas mas ainda aguardamos resultado
+  const optimizedOptions = {
+    maxRetries: 2, // Reduzido para 2 tentativas
+    timeout: 3000, // 3 segundos max
+    retryDelay: 500, // Delay reduzido
+    exponentialBackoff: false,
+    ...options
+  };
+
+  return sendWithRetries<T>(url, data, optimizedOptions);
 }

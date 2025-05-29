@@ -48,9 +48,9 @@ export function useWebhook(url: string, options: UseWebhookOptions = {}) {
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const { 
-    maxRetries = 3, 
-    retryDelay = 1000,
-    timeout = 10000,
+    maxRetries = 2, // Reduzido de 3 para 2
+    retryDelay = 500, // Reduzido de 1000ms para 500ms
+    timeout = 3000, // Reduzido de 10000ms para 3000ms
     onRetry,
     onSuccess,
     onError,
@@ -294,7 +294,9 @@ export const useAgentWebhook = (options?: UseWebhookOptions) => {
 
 export const usePromptWebhook = (options?: UseWebhookOptions) => {
   return useWebhook("https://webhooksaas.geni.chat/webhook/4d77007b-a6c3-450f-93de-ec97a8db140f", {
-    timeout: 20000, // Timeout maior para geração de prompt
+    maxRetries: 2, // Reduzido para acelerar
+    retryDelay: 500,
+    timeout: 8000, // Reduzido de 20000ms para 8000ms
     showToasts: true,
     ...options
   });
@@ -303,9 +305,9 @@ export const usePromptWebhook = (options?: UseWebhookOptions) => {
 // Hook personalizado para webhook de mensagens do WhatsApp
 export const useWhatsAppMessageWebhook = (options?: UseWebhookOptions) => {
   return useWebhook("https://webhooksaas.geni.chat/webhook/principal", {
-    maxRetries: 5, // Mais tentativas para mensagens críticas
-    retryDelay: 500, // Retry mais rápido
-    timeout: 8000,
+    maxRetries: 2, // Reduzido de 5 para 2 tentativas
+    retryDelay: 300, // Reduzido de 500ms para 300ms 
+    timeout: 3000, // Reduzido de 8000ms para 3000ms
     showToasts: false, // Não mostrar toasts para cada mensagem
     ...options
   });

@@ -1,4 +1,3 @@
-
 import { 
   EVOLUTION_API_URL, 
   EVOLUTION_API_KEY, 
@@ -157,7 +156,7 @@ export const apiClient = {
             console.error("Token being used (first 4 chars): " + (EVOLUTION_API_KEY ? EVOLUTION_API_KEY.substring(0, 4) + "..." : "MISSING"));
             
             // Create a custom error for auth failures to prevent retries
-            const authError = new Error(`Authentication failed: Invalid or expired token. Status: ${response.status}`);
+            const authError = new Error(`Authentication failed: Invalid or expired token. Status: ${response.status}`) as any;
             authError.name = 'AuthenticationError';
             authError.status = response.status;
             
@@ -188,6 +187,48 @@ export const apiClient = {
     });
   },
   
+  /**
+   * Make an optimized GET request with shorter timeouts for critical operations
+   */
+  async getOptimized<T>(endpoint: string, timeoutMs: number = 5000): Promise<T> {
+    const sanitizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const url = `${this.baseUrl}${sanitizedEndpoint}`;
+    const headers = createHeaders();
+    
+    console.log(`[OPTIMIZED] Making fast GET request to: ${url}`);
+    
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers,
+        mode: 'cors',
+        credentials: 'same-origin',
+        signal: AbortSignal.timeout(timeoutMs)
+      });
+      
+      console.log(`[OPTIMIZED] Response status: ${response.status} ${response.statusText}`);
+      
+      if (!response.ok) {
+        // Special handling for authentication errors
+        if (response.status === 401 || response.status === 403) {
+          const authError = new Error(`Authentication failed: Invalid token. Status: ${response.status}`) as any;
+          authError.name = 'AuthenticationError';
+          authError.status = response.status;
+          throw authError;
+        }
+        
+        throw new Error(`API responded with status ${response.status}: ${response.statusText}`);
+      }
+      
+      const responseData = await response.json();
+      console.log(`[OPTIMIZED] GET request successful for: ${url}`);
+      return responseData;
+    } catch (error) {
+      console.error(`[OPTIMIZED] Request failed for GET ${url}:`, error);
+      throw error;
+    }
+  },
+
   /**
    * Make a POST request to the API
    */
@@ -260,6 +301,49 @@ export const apiClient = {
         error.message.includes("already in use")
       ));
     });
+  },
+  
+  /**
+   * Make an optimized POST request with shorter timeouts for critical operations
+   */
+  async postOptimized<T>(endpoint: string, data: any, timeoutMs: number = 5000): Promise<T> {
+    const sanitizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const url = `${this.baseUrl}${sanitizedEndpoint}`;
+    const headers = createHeaders(true);
+    
+    console.log(`[OPTIMIZED] Making fast POST request to: ${url}`);
+    
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(data),
+        mode: 'cors',
+        credentials: 'same-origin',
+        signal: AbortSignal.timeout(timeoutMs)
+      });
+      
+      console.log(`[OPTIMIZED] Response status: ${response.status} ${response.statusText}`);
+      
+      if (!response.ok) {
+        // Special handling for authentication errors
+        if (response.status === 401 || response.status === 403) {
+          const authError = new Error(`Authentication failed: Invalid token. Status: ${response.status}`) as any;
+          authError.name = 'AuthenticationError';
+          authError.status = response.status;
+          throw authError;
+        }
+        
+        throw new Error(`API responded with status ${response.status}: ${response.statusText}`);
+      }
+      
+      const responseData = await response.json();
+      console.log(`[OPTIMIZED] POST request successful for: ${url}`);
+      return responseData;
+    } catch (error) {
+      console.error(`[OPTIMIZED] Request failed for POST ${url}:`, error);
+      throw error;
+    }
   },
   
   /**

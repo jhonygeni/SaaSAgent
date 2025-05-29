@@ -149,6 +149,126 @@ const whatsappService = {
     }
   },
 
+  /**
+   * Configure instance settings with recommended defaults (NON-BLOCKING VERSION)
+   * Executes webhook configuration in background without blocking QR code display
+   * This version uses optimized timeouts and fire-and-forget pattern
+   */
+  configureInstanceSettingsNonBlocking: async (instanceName: string): Promise<void> => {
+    // Use fire-and-forget pattern - don't wait for completion
+    setTimeout(async () => {
+      try {
+        console.log(`[NON-BLOCKING] Configuring instance settings for: ${instanceName}`);
+        
+        if (USE_MOCK_DATA) {
+          console.warn("MOCK MODE IS ACTIVE - Non-blocking settings configuration (mock)");
+          return;
+        }
+
+        const endpoint = formatEndpoint(ENDPOINTS.settingsConfig, { instanceName });
+        console.log(`[NON-BLOCKING] Instance settings URL: ${apiClient.baseUrl}${endpoint}`);
+        
+        // Same settings as blocking version
+        const instanceSettings = {
+          rejectCall: true,
+          msgCall: "Chamadas não são aceitas neste número. Por favor, envie uma mensagem de texto.",
+          groupsIgnore: true,
+          alwaysOnline: true,
+          readMessages: true,
+          readStatus: true,
+          syncFullHistory: true
+        };
+
+        // Use optimized timeouts for non-blocking calls
+        const { sendWebhookNonBlocking } = await import('../lib/webhook-utils');
+        
+        // Convert to direct HTTP call with non-blocking pattern
+        try {
+          const response = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': EVOLUTION_API_KEY,
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify(instanceSettings),
+            signal: AbortSignal.timeout(2000) // Short timeout for non-blocking
+          });
+          
+          if (response.ok) {
+            console.log(`[NON-BLOCKING] Instance settings configured successfully for: ${instanceName}`);
+          } else {
+            console.warn(`[NON-BLOCKING] Settings configuration failed with status: ${response.status}`);
+          }
+        } catch (error) {
+          console.warn(`[NON-BLOCKING] Failed to configure instance settings for ${instanceName}:`, error);
+          // Silent failure - don't throw in non-blocking mode
+        }
+      } catch (error) {
+        console.warn(`[NON-BLOCKING] Exception in settings configuration for ${instanceName}:`, error);
+        // Silent failure - don't throw in non-blocking mode
+      }
+    }, 100); // Small delay to ensure this doesn't block the main flow
+  },
+
+  /**
+   * Configure webhook for an instance (NON-BLOCKING VERSION)
+   * Executes webhook configuration in background without blocking main flow
+   * Uses optimized timeouts and fire-and-forget pattern
+   */
+  configureWebhookNonBlocking: async (instanceName: string): Promise<void> => {
+    // Use fire-and-forget pattern - don't wait for completion
+    setTimeout(async () => {
+      try {
+        console.log(`[NON-BLOCKING] Configuring webhook for instance: ${instanceName}`);
+        
+        if (USE_MOCK_DATA) {
+          console.warn("MOCK MODE IS ACTIVE - Non-blocking webhook configuration (mock)");
+          return;
+        }
+        
+        const endpoint = formatEndpoint(ENDPOINTS.webhookConfig, { instanceName });
+        console.log(`[NON-BLOCKING] Webhook configuration URL: ${apiClient.baseUrl}${endpoint}`);
+        
+        // Padronizar payload para Evolution API v2 (sem campos legados)
+        const webhookConfig = {
+          webhook: {
+            url: "https://webhooksaas.geni.chat/webhook/principal",
+            byEvents: true,
+            base64: false,
+            events: ["MESSAGES_UPSERT", "MESSAGE_UPDATE"]
+          }
+        };
+        
+        // Use direct fetch with short timeout for non-blocking
+        try {
+          const response = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': EVOLUTION_API_KEY,
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify(webhookConfig),
+            signal: AbortSignal.timeout(2000) // Short timeout for non-blocking
+          });
+          
+          if (response.ok) {
+            console.log(`[NON-BLOCKING] Webhook configured successfully for: ${instanceName}`);
+          } else {
+            console.warn(`[NON-BLOCKING] Webhook configuration failed with status: ${response.status}`);
+          }
+        } catch (error) {
+          console.warn(`[NON-BLOCKING] Failed to configure webhook for ${instanceName}:`, error);
+          // Silent failure - don't throw in non-blocking mode
+        }
+      } catch (error) {
+        console.warn(`[NON-BLOCKING] Exception in webhook configuration for ${instanceName}:`, error);
+        // Silent failure - don't throw in non-blocking mode
+      }
+    }, 50); // Very small delay to ensure this doesn't block the main flow
+  },
+
   // Função utilitária para normalizar resposta de QR code
   normalizeQrCodeResponse: (response: any) => {
     // Padroniza o campo do QR code para sempre ser 'qrcode' e 'base64' se disponível
@@ -370,17 +490,17 @@ const whatsappService = {
         response = await directResponse.json();
       }
       
-      // ETAPA ADICIONAL: Configurar automaticamente as configurações da instância
-      try {
-        console.log(`Configuring instance settings automatically for: ${instanceName}`);
-        await whatsappService.configureInstanceSettings(instanceName);
-        console.log(`Instance settings configured successfully for: ${instanceName}`);
-      } catch (settingsError) {
-        console.warn(`Failed to configure instance settings for ${instanceName}:`, settingsError);
-        // Não falhar a criação da instância se as configurações falharem
-        // A instância ainda foi criada com sucesso, apenas as configurações não foram aplicadas
-        console.log("Instance creation was successful, but settings configuration failed. The instance will work with default settings.");
-      }
+      // ETAPA ADICIONAL: Configurar automaticamente as configurações da instância (NON-BLOCKING)
+      // Execute webhook configuration in background to not delay QR code display
+      whatsappService.configureInstanceSettingsNonBlocking(instanceName)
+        .then(() => {
+          console.log(`Instance settings configured successfully for: ${instanceName}`);
+        })
+        .catch((settingsError) => {
+          console.warn(`Failed to configure instance settings for ${instanceName}:`, settingsError);
+          // Não falhar a criação da instância se as configurações falharem
+          console.log("Instance creation was successful, but settings configuration failed. The instance will work with default settings.");
+        });
 
       // Store instance data in Supabase if possible
       if (userId) {
@@ -503,6 +623,100 @@ const whatsappService = {
       return response;
     } catch (error) {
       console.error(`Error getting QR code for ${instanceName}:`, error);
+      throw error;
+    }
+  },
+
+  // Get the QR code for an instance (OPTIMIZED VERSION with faster timeouts)
+  getQrCodeOptimized: async (instanceName: string): Promise<QrCodeResponse> => {
+    try {
+      const endpoint = formatEndpoint(ENDPOINTS.instanceConnectQR, { instanceName });
+      console.log(`[OPTIMIZED] Getting QR code using connect endpoint: ${endpoint}`);
+      
+      const authHeaders = {
+        'apikey': EVOLUTION_API_KEY,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      };
+
+      let response;
+      
+      // Use direct fetch with optimized timeout for QR code retrieval
+      try {
+        console.log(`[OPTIMIZED] Fetching QR code with 5s timeout`);
+        const directResponse = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
+          method: 'GET',
+          headers: authHeaders,
+          signal: AbortSignal.timeout(5000) // Optimized 5s timeout for QR code
+        });
+        
+        if (!directResponse.ok) {
+          // Special handling for 401/403 errors
+          if (directResponse.status === 401 || directResponse.status === 403) {
+            throw new Error(
+              `Falha na autenticação com Evolution API (${directResponse.status}). ` +
+              `Seu token não é válido ou expirou. Verifique-o no painel Evolution e atualize a variável EVOLUTION_API_KEY.`
+            );
+          }
+          throw new Error(`Optimized fetch failed: ${directResponse.status} ${directResponse.statusText}`);
+        }
+        
+        response = await directResponse.json();
+        console.log(`[OPTIMIZED] QR code retrieved successfully`);
+      } catch (fetchError) {
+        console.warn(`[OPTIMIZED] Fast fetch failed, falling back to apiClient:`, fetchError);
+        
+        // Fallback to apiClient with very short timeout
+        try {
+          response = await Promise.race([
+            apiClient.get<QrCodeResponse>(endpoint),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Timeout')), 3000)
+            )
+          ]);
+        } catch (apiError) {
+          console.error(`[OPTIMIZED] All QR code fetch attempts failed:`, apiError);
+          throw new Error(`Failed to get QR code: ${fetchError.message || apiError.message}`);
+        }
+      }
+      
+      // Normalizar resposta do QR code
+      response = whatsappService.normalizeQrCodeResponse(response);
+      console.log(`[OPTIMIZED] QR code response for ${instanceName}: Success`);
+      
+      // Ensure we have a valid QR code in the response
+      if (!response.qrcode && !response.base64 && !response.code) {
+        console.warn(`[OPTIMIZED] No QR code found in response for ${instanceName}. Response keys:`, Object.keys(response));
+      }
+      
+      // Save QR code to Supabase in background (non-blocking)
+      setTimeout(async () => {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user?.id && (response.code || response.qrcode || response.base64)) {
+            const qrCode = response.code || response.qrcode || response.base64;
+            
+            const { error } = await supabase
+              .from('whatsapp_instances')
+              .update({ 
+                qr_code: qrCode,
+                updated_at: new Date().toISOString()
+              })
+              .eq('name', instanceName)
+              .eq('user_id', user.id);
+              
+            if (error) {
+              console.error("[OPTIMIZED] Error saving QR code to Supabase:", error);
+            }
+          }
+        } catch (saveError) {
+          console.error("[OPTIMIZED] Failed to save QR code to Supabase:", saveError);
+        }
+      }, 0); // Execute immediately but non-blocking
+      
+      return response;
+    } catch (error) {
+      console.error(`[OPTIMIZED] Error getting QR code for ${instanceName}:`, error);
       throw error;
     }
   },

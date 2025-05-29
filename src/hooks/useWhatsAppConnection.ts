@@ -109,10 +109,15 @@ export function useWhatsAppConnection() {
       setInstanceData(instanceData);
       createdInstancesRef.current.add(instanceName);
       
-      // 3. Get the QR code using connect endpoint
+      // 3. Get the QR code using connect endpoint (PRIORITY - DO THIS IMMEDIATELY)
       console.log(`Getting QR code for instance: ${instanceName}`);
       const qrCode = await fetchQrCode(instanceName);
       console.log("QR code obtained:", qrCode ? "Success" : "Failed");
+      
+      // 4. Configure additional webhook settings in background (NON-BLOCKING)
+      // This ensures webhook configuration doesn't delay QR code display
+      whatsappService.configureWebhookNonBlocking(instanceName);
+      console.log("Background webhook configuration initiated for:", instanceName);
       
       return qrCode;
     } catch (error) {
