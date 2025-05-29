@@ -316,32 +316,33 @@ export function ImprovedAgentForm({ onAgentCreated }: ImprovedAgentFormProps) {
       
       console.log(`Agent saved successfully to Supabase with ID: ${savedAgent.id}`);
 
-      // Only if successfully saved to Supabase, try sending the data to the webhook
-      try {
-        const result = await sendAgentData(savedAgent);
-        
-        if (!result.success) {
-          console.warn("Agent webhook failed but database save was successful:", result.error);
-          toast({
-            title: "Aviso",
-            description: "Agente salvo, mas houve um erro na comunicação com a API. Algumas funcionalidades podem estar limitadas.",
-            variant: "default",
-          });
-        }
-      } catch (webhookError) {
-        console.error("Webhook error:", webhookError);
-      }
-      
       toast({
         title: "✅ Agente criado com sucesso!",
         description: "Seu agente foi configurado e está pronto para uso.",
         variant: "default",
       });
       
-      // Trigger the callback to show connection options
+      // Trigger the callback to show connection options immediately
       if (onAgentCreated) {
         onAgentCreated(savedAgent, true);
       }
+
+      // Send data to webhook in background (non-blocking)
+      // This happens after the popup is already shown
+      sendAgentData(savedAgent)
+        .then((result) => {
+          if (!result.success) {
+            console.warn("Agent webhook failed but database save was successful:", result.error);
+            toast({
+              title: "Aviso",
+              description: "Agente salvo, mas houve um erro na comunicação com a API. Algumas funcionalidades podem estar limitadas.",
+              variant: "default",
+            });
+          }
+        })
+        .catch((webhookError) => {
+          console.error("Webhook error:", webhookError);
+        });
     } catch (error: any) {
       console.error("Erro detalhado:", error);
       toast({
