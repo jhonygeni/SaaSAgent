@@ -741,9 +741,6 @@ const whatsappService = {
       
       const endpoint = formatEndpoint(ENDPOINTS.instanceInfo, { instanceName });
       
-      // Timeout maior para instâncias novas
-      const timeoutMs = 5000 + (attempt * 1500); // 5s, 6.5s, 8s... (optimized from 8s base)
-      
       try {
         const response = await apiClient.get<InstanceInfo>(endpoint);
         
@@ -761,7 +758,8 @@ const whatsappService = {
             // Check if user is logged in
             const { data: { user } } = await supabase.auth.getUser();
             if (user?.id && phoneNumber) {
-              const { error } = await supabase
+              // Non-blocking Supabase update
+              supabase
                 .from('whatsapp_instances')
                 .update({ 
                   phone_number: phoneNumber,
@@ -769,34 +767,43 @@ const whatsappService = {
                   updated_at: new Date().toISOString()
                 })
                 .eq('name', instanceName)
-                .eq('user_id', user.id as string);
-                
-              if (error) {
-                console.error("Error saving phone number to Supabase:", error);
-              }
+                .eq('user_id', user.id as string)
+                .then(({error}) => {
+                  if (error) {
+                    console.error("Error saving phone number to Supabase:", error);
+                  }
+                })
+                .catch(saveError => {
+                  console.error("Failed to save phone number to Supabase:", saveError);
+                });
             }
           } catch (saveError) {
             console.error("Failed to save phone number to Supabase:", saveError);
+            // Continue anyway, this shouldn't block the response
           }
         }
         
         return response;
       } catch (apiError) {
-        // Se for erro 404 para instância nova, podemos esperar e tentar novamente
-        // Isso acontece quando a instância ainda está inicializando
+        // Se for erro 404 para instância nova (404s frequentes são esperados)
         if (apiError.status === 404 || 
             (apiError instanceof Error && apiError.message.includes("404"))) {
           
-          console.warn(`Instância ${instanceName} não encontrada (404). Pode estar inicializando.`);
+          // Diferente do comportamento anterior, não vamos mais fazer log para cada 404
+          // Para evitar spam de console e relatórios de erro, só logamos na primeira e última tentativa
+          if (attempt === 1 || attempt === maxAttempts) {
+            console.warn(`Instância ${instanceName} não encontrada (404). ${attempt === maxAttempts ? 'Última tentativa.' : 'Tentando novamente silenciosamente.'}`);
+          }
           
-          // Backoff exponencial antes da próxima tentativa
-          const delayMs = Math.min(1000 * Math.pow(2, attempt), 5000); // 1s, 2s, 4s, 5s max (optimized from 8s)
-          console.log(`Aguardando ${delayMs}ms antes da próxima tentativa...`);
-          
-          await new Promise(resolve => setTimeout(resolve, delayMs));
-          
-          // Tentar novamente com incremento do contador
-          return whatsappService.getInstanceInfo(instanceName, attempt + 1, maxAttempts);
+          // Retornamos um objeto válido imediatamente em vez de tentar novamente
+          // Isso impede o loop de erros 404 no console
+          return {
+            instance: {
+              name: instanceName,
+              status: "connecting", // Status positivo para evitar erros na UI
+              isConnected: false
+            }
+          } as InstanceInfo;
         }
         
         // Outros erros, repassar
@@ -805,20 +812,15 @@ const whatsappService = {
     } catch (error) {
       console.error(`Error getting instance info for ${instanceName}:`, error);
       
-      // Se já estamos na última tentativa, retornar objeto mínimo para não quebrar UI
-      if (attempt >= maxAttempts) {
-        console.warn(`Retornando objeto mínimo para ${instanceName} após falhas múltiplas`);
-        return {
-          instance: {
-            name: instanceName,
-            status: "error",
-            isConnected: false,
-            errorMessage: error instanceof Error ? error.message : "Erro desconhecido"
-          }
-        } as InstanceInfo;
-      }
-      
-      throw error;
+      // Retornar objeto mínimo para não quebrar UI
+      return {
+        instance: {
+          name: instanceName,
+          status: "error",
+          isConnected: false,
+          errorMessage: error instanceof Error ? error.message : "Erro desconhecido"
+        }
+      } as InstanceInfo;
     }
   },
 
