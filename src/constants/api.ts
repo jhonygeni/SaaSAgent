@@ -34,9 +34,9 @@ export const MOCK_QR_CODE = "iVBORw0KGgoAAAANSUhEUgAAAMgAAADIAQMAAACXljzdAAAABlB
 
 // Connection status polling parameters
 export const MAX_CONNECTION_RETRIES = 3; // Reduced from 5 for faster failure detection
-export const RETRY_DELAY_MS = 2000; // Reduced from 3000ms for faster retry
-export const STATUS_POLLING_INTERVAL_MS = 2000; // Reduced from 3000ms for more responsive polling
-export const MAX_POLLING_ATTEMPTS = 20; // Reduced from 30 to prevent excessive polling
+export const RETRY_DELAY_MS = 3000; // Increased to reduce API calls frequency
+export const STATUS_POLLING_INTERVAL_MS = 5000; // Increased to reduce logs spam and API calls
+export const MAX_POLLING_ATTEMPTS = 15; // Reduced to prevent excessive polling
 export const CONSECUTIVE_SUCCESS_THRESHOLD = 2; // Number of consecutive successful status checks needed to confirm connection
 
 // Credit system parameters

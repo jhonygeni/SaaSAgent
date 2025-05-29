@@ -99,21 +99,33 @@ export function useWhatsAppStatus() {
       ...newInfo
     };
     
-    // Check API health in background
-    whatsappService.checkApiHealth().then(isHealthy => {
-      const updatedDebugData = {
-        ...debugData,
-        apiHealth: isHealthy ? "healthy" : "unhealthy"
-      };
-      setDebugInfo(JSON.stringify(updatedDebugData, null, 2));
-    }).catch(error => {
-      const updatedDebugData = {
-        ...debugData,
-        apiHealth: "error checking",
-        apiHealthError: error instanceof Error ? error.message : String(error)
-      };
-      setDebugInfo(JSON.stringify(updatedDebugData, null, 2));
-    });
+    // Check API health in background with throttling to reduce excessive calls
+    const lastHealthCheckKey = 'lastApiHealthCheck';
+    const lastHealthCheck = sessionStorage.getItem(lastHealthCheckKey);
+    const now = Date.now();
+    
+    // Only check API health once every 30 seconds to reduce spam
+    if (!lastHealthCheck || (now - parseInt(lastHealthCheck)) > 30000) {
+      sessionStorage.setItem(lastHealthCheckKey, now.toString());
+      
+      whatsappService.checkApiHealth().then(isHealthy => {
+        const updatedDebugData = {
+          ...debugData,
+          apiHealth: isHealthy ? "healthy" : "unhealthy"
+        };
+        setDebugInfo(JSON.stringify(updatedDebugData, null, 2));
+      }).catch(error => {
+        const updatedDebugData = {
+          ...debugData,
+          apiHealth: "error checking",
+          apiHealthError: error instanceof Error ? error.message : String(error)
+        };
+        setDebugInfo(JSON.stringify(updatedDebugData, null, 2));
+      });
+    } else {
+      // Use cached health status
+      setDebugInfo(JSON.stringify(debugData, null, 2));
+    }
     
     console.log("Debug info updated:", debugData);
   }, [connectionStatus, qrCodeData, connectionError, attemptCount, pairingCode, creditsConsumed]);

@@ -221,7 +221,7 @@ export async function sendAgentToWebhookWithRetry(
     { 
       onRetry,
       idempotencyKey: `agent-${agent.nome}-${Date.now()}`,
-      timeout: 5000 // Optimized from 8000ms to prevent excessive timeout
+      timeout: 15000 // Increased timeout to prevent network timeouts
     }
   );
 }
