@@ -222,136 +222,160 @@ export function PricingPlans() {
         
         {/* Seletor de ciclo de cobrança */}
         <div className="flex flex-col items-center">
-          <div className="flex justify-center items-center gap-4 mt-8">
-            <div className={`px-4 py-2 rounded-full cursor-pointer transition-all ${billingCycle === 'monthly' 
-              ? 'bg-blue-600 text-white font-semibold' 
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`} 
+          <div className="flex justify-center items-center gap-2 mt-8 bg-gray-800/50 p-2 rounded-xl backdrop-blur-sm border border-gray-700">
+            <button 
+              className={`px-6 py-3 rounded-lg cursor-pointer transition-all duration-300 text-sm font-medium ${billingCycle === 'monthly' 
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25' 
+                : 'text-gray-300 hover:text-white hover:bg-gray-700/50'}`} 
               onClick={() => setBillingCycle('monthly')}>
               Mensal
-            </div>
-            <div className={`px-4 py-2 rounded-full cursor-pointer transition-all ${billingCycle === 'semiannual' 
-              ? 'bg-blue-600 text-white font-semibold' 
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+            </button>
+            <button 
+              className={`px-6 py-3 rounded-lg cursor-pointer transition-all duration-300 text-sm font-medium relative ${billingCycle === 'semiannual' 
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25' 
+                : 'text-gray-300 hover:text-white hover:bg-gray-700/50'}`}
               onClick={() => setBillingCycle('semiannual')}>
               Semestral
-              <span className="ml-2 bg-green-600 text-white text-xs px-2 py-0.5 rounded-full">-15%</span>
-            </div>
-            <div className={`px-4 py-2 rounded-full cursor-pointer transition-all ${billingCycle === 'annual' 
-              ? 'bg-blue-600 text-white font-semibold' 
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+              <span className="absolute -top-2 -right-1 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full animate-pulse">-15%</span>
+            </button>
+            <button 
+              className={`px-6 py-3 rounded-lg cursor-pointer transition-all duration-300 text-sm font-medium relative ${billingCycle === 'annual' 
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25' 
+                : 'text-gray-300 hover:text-white hover:bg-gray-700/50'}`}
               onClick={() => setBillingCycle('annual')}>
               Anual
-              <span className="ml-2 bg-green-600 text-white text-xs px-2 py-0.5 rounded-full">-25%</span>
-            </div>
+              <span className="absolute -top-2 -right-1 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full animate-pulse">-25%</span>
+            </button>
           </div>
-          <div className="mt-2 mb-4 text-sm text-neutral-400">
-            {billingCycle === 'monthly' && 'Cobrança mensal sem compromisso. Cancele a qualquer momento.'}
-            {billingCycle === 'semiannual' && 'Pagamento único a cada 6 meses com desconto especial.'}
-            {billingCycle === 'annual' && 'Melhor valor! Pagamento único anual com economia máxima.'}
+          <div className="mt-4 mb-6 text-sm text-neutral-400 max-w-md text-center">
+            {billingCycle === 'monthly' && '💳 Cobrança mensal sem compromisso. Cancele a qualquer momento.'}
+            {billingCycle === 'semiannual' && '💰 Pagamento único a cada 6 meses com desconto especial.'}
+            {billingCycle === 'annual' && '🎯 Melhor valor! Pagamento único anual com economia máxima.'}
           </div>
         </div>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
         {/* Free */}
-        <div className="flex flex-col items-center rounded-2xl border border-[#232A36] bg-[#111827] p-8 min-h-[480px] transition-all">
+        <div className="flex flex-col items-center rounded-2xl border border-[#232A36] bg-gradient-to-br from-[#111827] to-[#1F2937] p-8 min-h-[480px] transition-all duration-300 hover:shadow-xl hover:shadow-gray-900/50 hover:border-gray-600">
+          <div className="mb-4 p-3 rounded-full bg-gray-700/50">
+            <span className="text-2xl">🚀</span>
+          </div>
           <h3 className="font-extrabold text-2xl mb-1 text-white">Grátis</h3>
-          <p className="text-sm text-neutral-400 mb-2">Para começar</p>
-          <div className="text-4xl font-black text-white mb-1">R$0<span className='text-base font-normal text-neutral-400'>/mês</span></div>
-          <Button className="w-full mb-4 mt-2 font-bold text-base bg-blue-600 hover:bg-blue-700 text-white" variant="default" onClick={() => handleSelectPlan("free")} disabled={isCurrentPlan("free")}>Selecionar plano</Button>
-          <ul className="text-base space-y-2 text-left text-neutral-200 w-full mt-2">
-            <li className="flex items-center gap-2"><span className="text-blue-500">✓</span>100 mensagens/mês</li>
-            <li className="flex items-center gap-2"><span className="text-blue-500">✓</span>1 agente IA</li>
-            <li className="flex items-center gap-2"><span className="text-blue-500">✓</span>1 número WhatsApp conectado</li>
-            <li className="flex items-center gap-2"><span className="text-blue-500">✓</span>Smart bot pause</li>
-            <li className="flex items-center gap-2"><span className="text-blue-500">✓</span>Lead notification</li>
-            <li className="flex items-center gap-2"><span className="text-blue-500">✓</span>Respostas de texto e áudio</li>
+          <p className="text-sm text-neutral-400 mb-4">Para começar</p>
+          <div className="text-4xl font-black text-white mb-4">R$0<span className='text-base font-normal text-neutral-400'>/mês</span></div>
+          <Button 
+            className="w-full mb-6 mt-2 font-bold text-base bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg transition-all duration-300 hover:shadow-blue-600/25" 
+            variant="default" 
+            onClick={() => handleSelectPlan("free")} 
+            disabled={isCurrentPlan("free")}>
+            {isCurrentPlan("free") ? "✓ Plano Atual" : "Começar Grátis"}
+          </Button>
+          <ul className="text-sm space-y-3 text-left text-neutral-200 w-full">
+            <li className="flex items-center gap-3"><span className="text-blue-400 text-lg">✓</span>100 mensagens/mês</li>
+            <li className="flex items-center gap-3"><span className="text-blue-400 text-lg">✓</span>1 agente IA</li>
+            <li className="flex items-center gap-3"><span className="text-blue-400 text-lg">✓</span>1 número WhatsApp conectado</li>
+            <li className="flex items-center gap-3"><span className="text-blue-400 text-lg">✓</span>Smart bot pause</li>
+            <li className="flex items-center gap-3"><span className="text-blue-400 text-lg">✓</span>Lead notification</li>
+            <li className="flex items-center gap-3"><span className="text-blue-400 text-lg">✓</span>Respostas de texto e áudio</li>
           </ul>
         </div>
         {/* Growth - DESTAQUE */}
-        <div className="relative flex flex-col items-center rounded-2xl border-2 border-blue-600 bg-[#151F33] p-8 min-h-[500px] scale-105 z-10 shadow-lg">
-          <span className="absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white font-bold px-4 py-1 rounded-full text-xl shadow border border-blue-400">Popular</span>
+        <div className="relative flex flex-col items-center rounded-2xl border-2 border-blue-500 bg-gradient-to-br from-[#151F33] to-[#1E293B] p-8 min-h-[500px] scale-105 z-10 shadow-2xl shadow-blue-600/20 transition-all duration-300 hover:shadow-blue-600/30">
+          <span className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold px-6 py-2 rounded-full text-sm shadow-lg border border-blue-400 animate-pulse">
+            ⭐ Mais Popular
+          </span>
+          <div className="mb-4 p-3 rounded-full bg-blue-600/20 border border-blue-500/30">
+            <span className="text-2xl">🚀</span>
+          </div>
           <h3 className="font-extrabold text-2xl mb-1 text-white">Growth</h3>
-          <p className="text-sm text-neutral-400 mb-2">Para empresas em expansão</p>
+          <p className="text-sm text-blue-300 mb-2">Para empresas em expansão</p>
           <div className="text-4xl font-black text-white mb-1">
-            R${pricingConfig.growth[billingCycle].price}
+            <span className="bg-gradient-to-r from-blue-400 to-blue-300 bg-clip-text text-transparent">
+              R${pricingConfig.growth[billingCycle].price}
+            </span>
             <span className='text-base font-normal text-neutral-400'>/mês</span>
           </div>
-          <p className="text-xs text-neutral-400 h-8 text-center">
+          <p className="text-xs text-blue-400 h-8 text-center font-medium">
             {getSubtitle('growth')}
           </p>
           {isCurrentPlan("growth") ? (
             <Button 
-              className="w-full mb-4 mt-2 font-bold text-base bg-green-600 hover:bg-green-700 text-white" 
+              className="w-full mb-6 mt-2 font-bold text-base bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg transition-all duration-300 hover:shadow-green-500/25" 
               variant="default" 
               onClick={openCustomerPortal}
               disabled={loading !== null}
               loading={loading === "manage"}
             >
-              Gerenciar assinatura
+              ⚙️ Gerenciar Assinatura
             </Button>
           ) : (
             <Button 
-              className="w-full mb-4 mt-2 font-bold text-base bg-blue-600 hover:bg-blue-700 text-white" 
+              className="w-full mb-6 mt-2 font-bold text-base bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg transition-all duration-300 hover:shadow-blue-500/25 hover:scale-105" 
               variant="default" 
               onClick={() => handleSelectPlan("growth")} 
               disabled={loading !== null} 
               loading={loading === "growth"}
             >
-              Selecionar plano
+              🚀 Começar Growth
             </Button>
           )}
-          <ul className="text-base space-y-2 text-left text-neutral-200 w-full mt-2">
-            <li className="flex items-center gap-2"><span className="text-blue-500">✓</span>5.000 mensagens/mês</li>
-            <li className="flex items-center gap-2"><span className="text-blue-500">✓</span>3 agentes IA</li>
-            <li className="flex items-center gap-2"><span className="text-blue-500">✓</span>2 números WhatsApp conectados</li>
-            <li className="flex items-center gap-2"><span className="text-blue-500">✓</span>Smart bot pause</li>
-            <li className="flex items-center gap-2"><span className="text-blue-500">✓</span>Lead notification</li>
-            <li className="flex items-center gap-2"><span className="text-blue-500">✓</span>Respostas de texto e áudio</li>
-            <li className="flex items-center gap-2"><span className="text-blue-500">✓</span>Suporte prioritário</li>
-            <li className="flex items-center gap-2"><span className="text-blue-500">✓</span>Análise avançada de conversas</li>
+          <ul className="text-sm space-y-3 text-left text-neutral-200 w-full">
+            <li className="flex items-center gap-3"><span className="text-blue-400 text-lg">✓</span>5.000 mensagens/mês</li>
+            <li className="flex items-center gap-3"><span className="text-blue-400 text-lg">✓</span>3 agentes IA</li>
+            <li className="flex items-center gap-3"><span className="text-blue-400 text-lg">✓</span>2 números WhatsApp conectados</li>
+            <li className="flex items-center gap-3"><span className="text-blue-400 text-lg">✓</span>Smart bot pause</li>
+            <li className="flex items-center gap-3"><span className="text-blue-400 text-lg">✓</span>Lead notification</li>
+            <li className="flex items-center gap-3"><span className="text-blue-400 text-lg">✓</span>Respostas de texto e áudio</li>
+            <li className="flex items-center gap-3"><span className="text-blue-400 text-lg">✓</span>Suporte prioritário</li>
+            <li className="flex items-center gap-3"><span className="text-blue-400 text-lg">✓</span>Análise avançada de conversas</li>
           </ul>
         </div>
         {/* Starter */}
-        <div className="flex flex-col items-center rounded-2xl border border-[#232A36] bg-[#111827] p-8 min-h-[480px] transition-all">
+        <div className="flex flex-col items-center rounded-2xl border border-[#232A36] bg-gradient-to-br from-[#111827] to-[#1F2937] p-8 min-h-[480px] transition-all duration-300 hover:shadow-xl hover:shadow-gray-900/50 hover:border-gray-600">
+          <div className="mb-4 p-3 rounded-full bg-orange-600/20 border border-orange-500/30">
+            <span className="text-2xl">💼</span>
+          </div>
           <h3 className="font-extrabold text-2xl mb-1 text-white">Starter</h3>
-          <p className="text-sm text-neutral-400 mb-2">Para pequenos negócios</p>
+          <p className="text-sm text-orange-300 mb-2">Para pequenos negócios</p>
           <div className="text-4xl font-black text-white mb-1">
-            R${pricingConfig.starter[billingCycle].price}
+            <span className="bg-gradient-to-r from-orange-400 to-orange-300 bg-clip-text text-transparent">
+              R${pricingConfig.starter[billingCycle].price}
+            </span>
             <span className='text-base font-normal text-neutral-400'>/mês</span>
           </div>
-          <p className="text-xs text-neutral-400 h-8 text-center">
+          <p className="text-xs text-orange-400 h-8 text-center font-medium">
             {getSubtitle('starter')}
           </p>
           {isCurrentPlan("starter") ? (
             <Button 
-              className="w-full mb-4 mt-2 font-bold text-base bg-green-600 hover:bg-green-700 text-white" 
+              className="w-full mb-6 mt-2 font-bold text-base bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg transition-all duration-300 hover:shadow-green-500/25" 
               variant="default" 
               onClick={openCustomerPortal}
               disabled={loading !== null}
               loading={loading === "manage"}
             >
-              Gerenciar assinatura
+              ⚙️ Gerenciar Assinatura
             </Button>
           ) : (
             <Button 
-              className="w-full mb-4 mt-2 font-bold text-base bg-blue-600 hover:bg-blue-700 text-white" 
+              className="w-full mb-6 mt-2 font-bold text-base bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg transition-all duration-300 hover:shadow-orange-500/25 hover:scale-105" 
               variant="default" 
               onClick={() => handleSelectPlan("starter")} 
               disabled={loading !== null} 
               loading={loading === "starter"}
             >
-              Selecionar plano
+              💼 Começar Starter
             </Button>
           )}
-          <ul className="text-base space-y-2 text-left text-neutral-200 w-full mt-2">
-            <li className="flex items-center gap-2"><span className="text-blue-500">✓</span>2.500 mensagens/mês</li>
-            <li className="flex items-center gap-2"><span className="text-blue-500">✓</span>1 agente IA</li>
-            <li className="flex items-center gap-2"><span className="text-blue-500">✓</span>1 número WhatsApp conectado</li>
-            <li className="flex items-center gap-2"><span className="text-blue-500">✓</span>Smart bot pause</li>
-            <li className="flex items-center gap-2"><span className="text-blue-500">✓</span>Lead notification</li>
-            <li className="flex items-center gap-2"><span className="text-blue-500">✓</span>Respostas de texto e áudio</li>
-            <li className="flex items-center gap-2"><span className="text-blue-500">✓</span>Suporte prioritário</li>
+          <ul className="text-sm space-y-3 text-left text-neutral-200 w-full">
+            <li className="flex items-center gap-3"><span className="text-orange-400 text-lg">✓</span>2.500 mensagens/mês</li>
+            <li className="flex items-center gap-3"><span className="text-orange-400 text-lg">✓</span>1 agente IA</li>
+            <li className="flex items-center gap-3"><span className="text-orange-400 text-lg">✓</span>1 número WhatsApp conectado</li>
+            <li className="flex items-center gap-3"><span className="text-orange-400 text-lg">✓</span>Smart bot pause</li>
+            <li className="flex items-center gap-3"><span className="text-orange-400 text-lg">✓</span>Lead notification</li>
+            <li className="flex items-center gap-3"><span className="text-orange-400 text-lg">✓</span>Respostas de texto e áudio</li>
+            <li className="flex items-center gap-3"><span className="text-orange-400 text-lg">✓</span>Suporte prioritário</li>
           </ul>
         </div>
       </div>

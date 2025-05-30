@@ -36,10 +36,18 @@ const withTimeout = async (promise, timeoutMs = 4000, fallbackValue = null) => {
   }
 };
 
-// Price IDs for our plans - use test price IDs that actually exist in your Stripe account
+// Price IDs for our plans - updated to support all billing cycles
 const PRICE_IDS = {
-  starter: "price_1RRBDsP1QgGAc8KHzueN2CJL", // Novo Starter plan price ID
-  growth: "price_1RRBEZP1QgGAc8KH71uKIH6i"  // Novo Growth plan price ID
+  starter: {
+    monthly: "price_1RRBDsP1QgGAc8KHzueN2CJL",
+    semiannual: "price_1RUGkFP1QgGAc8KHAXICojLH", 
+    annual: "price_1RUGkgP1QgGAc8KHctjcrt7h"
+  },
+  growth: {
+    monthly: "price_1RRBEZP1QgGAc8KH71uKIH6i",
+    semiannual: "price_1RUAt2P1QgGAc8KHr8K4uqXG",
+    annual: "price_1RUAtVP1QgGAc8KH01aRe0Um"
+  }
 };
 
 serve(async (req) => {
@@ -158,20 +166,22 @@ serve(async (req) => {
     if (hasActiveSub) {
       const subscription = subscriptions[0];
       subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
-      logStep("Active subscription found", { subscriptionId: subscription.id, endDate: subscriptionEnd });
-      
-      // Determine subscription tier from price ID
+      logStep("Active subscription found", { subscriptionId: subscription.id, endDate: subscriptionEnd });        // Determine subscription tier from price ID
       if (subscription.items?.data?.length > 0) {
         const priceId = subscription.items.data[0].price.id;
         
-        // Check for starter plan
-        if (priceId === PRICE_IDS.starter) {
+        // Check for starter plan (all billing cycles)
+        if (priceId === PRICE_IDS.starter.monthly || 
+            priceId === PRICE_IDS.starter.semiannual || 
+            priceId === PRICE_IDS.starter.annual) {
           plan = "starter";
         } 
-        // Check for growth plan
-        else if (priceId === PRICE_IDS.growth) {
+        // Check for growth plan (all billing cycles)
+        else if (priceId === PRICE_IDS.growth.monthly || 
+                 priceId === PRICE_IDS.growth.semiannual || 
+                 priceId === PRICE_IDS.growth.annual) {
           plan = "growth";
-        } 
+        }
         else {
           // Fallback to checking amounts
           const amount = subscription.items.data[0].price.unit_amount || 0;
