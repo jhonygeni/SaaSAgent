@@ -6,17 +6,20 @@ import { supabase } from '@/integrations/supabase/client';
  */
 export const storeInstanceData = async (userId: string, instanceData: any): Promise<void> => {
   try {
-    // Use the agents table 
-    const { error } = await supabase.from('agents').upsert({
+    // Use the whatsapp_instances table (CORRIGIDO - era agents antes)
+    const { error } = await supabase.from('whatsapp_instances').upsert({
       user_id: userId,
-      instance_name: instanceData.instance.instanceName,
-      instance_id: instanceData.instance.instanceId,
-      integration: instanceData.instance.integration,
+      name: instanceData.instance.instanceName,
+      evolution_instance_id: instanceData.instance.instanceId,
       status: instanceData.instance.status,
-      hash: instanceData.hash,
-      webhook_wa_business: instanceData.instance.webhookWaBusiness,
-      access_token_wa_business: instanceData.instance.accessTokenWaBusiness,
-      settings: instanceData.settings
+      session_data: {
+        integration: instanceData.instance.integration,
+        hash: instanceData.hash,
+        webhook_wa_business: instanceData.instance.webhookWaBusiness,
+        access_token_wa_business: instanceData.instance.accessTokenWaBusiness,
+        settings: instanceData.settings
+      },
+      updated_at: new Date().toISOString()
     });
 
     if (error) {
