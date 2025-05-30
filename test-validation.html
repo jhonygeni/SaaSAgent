@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Validação de Nome - Evolution API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #555;
+        }
+        input, button {
+            padding: 10px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .loading {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste de Validação de Nome - Evolution API</h1>
+        
+        <div class="test-section">
+            <h3>1. Teste de Conectividade da API</h3>
+            <button onclick="testApiConnectivity()">Testar Conectividade</button>
+            <div id="connectivity-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>2. Listar Instâncias Existentes</h3>
+            <button onclick="listInstances()">Listar Instâncias</button>
+            <div id="instances-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>3. Validar Nome de Instância</h3>
+            <input type="text" id="instanceName" placeholder="Digite o nome da instância" value="teste_agente">
+            <button onclick="validateInstanceName()">Validar Nome</button>
+            <div id="validation-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>4. Debug das Variáveis de Ambiente</h3>
+            <button onclick="debugEnvironment()">Debug Environment</button>
+            <div id="debug-result"></div>
+        </div>
+    </div>
+
+    <script>
+        // Configurações da API
+        const API_URL = 'https://cloudsaas.geni.chat';
+        const API_KEY = 'a01d49df66f0b9d8f368d3788a32aea8'; // Usando a chave diretamente para teste
+
+        // Função para mostrar resultados
+        function showResult(elementId, content, type = 'success') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="result ${type}">${content}</div>`;
+        }
+
+        // Função para criar headers da API
+        function createHeaders() {
+            return {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'apikey': API_KEY
+            };
+        }
+
+        // 1. Teste de conectividade básica
+        async function testApiConnectivity() {
+            showResult('connectivity-result', '⏳ Testando conectividade...', 'loading');
+            
+            try {
+                const response = await fetch(`${API_URL}/instance/fetchInstances`, {
+                    method: 'GET',
+                    headers: createHeaders()
+                });
+
+                if (response.ok) {
+                    showResult('connectivity-result', `✅ API conectada! Status: ${response.status}`, 'success');
+                } else {
+                    showResult('connectivity-result', `❌ API retornou erro: ${response.status} - ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                showResult('connectivity-result', `💥 Erro de rede: ${error.message}`, 'error');
+            }
+        }
+
+        // 2. Listar instâncias existentes
+        async function listInstances() {
+            showResult('instances-result', '⏳ Carregando instâncias...', 'loading');
+            
+            try {
+                const response = await fetch(`${API_URL}/instance/fetchInstances`, {
+                    method: 'GET',
+                    headers: createHeaders()
+                });
+
+                if (response.ok) {
+                    const instances = await response.json();
+                    const instanceNames = instances.map(inst => inst.name).join(', ');
+                    showResult('instances-result', `
+                        ✅ ${instances.length} instâncias encontradas:<br>
+                        <strong>Nomes:</strong> ${instanceNames}<br>
+                        <pre>${JSON.stringify(instances, null, 2)}</pre>
+                    `, 'success');
+                } else {
+                    const errorText = await response.text();
+                    showResult('instances-result', `❌ Erro ao listar instâncias: ${response.status}<br><pre>${errorText}</pre>`, 'error');
+                }
+            } catch (error) {
+                showResult('instances-result', `💥 Erro: ${error.message}`, 'error');
+            }
+        }
+
+        // 3. Validar nome de instância (simula a lógica do useNameValidator)
+        async function validateInstanceName() {
+            const instanceName = document.getElementById('instanceName').value.trim();
+            
+            if (!instanceName) {
+                showResult('validation-result', '❌ Nome não pode estar vazio', 'error');
+                return;
+            }
+
+            showResult('validation-result', '⏳ Validando nome...', 'loading');
+
+            try {
+                // Validação de formato (regex)
+                const VALID_NAME_REGEX = /^[a-z0-9_]+$/;
+                if (!VALID_NAME_REGEX.test(instanceName)) {
+                    showResult('validation-result', '❌ Nome inválido: deve conter apenas letras minúsculas, números e underscores', 'error');
+                    return;
+                }
+
+                // Validação de tamanho
+                if (instanceName.length > 32) {
+                    showResult('validation-result', '❌ Nome muito longo: máximo 32 caracteres', 'error');
+                    return;
+                }
+
+                // Verificar se já existe
+                const response = await fetch(`${API_URL}/instance/fetchInstances`, {
+                    method: 'GET',
+                    headers: createHeaders()
+                });
+
+                if (response.ok) {
+                    const instances = await response.json();
+                    const alreadyExists = instances.some(instance => instance.name === instanceName);
+                    
+                    if (alreadyExists) {
+                        showResult('validation-result', `❌ Nome '${instanceName}' já está em uso`, 'error');
+                    } else {
+                        showResult('validation-result', `✅ Nome '${instanceName}' está disponível!`, 'success');
+                    }
+                } else {
+                    const errorText = await response.text();
+                    showResult('validation-result', `❌ Erro ao verificar disponibilidade: ${response.status}<br><pre>${errorText}</pre>`, 'error');
+                }
+            } catch (error) {
+                showResult('validation-result', `💥 Erro durante validação: ${error.message}`, 'error');
+            }
+        }
+
+        // 4. Debug do environment
+        function debugEnvironment() {
+            const envInfo = {
+                userAgent: navigator.userAgent,
+                location: window.location.href,
+                apiUrl: API_URL,
+                hasApiKey: !!API_KEY,
+                apiKeyPrefix: API_KEY ? API_KEY.substring(0, 10) + '...' : 'Não configurada'
+            };
+
+            showResult('debug-result', `
+                <strong>Informações do Ambiente:</strong><br>
+                <pre>${JSON.stringify(envInfo, null, 2)}</pre>
+            `, 'success');
+        }
+
+        // Executar teste de conectividade automaticamente
+        window.onload = function() {
+            testApiConnectivity();
+        };
+    </script>
+</body>
+</html>

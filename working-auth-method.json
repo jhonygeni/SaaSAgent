@@ -1,0 +1,7 @@
+{
+  "method": "apikey lowercase",
+  "headers": {
+    "apikey": "a01d49df66f0b9d8f368d3788a32aea8"
+  },
+  "url": "https://cloudsaas.geni.chat"
+}
