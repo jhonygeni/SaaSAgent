@@ -12,7 +12,7 @@ declare const Deno: {
   };
 };
 
-const corsHeaders = {git 
+const corsHeaders = { 
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, Authorization",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -28,6 +28,11 @@ const logStep = (step: string, details?: any) => {
 // Get required environment variables
 const STRIPE_STARTER_PRICE_ID = Deno.env.get("STRIPE_STARTER_PRICE_ID");
 const STRIPE_GROWTH_PRICE_ID = Deno.env.get("STRIPE_GROWTH_PRICE_ID");
+// Novos price IDs para ciclos semestral e anual
+const STRIPE_STARTER_SEMIANNUAL_PRICE_ID = Deno.env.get("STRIPE_STARTER_SEMIANNUAL_PRICE_ID") || "price_1RUGkFP1QgGAc8KHAXICojLH";
+const STRIPE_STARTER_ANNUAL_PRICE_ID = Deno.env.get("STRIPE_STARTER_ANNUAL_PRICE_ID") || "price_1RUGkgP1QgGAc8KHctjcrt7h";
+const STRIPE_GROWTH_SEMIANNUAL_PRICE_ID = Deno.env.get("STRIPE_GROWTH_SEMIANNUAL_PRICE_ID") || "price_1RUAt2P1QgGAc8KHr8K4uqXG";
+const STRIPE_GROWTH_ANNUAL_PRICE_ID = Deno.env.get("STRIPE_GROWTH_ANNUAL_PRICE_ID") || "price_1RUAtVP1QgGAc8KH01aRe0Um";
 const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -49,8 +54,16 @@ for (const [key, value] of Object.entries(requiredEnvVars)) {
 }
 
 const PRICE_IDS = {
-  starter: STRIPE_STARTER_PRICE_ID,
-  growth: STRIPE_GROWTH_PRICE_ID
+  starter: {
+    monthly: STRIPE_STARTER_PRICE_ID,
+    semiannual: STRIPE_STARTER_SEMIANNUAL_PRICE_ID,
+    annual: STRIPE_STARTER_ANNUAL_PRICE_ID
+  },
+  growth: {
+    monthly: STRIPE_GROWTH_PRICE_ID,
+    semiannual: STRIPE_GROWTH_SEMIANNUAL_PRICE_ID,
+    annual: STRIPE_GROWTH_ANNUAL_PRICE_ID
+  }
 };
 
 // Initialize Stripe with proper error handling
@@ -86,7 +99,8 @@ serve(async (req) => {
         status: 400,
       });
     }
-    const { planId } = body;
+    const { planId, priceId, billingCycle = 'monthly' } = body;
+    
     if (!planId || !["starter", "growth"].includes(planId)) {
       logStep("Invalid or missing planId", { planId });
       return new Response(JSON.stringify({ error: "Invalid or missing planId. Must be 'starter' or 'growth'." }), {
@@ -94,7 +108,20 @@ serve(async (req) => {
         status: 400,
       });
     }
-    logStep("Plan requested", { planId });
+
+    if (billingCycle && !['monthly', 'semiannual', 'annual'].includes(billingCycle)) {
+      logStep("Invalid billingCycle", { billingCycle });
+      return new Response(JSON.stringify({ error: "Invalid billingCycle. Must be 'monthly', 'semiannual', or 'annual'." }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
+    
+    // Se um price ID específico for fornecido, use-o
+    // Caso contrário, use o price ID baseado no plano e ciclo de cobrança
+    const selectedPriceId = priceId || PRICE_IDS[planId as 'starter' | 'growth'][billingCycle as 'monthly' | 'semiannual' | 'annual'];
+    
+    logStep("Plan requested", { planId, billingCycle, priceId: selectedPriceId });
 
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     if (!stripeKey) {
@@ -171,18 +198,18 @@ serve(async (req) => {
     const origin = req.headers.get("origin") || "http://localhost:3000";
     let session;
     try {
-      const priceId = PRICE_IDS[planId as keyof typeof PRICE_IDS];
-      if (!priceId) {
-        throw new Error(`Price ID not found for plan: ${planId}`);
+      // Usar o price ID selecionado anteriormente
+      if (!selectedPriceId) {
+        throw new Error(`Price ID not found for plan: ${planId} with billing cycle: ${billingCycle}`);
       }
 
-      logStep("Creating checkout session", { planId, priceId, customerId });
+      logStep("Creating checkout session", { planId, priceId: selectedPriceId, billingCycle, customerId });
       
       session = await stripe.checkout.sessions.create({
         customer: customerId,
         line_items: [
           {
-            price: priceId,
+            price: selectedPriceId,
             quantity: 1,
           },
         ],
@@ -190,7 +217,7 @@ serve(async (req) => {
         payment_method_types: ["card"],
         allow_promotion_codes: true,
         billing_address_collection: "required",
-        success_url: `${origin}/planos?checkout_success=true`,
+        success_url: `${origin}/planos?checkout_success=true&billing_cycle=${billingCycle}`,
         cancel_url: `${origin}/planos?checkout_cancelled=true`,
       });
     } catch (err) {
