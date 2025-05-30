@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Debug Checkout - Interceptador de Requisições</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+        }
+        .log {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin-top: 10px;
+        }
+        .error { color: #ff4444; }
+        .warning { color: #ffaa00; }
+        .success { color: #44ff44; }
+        .info { color: #4488ff; }
+        .button {
+            background: #007cba;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        .button:hover {
+            background: #005a87;
+        }
+        .clear-btn {
+            background: #666;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            float: right;
+        }
+        h1 { color: #333; text-align: center; }
+        h2 { color: #555; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-active { background: #44ff44; }
+        .status-inactive { background: #ff4444; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Debug Checkout - Interceptador de Requisições</h1>
+        
+        <div class="section">
+            <h2>📡 Status do Interceptador</h2>
+            <p>
+                <span class="status-indicator status-active"></span>
+                Interceptador ativo - Monitorando requisições para create-checkout
+            </p>
+            <p><strong>Instruções:</strong></p>
+            <ol>
+                <li>Deixe esta página aberta</li>
+                <li>Abra seu site principal em outra aba</li>
+                <li>Tente fazer checkout com diferentes billing cycles</li>
+                <li>Volte aqui para ver os logs das requisições interceptadas</li>
+            </ol>
+        </div>
+
+        <div class="section">
+            <h2>📊 Logs de Requisições Capturadas</h2>
+            <button class="clear-btn" onclick="clearLogs()">Limpar Logs</button>
+            <div id="interceptLog" class="log">🔄 Aguardando requisições de checkout...\n</div>
+        </div>
+
+        <div class="section">
+            <h2>🧪 Testes Diretos</h2>
+            <p>Teste diferentes cenários diretamente:</p>
+            
+            <div style="margin: 15px 0;">
+                <h3>Starter Plans:</h3>
+                <button class="button" onclick="testCheckout('starter', 'monthly')">Starter Monthly</button>
+                <button class="button" onclick="testCheckout('starter', 'semiannual')">Starter Semiannual</button>
+                <button class="button" onclick="testCheckout('starter', 'annual')">Starter Annual</button>
+            </div>
+            
+            <div style="margin: 15px 0;">
+                <h3>Growth Plans:</h3>
+                <button class="button" onclick="testCheckout('growth', 'monthly')">Growth Monthly</button>
+                <button class="button" onclick="testCheckout('growth', 'semiannual')">Growth Semiannual</button>
+                <button class="button" onclick="testCheckout('growth', 'annual')">Growth Annual</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuração dos Price IDs
+        const PRICE_IDS = {
+            starter: {
+                monthly: 'price_1RRBDsP1QgGAc8KHzueN2CJL',
+                semiannual: 'price_1RUGkFP1QgGAc8KHAXICojLH',
+                annual: 'price_1RUGkgP1QgGAc8KHctjcrt7h'
+            },
+            growth: {
+                monthly: 'price_1RRBEZP1QgGAc8KH71uKIH6i',
+                semiannual: 'price_1RUAt2P1QgGAc8KHr8K4uqXG',
+                annual: 'price_1RUAtVP1QgGAc8KH01aRe0Um'
+            }
+        };
+
+        let logElement = document.getElementById('interceptLog');
+        let requestCounter = 0;
+
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : 
+                             type === 'warning' ? 'warning' : 
+                             type === 'success' ? 'success' : 'info';
+            
+            const logLine = `[${timestamp}] ${message}\n`;
+            logElement.innerHTML += `<span class="${className}">${logLine}</span>`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function clearLogs() {
+            logElement.innerHTML = '🔄 Logs limpos. Aguardando novas requisições...\n';
+            requestCounter = 0;
+        }
+
+        // Interceptar fetch para capturar requisições
+        const originalFetch = window.fetch;
+        window.fetch = function(...args) {
+            const url = args[0];
+            const options = args[1] || {};
+            
+            // Verificar se é uma requisição para create-checkout
+            if (url && (url.includes('create-checkout') || url.includes('functions/v1/create-checkout'))) {
+                requestCounter++;
+                addLog(`🚀 REQUISIÇÃO #${requestCounter} INTERCEPTADA:`, 'success');
+                addLog(`📍 URL: ${url}`);
+                
+                if (options.body) {
+                    try {
+                        const bodyData = JSON.parse(options.body);
+                        addLog(`📦 BODY DA REQUISIÇÃO:`, 'info');
+                        addLog(`   planId: ${bodyData.planId || 'NÃO ENVIADO'}`);
+                        addLog(`   billingCycle: ${bodyData.billingCycle || 'NÃO ENVIADO'}`);
+                        addLog(`   priceId: ${bodyData.priceId || 'NÃO ENVIADO'}`);
+                        addLog(`   📋 Dados completos: ${JSON.stringify(bodyData, null, 2)}`);
+                        
+                        // Verificar se o priceId corresponde ao billingCycle
+                        if (bodyData.planId && bodyData.billingCycle) {
+                            const expectedPriceId = PRICE_IDS[bodyData.planId]?.[bodyData.billingCycle];
+                            if (expectedPriceId) {
+                                if (bodyData.priceId === expectedPriceId) {
+                                    addLog(`✅ PRICE ID CORRETO: ${bodyData.priceId}`, 'success');
+                                } else {
+                                    addLog(`❌ PRICE ID INCORRETO!`, 'error');
+                                    addLog(`   Esperado: ${expectedPriceId}`, 'error');
+                                    addLog(`   Recebido: ${bodyData.priceId}`, 'error');
+                                }
+                            } else {
+                                addLog(`⚠️ Não foi possível verificar o Price ID para ${bodyData.planId}/${bodyData.billingCycle}`, 'warning');
+                            }
+                        }
+                        
+                        addLog(`═══════════════════════════════════════════════════════════`);
+                    } catch (e) {
+                        addLog(`❌ Erro ao parsear body da requisição: ${e.message}`, 'error');
+                        addLog(`📄 Body raw: ${options.body}`);
+                    }
+                } else {
+                    addLog(`⚠️ Requisição sem body`, 'warning');
+                }
+            }
+            
+            return originalFetch.apply(this, args);
+        };
+
+        // Interceptar XMLHttpRequest também
+        const originalXHROpen = XMLHttpRequest.prototype.open;
+        const originalXHRSend = XMLHttpRequest.prototype.send;
+        
+        XMLHttpRequest.prototype.open = function(method, url, ...args) {
+            this._url = url;
+            this._method = method;
+            return originalXHROpen.apply(this, [method, url, ...args]);
+        };
+        
+        XMLHttpRequest.prototype.send = function(data) {
+            if (this._url && this._url.includes('create-checkout')) {
+                requestCounter++;
+                addLog(`🚀 XHR REQUISIÇÃO #${requestCounter} INTERCEPTADA:`, 'success');
+                addLog(`📍 URL: ${this._url}`);
+                addLog(`📍 Method: ${this._method}`);
+                
+                if (data) {
+                    try {
+                        const bodyData = JSON.parse(data);
+                        addLog(`📦 XHR BODY:`, 'info');
+                        addLog(`   planId: ${bodyData.planId || 'NÃO ENVIADO'}`);
+                        addLog(`   billingCycle: ${bodyData.billingCycle || 'NÃO ENVIADO'}`);
+                        addLog(`   priceId: ${bodyData.priceId || 'NÃO ENVIADO'}`);
+                        addLog(`   📋 Dados completos: ${JSON.stringify(bodyData, null, 2)}`);
+                        addLog(`═══════════════════════════════════════════════════════════`);
+                    } catch (e) {
+                        addLog(`❌ Erro ao parsear XHR body: ${e.message}`, 'error');
+                        addLog(`📄 XHR Body raw: ${data}`);
+                    }
+                }
+            }
+            
+            return originalXHRSend.apply(this, [data]);
+        };
+
+        // Função para testar checkout diretamente
+        async function testCheckout(planId, billingCycle) {
+            const priceId = PRICE_IDS[planId][billingCycle];
+            
+            addLog(`🧪 TESTE DIRETO INICIADO:`, 'info');
+            addLog(`   Plan: ${planId}`);
+            addLog(`   Billing Cycle: ${billingCycle}`);
+            addLog(`   Price ID: ${priceId}`);
+            
+            const checkoutData = {
+                planId: planId,
+                billingCycle: billingCycle,
+                priceId: priceId
+            };
+            
+            try {
+                // Tentar determinar a URL da função
+                const possibleUrls = [
+                    'https://hpovwcaskorzzrpphgkc.supabase.co/functions/v1/create-checkout',
+                    '/api/create-checkout',
+                    'http://localhost:54321/functions/v1/create-checkout'
+                ];
+                
+                addLog(`🔍 Testando URLs possíveis...`);
+                
+                for (const url of possibleUrls) {
+                    try {
+                        addLog(`📡 Tentando: ${url}`);
+                        
+                        const response = await fetch(url, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(checkoutData)
+                        });
+                        
+                        addLog(`📊 Response Status: ${response.status}`);
+                        
+                        if (response.ok) {
+                            const result = await response.json();
+                            addLog(`✅ Sucesso com ${url}:`, 'success');
+                            addLog(`📄 Response: ${JSON.stringify(result, null, 2)}`);
+                            
+                            if (result.url) {
+                                addLog(`🔗 URL do Stripe: ${result.url}`, 'success');
+                                // window.open(result.url, '_blank');
+                            }
+                            break;
+                        } else {
+                            const errorText = await response.text();
+                            addLog(`❌ Erro ${response.status}: ${errorText}`, 'error');
+                        }
+                    } catch (urlError) {
+                        addLog(`❌ Erro na URL ${url}: ${urlError.message}`, 'error');
+                    }
+                }
+                
+            } catch (error) {
+                addLog(`❌ Erro no teste: ${error.message}`, 'error');
+            }
+            
+            addLog(`═══════════════════════════════════════════════════════════`);
+        }
+
+        // Log inicial
+        addLog(`🟢 Interceptador ativo - ${new Date().toLocaleString()}`, 'success');
+        addLog(`📋 Monitorando requisições para create-checkout...`);
+        addLog(`🔧 Price IDs configurados: ${Object.keys(PRICE_IDS).length} planos, ${Object.keys(PRICE_IDS.starter).length} cycles cada`);
+        addLog(`═══════════════════════════════════════════════════════════`);
+    </script>
+</body>
+</html>

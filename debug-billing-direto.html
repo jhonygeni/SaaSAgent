@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Debug Direto - Billing Cycle</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background: #f5f5f5; 
+        }
+        .container { 
+            max-width: 1000px; 
+            margin: 0 auto; 
+            background: white; 
+            padding: 30px; 
+            border-radius: 10px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .test-section { 
+            border: 2px solid #ddd; 
+            border-radius: 10px; 
+            padding: 20px; 
+            margin: 15px 0; 
+            background: #fafafa;
+        }
+        .btn { 
+            padding: 12px 24px; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            margin: 5px; 
+            font-weight: bold; 
+            font-size: 14px;
+        }
+        .btn-test { background: #007bff; color: white; }
+        .btn-test:hover { background: #0056b3; }
+        .btn-danger { background: #dc3545; color: white; }
+        .logs { 
+            background: #000; 
+            color: #0f0; 
+            padding: 15px; 
+            border-radius: 5px; 
+            font-family: 'Courier New', monospace; 
+            font-size: 12px; 
+            max-height: 500px; 
+            overflow-y: auto; 
+            white-space: pre-wrap;
+        }
+        .success { color: #28a745; font-weight: bold; }
+        .error { color: #dc3545; font-weight: bold; }
+        .warning { color: #ffc107; font-weight: bold; }
+        .info { color: #17a2b8; }
+        .highlight { background: #fff3cd; padding: 10px; border-radius: 5px; margin: 10px 0; }
+        .billing-selector {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .billing-option {
+            padding: 10px 20px;
+            border: 2px solid #ddd;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: white;
+        }
+        .billing-option.active {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Debug Direto - Problema Billing Cycle</h1>
+        <p>Este teste vai diretamente ao problema e testa com a aplicação real.</p>
+        
+        <div class="highlight">
+            <strong>🎯 OBJETIVO:</strong> Descobrir exatamente por que o billing cycle não está funcionando.
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 1. Configuração de Teste</h3>
+            <p><strong>🌐 URL da aplicação:</strong> <span id="app-url">http://localhost:8080</span></p>
+            <p><strong>📋 Status:</strong> <span id="app-status">Verificando...</span></p>
+            <button class="btn btn-test" onclick="checkAppStatus()">🔍 Verificar App</button>
+            <button class="btn btn-test" onclick="openAppInNewTab()">🚀 Abrir App</button>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 2. Seletor de Billing Cycle</h3>
+            <div class="billing-selector">
+                <div class="billing-option active" data-cycle="monthly" onclick="selectCycle('monthly')">💰 Mensal</div>
+                <div class="billing-option" data-cycle="semiannual" onclick="selectCycle('semiannual')">📦 Semestral</div>
+                <div class="billing-option" data-cycle="annual" onclick="selectCycle('annual')">🎯 Anual</div>
+            </div>
+            <p><strong>🎯 Ciclo selecionado:</strong> <span id="selected-cycle">monthly</span></p>
+        </div>
+
+        <div class="test-section">
+            <h3>🔍 3. Teste de Console/DevTools</h3>
+            <p>Abra o DevTools (F12) e execute os comandos abaixo no console:</p>
+            <div style="background: #f8f9fa; padding: 10px; border-radius: 5px; font-family: monospace; margin: 10px 0;">
+// 1. Verificar se o componente PricingPlans está carregado<br>
+console.log('PricingPlans loaded:', window.location.pathname);<br><br>
+
+// 2. Verificar estado do billing cycle no localStorage<br>
+console.log('LocalStorage billingCycle:', localStorage.getItem('billingCycle'));<br><br>
+
+// 3. Verificar se há erros relacionados ao Supabase<br>
+console.log('Supabase errors:', window.supabaseErrors || 'Nenhum erro');<br><br>
+
+// 4. Interceptar chamadas para create-checkout<br>
+const originalFetch = window.fetch;<br>
+window.fetch = function(...args) {<br>
+    if (args[0].includes('create-checkout')) {<br>
+        console.log('🔍 INTERCEPTED create-checkout call:', args);<br>
+    }<br>
+    return originalFetch.apply(this, args);<br>
+};
+            </div>
+            <button class="btn btn-test" onclick="injectDebugCode()">📋 Copiar Código para Console</button>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 4. Análise da Configuração</h3>
+            <p>Price IDs que devem ser usados:</p>
+            <div id="price-analysis" style="font-family: monospace; background: #f8f9fa; padding: 15px; border-radius: 5px;">
+                Carregando análise...
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 5. Teste de Interceptação de Checkout</h3>
+            <p>Este teste vai interceptar chamadas do checkout e mostrar exatamente o que está sendo enviado:</p>
+            <button class="btn btn-test" onclick="enableCheckoutInterceptor()">🔍 Ativar Interceptador</button>
+            <button class="btn btn-danger" onclick="disableCheckoutInterceptor()">❌ Desativar Interceptador</button>
+            <p><strong>Status:</strong> <span id="interceptor-status">Desativado</span></p>
+        </div>
+
+        <div class="test-section">
+            <h3>📋 Logs de Debug</h3>
+            <div class="logs" id="logs">
+🚀 Sistema de debug inicializado
+📋 Aguardando ações do usuário...
+            </div>
+            <button class="btn btn-test" onclick="clearLogs()">🗑️ Limpar Logs</button>
+        </div>
+    </div>
+
+    <script>
+        let selectedCycle = 'monthly';
+        let interceptorEnabled = false;
+        let originalFetch = window.fetch;
+
+        const priceIds = {
+            starter: {
+                monthly: 'price_1RRBDsP1QgGAc8KHzueN2CJL',
+                semiannual: 'price_1RUGkFP1QgGAc8KHAXICojLH',
+                annual: 'price_1RUGkgP1QgGAc8KHctjcrt7h'
+            },
+            growth: {
+                monthly: 'price_1RRBEZP1QgGAc8KH71uKIH6i',
+                semiannual: 'price_1RUAt2P1QgGAc8KHr8K4uqXG',
+                annual: 'price_1RUAtVP1QgGAc8KH01aRe0Um'
+            }
+        };
+
+        function log(message, type = 'info') {
+            const logs = document.getElementById('logs');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type;
+            logs.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '🚀 Sistema de debug inicializado\n📋 Logs limpos...\n';
+        }
+
+        function selectCycle(cycle) {
+            selectedCycle = cycle;
+            document.querySelectorAll('.billing-option').forEach(opt => opt.classList.remove('active'));
+            document.querySelector(`[data-cycle="${cycle}"]`).classList.add('active');
+            document.getElementById('selected-cycle').textContent = cycle;
+            log(`🔄 Ciclo alterado para: ${cycle}`, 'info');
+        }
+
+        async function checkAppStatus() {
+            log('🔍 Verificando status da aplicação...', 'info');
+            try {
+                const response = await fetch('http://localhost:8080', { method: 'HEAD' });
+                if (response.ok) {
+                    document.getElementById('app-status').innerHTML = '<span class="success">✅ Online</span>';
+                    log('✅ Aplicação está online', 'success');
+                } else {
+                    document.getElementById('app-status').innerHTML = '<span class="error">❌ Erro</span>';
+                    log('❌ Aplicação retornou erro', 'error');
+                }
+            } catch (error) {
+                document.getElementById('app-status').innerHTML = '<span class="error">❌ Offline</span>';
+                log(`❌ Aplicação offline: ${error.message}`, 'error');
+            }
+        }
+
+        function openAppInNewTab() {
+            window.open('http://localhost:8080/planos', '_blank');
+            log('🚀 Aplicação aberta em nova aba', 'info');
+        }
+
+        function injectDebugCode() {
+            const code = `// Debug code for billing cycle
+const originalFetch = window.fetch;
+window.fetch = function(...args) {
+    if (args[0].includes('create-checkout')) {
+        console.log('🔍 INTERCEPTED create-checkout call:', {
+            url: args[0],
+            options: args[1],
+            body: args[1]?.body ? JSON.parse(args[1].body) : null
+        });
+    }
+    return originalFetch.apply(this, args);
+};
+console.log('✅ Debug interceptor ativado');`;
+
+            navigator.clipboard.writeText(code).then(() => {
+                log('📋 Código copiado para clipboard! Cole no DevTools console.', 'success');
+            }).catch(() => {
+                log('❌ Erro ao copiar código. Copie manualmente do campo acima.', 'error');
+            });
+        }
+
+        function enableCheckoutInterceptor() {
+            if (interceptorEnabled) {
+                log('⚠️ Interceptador já está ativo', 'warning');
+                return;
+            }
+
+            window.fetch = function(...args) {
+                if (args[0] && args[0].includes('create-checkout')) {
+                    log('🎯 INTERCEPTED create-checkout!', 'warning');
+                    log(`URL: ${args[0]}`, 'info');
+                    
+                    if (args[1] && args[1].body) {
+                        try {
+                            const body = JSON.parse(args[1].body);
+                            log(`📤 BODY SENT: ${JSON.stringify(body, null, 2)}`, 'info');
+                            
+                            // Verificar se está usando o ciclo correto
+                            if (body.billingCycle !== selectedCycle) {
+                                log(`❌ PROBLEMA ENCONTRADO!`, 'error');
+                                log(`Esperado: ${selectedCycle}, Enviado: ${body.billingCycle}`, 'error');
+                            } else {
+                                log(`✅ Billing cycle correto: ${body.billingCycle}`, 'success');
+                            }
+                            
+                            // Verificar price ID
+                            const expectedPriceId = body.planId ? priceIds[body.planId][body.billingCycle] : null;
+                            if (expectedPriceId && body.priceId === expectedPriceId) {
+                                log(`✅ Price ID correto: ${body.priceId}`, 'success');
+                            } else {
+                                log(`❌ Price ID incorreto!`, 'error');
+                                log(`Esperado: ${expectedPriceId}, Enviado: ${body.priceId}`, 'error');
+                            }
+                        } catch (e) {
+                            log(`❌ Erro ao parsear body: ${e.message}`, 'error');
+                        }
+                    }
+                }
+                return originalFetch.apply(this, args);
+            };
+
+            interceptorEnabled = true;
+            document.getElementById('interceptor-status').innerHTML = '<span class="success">✅ Ativo</span>';
+            log('🔍 Interceptador de checkout ativado', 'success');
+        }
+
+        function disableCheckoutInterceptor() {
+            window.fetch = originalFetch;
+            interceptorEnabled = false;
+            document.getElementById('interceptor-status').innerHTML = '<span class="error">❌ Desativo</span>';
+            log('❌ Interceptador de checkout desativado', 'info');
+        }
+
+        // Carregar análise de preços
+        function loadPriceAnalysis() {
+            const analysis = `
+STARTER PLAN:
+├── Monthly: ${priceIds.starter.monthly} (R$ 199)
+├── Semiannual: ${priceIds.starter.semiannual} (R$ 169) 
+└── Annual: ${priceIds.starter.annual} (R$ 149)
+
+GROWTH PLAN:
+├── Monthly: ${priceIds.growth.monthly} (R$ 249)
+├── Semiannual: ${priceIds.growth.semiannual} (R$ 211)
+└── Annual: ${priceIds.growth.annual} (R$ 187)
+
+🎯 CICLO SELECIONADO: ${selectedCycle}
+`;
+            document.getElementById('price-analysis').textContent = analysis;
+        }
+
+        // Inicializar
+        checkAppStatus();
+        loadPriceAnalysis();
+        log('✅ Debug system carregado', 'success');
+        log('🔍 Use o interceptador para ver chamadas ao checkout', 'info');
+    </script>
+</body>
+</html>

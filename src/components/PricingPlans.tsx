@@ -105,31 +105,69 @@ export function PricingPlans() {
     
     try {
       setLoading(plan);
-      console.log("Iniciando checkout para plano:", plan, "ciclo:", billingCycle);
       
+      // ===== DEBUGGING LOGS START =====
+      console.log("🚀 CHECKOUT DEBUGGING - DADOS COLETADOS:");
+      console.log("  📋 Plan ID:", plan);
+      console.log("  🔄 Billing Cycle:", billingCycle);
+      console.log("  ⚙️ Estado do componente - billingCycle:", billingCycle);
+      
+      // Verificar se o billingCycle está realmente correto
+      const currentBillingCycle = billingCycle;
+      console.log("  🔍 Current billing cycle (verificação):", currentBillingCycle);
+      
+      // Determinar o price ID baseado no plano e ciclo de cobrança
+      const selectedPlan = plan as 'starter' | 'growth';
+      const selectedCycle = currentBillingCycle;
+      const priceConfig = pricingConfig[selectedPlan][selectedCycle];
+      const priceId = priceConfig.priceId;
+      
+      console.log("  💰 Price Config:", priceConfig);
+      console.log("  🎯 Price ID selecionado:", priceId);
+      console.log("  📊 Configuração completa do pricing:", pricingConfig);
+      
+      // Dados que serão enviados
+      const checkoutData = {
+        planId: plan,
+        priceId: priceId,
+        billingCycle: currentBillingCycle
+      };
+      
+      console.log("  📦 DADOS QUE SERÃO ENVIADOS PARA CHECKOUT:");
+      console.log("     planId:", checkoutData.planId);
+      console.log("     priceId:", checkoutData.priceId);
+      console.log("     billingCycle:", checkoutData.billingCycle);
+      console.log("  📋 Objeto completo:", JSON.stringify(checkoutData, null, 2));
+      
+      // Verificação adicional de consistência
+      const expectedPriceId = pricingConfig[selectedPlan][selectedCycle].priceId;
+      if (priceId === expectedPriceId) {
+        console.log("  ✅ VERIFICAÇÃO: Price ID está correto");
+      } else {
+        console.log("  ❌ VERIFICAÇÃO: Price ID inconsistente!");
+        console.log("     Esperado:", expectedPriceId);
+        console.log("     Atual:", priceId);
+      }
+      console.log("🔚 DEBUGGING LOGS END");
+      // ===== DEBUGGING LOGS END =====
+
       // Get the session
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData?.session?.access_token) {
         throw new Error("No access token available");
       }
 
-      // Determinar o price ID baseado no plano e ciclo de cobrança
-      const priceId = pricingConfig[plan as 'starter' | 'growth'][billingCycle].priceId;
-      console.log("Price ID selecionado:", priceId);
+      console.log("🔑 Token de sessão obtido, chamando create-checkout...");
 
       // Call Supabase Edge Function to create Stripe checkout
       const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: { 
-          planId: plan,
-          priceId: priceId,
-          billingCycle: billingCycle
-        },
+        body: checkoutData,
         headers: {
           Authorization: `Bearer ${sessionData.session.access_token}`,
         },
       });
 
-      console.log("Resposta do checkout:", { data, error });
+      console.log("📡 Resposta do create-checkout:", { data, error });
       
       if (error) {
         console.error("Erro detalhado:", error);
