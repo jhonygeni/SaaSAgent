@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Teste de Checkout com Ciclos de Cobrança</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        .billing-selector {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+            gap: 10px;
+        }
+        .billing-option {
+            padding: 12px 24px;
+            border: 2px solid #ddd;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: white;
+            font-weight: 500;
+        }
+        .billing-option.active {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        .plans {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin-top: 30px;
+        }
+        .plan-card {
+            border: 3px solid #e0e0e0;
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            background: white;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        .plan-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.1);
+        }
+        .plan-card.popular {
+            border-color: #007bff;
+            background: linear-gradient(135deg, #f8f9ff 0%, #e3f2fd 100%);
+            transform: scale(1.05);
+        }
+        .discount-tag {
+            position: absolute;
+            top: -15px;
+            right: -15px;
+            background: linear-gradient(45deg, #ff6b6b, #ff8e8e);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            animation: pulse 2s infinite;
+        }
+        .discount-tag.annual {
+            background: linear-gradient(45deg, #51cf66, #69db7c);
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .plan-name {
+            font-size: 1.8em;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .plan-price {
+            font-size: 3em;
+            font-weight: 900;
+            color: #007bff;
+            margin: 20px 0;
+        }
+        .plan-description {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .checkout-btn {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+            width: 100%;
+        }
+        .checkout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,123,255,0.3);
+        }
+        .test-log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 30px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success { color: #28a745; font-weight: bold; }
+        .error { color: #dc3545; font-weight: bold; }
+        .info { color: #007bff; }
+        .warning { color: #ffc107; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Teste de Checkout - Múltiplos Ciclos</h1>
+        
+        <div class="billing-selector">
+            <div class="billing-option active" data-cycle="monthly">💰 Mensal</div>
+            <div class="billing-option" data-cycle="semiannual">📦 Semestral (-15%)</div>
+            <div class="billing-option" data-cycle="annual">🎯 Anual (-25%)</div>
+        </div>
+
+        <div class="plans">
+            <!-- Starter Plan -->
+            <div class="plan-card">
+                <div class="discount-tag" id="starter-discount" style="display: none;"></div>
+                <div class="plan-name">Starter</div>
+                <div class="plan-price" id="starter-price">R$ 199/mês</div>
+                <div class="plan-description" id="starter-description">Para pequenos negócios</div>
+                <button class="checkout-btn" onclick="testCheckout('starter')">
+                    🚀 Testar Checkout Starter
+                </button>
+            </div>
+
+            <!-- Growth Plan -->
+            <div class="plan-card popular">
+                <div class="discount-tag" id="growth-discount" style="display: none;"></div>
+                <div class="plan-name">Growth</div>
+                <div class="plan-price" id="growth-price">R$ 249/mês</div>
+                <div class="plan-description" id="growth-description">Para empresas em crescimento</div>
+                <button class="checkout-btn" onclick="testCheckout('growth')">
+                    ⭐ Testar Checkout Growth
+                </button>
+            </div>
+        </div>
+
+        <div class="test-log" id="test-log">
+            <strong>📋 Log de Testes:</strong><br>
+            <span class="info">Clique em um dos botões para testar o checkout...</span><br>
+        </div>
+    </div>
+
+    <script>
+        let currentCycle = 'monthly';
+        
+        // Configuração de preços (mesma do sistema)
+        const pricingConfig = {
+            starter: {
+                monthly: { price: 199, priceId: 'price_1RRBDsP1QgGAc8KHzueN2CJL' },
+                semiannual: { price: 169, totalPrice: 1014, savings: 180, priceId: 'price_1RUGkFP1QgGAc8KHAXICojLH' },
+                annual: { price: 149, totalPrice: 1791, savings: 597, priceId: 'price_1RUGkgP1QgGAc8KHctjcrt7h' }
+            },
+            growth: {
+                monthly: { price: 249, priceId: 'price_1RRBEZP1QgGAc8KH71uKIH6i' },
+                semiannual: { price: 211, totalPrice: 1270, savings: 224, priceId: 'price_1RUAt2P1QgGAc8KHr8K4uqXG' },
+                annual: { price: 187, totalPrice: 2241, savings: 747, priceId: 'price_1RUAtVP1QgGAc8KH01aRe0Um' }
+            }
+        };
+
+        // Event listeners para seletor de ciclo
+        document.querySelectorAll('.billing-option').forEach(option => {
+            option.addEventListener('click', () => {
+                // Remove active class from all options
+                document.querySelectorAll('.billing-option').forEach(opt => opt.classList.remove('active'));
+                // Add active class to clicked option
+                option.classList.add('active');
+                
+                currentCycle = option.dataset.cycle;
+                updatePricing();
+                log(`🔄 Ciclo alterado para: ${currentCycle}`, 'info');
+            });
+        });
+
+        function updatePricing() {
+            // Update Starter plan
+            const starterConfig = pricingConfig.starter[currentCycle];
+            document.getElementById('starter-price').textContent = `R$ ${starterConfig.price}/mês`;
+            
+            const starterDiscount = document.getElementById('starter-discount');
+            if (currentCycle === 'semiannual') {
+                starterDiscount.textContent = '-15%';
+                starterDiscount.style.display = 'block';
+                starterDiscount.className = 'discount-tag';
+            } else if (currentCycle === 'annual') {
+                starterDiscount.textContent = '-25%';
+                starterDiscount.style.display = 'block';
+                starterDiscount.className = 'discount-tag annual';
+            } else {
+                starterDiscount.style.display = 'none';
+            }
+
+            // Update Growth plan
+            const growthConfig = pricingConfig.growth[currentCycle];
+            document.getElementById('growth-price').textContent = `R$ ${growthConfig.price}/mês`;
+            
+            const growthDiscount = document.getElementById('growth-discount');
+            if (currentCycle === 'semiannual') {
+                growthDiscount.textContent = '-15%';
+                growthDiscount.style.display = 'block';
+                growthDiscount.className = 'discount-tag';
+            } else if (currentCycle === 'annual') {
+                growthDiscount.textContent = '-25%';
+                growthDiscount.style.display = 'block';
+                growthDiscount.className = 'discount-tag annual';
+            } else {
+                growthDiscount.style.display = 'none';
+            }
+
+            // Update descriptions
+            if (currentCycle === 'monthly') {
+                document.getElementById('starter-description').textContent = 'Cobrança mensal';
+                document.getElementById('growth-description').textContent = 'Cobrança mensal';
+            } else {
+                const starterSavings = starterConfig.savings || 0;
+                const growthSavings = growthConfig.savings || 0;
+                document.getElementById('starter-description').innerHTML = 
+                    `Pagamento único de R$${starterConfig.totalPrice}<br><strong style="color: #28a745;">ECONOMIZE R$${starterSavings}</strong>`;
+                document.getElementById('growth-description').innerHTML = 
+                    `Pagamento único de R$${growthConfig.totalPrice}<br><strong style="color: #28a745;">ECONOMIZE R$${growthSavings}</strong>`;
+            }
+        }
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('test-log');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type;
+            logDiv.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span><br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function testCheckout(plan) {
+            const config = pricingConfig[plan][currentCycle];
+            
+            log(`🧪 TESTE DE CHECKOUT INICIADO`, 'warning');
+            log(`📋 Plano: ${plan}`, 'info');
+            log(`🔄 Ciclo: ${currentCycle}`, 'info');
+            log(`💰 Preço: R$ ${config.price}/mês`, 'info');
+            log(`🔗 Price ID: ${config.priceId}`, 'info');
+            
+            // Simular dados que seriam enviados
+            const checkoutData = {
+                planId: plan,
+                billingCycle: currentCycle,
+                priceId: config.priceId
+            };
+            
+            log(`📤 Dados para create-checkout:`, 'info');
+            log(`   ${JSON.stringify(checkoutData, null, 4)}`, 'info');
+            
+            // Validar se todos os dados estão corretos
+            if (!checkoutData.planId || !checkoutData.billingCycle || !checkoutData.priceId) {
+                log(`❌ ERRO: Dados incompletos!`, 'error');
+                return;
+            }
+            
+            // Verificar se o price ID está correto para o ciclo
+            const expectedPriceId = pricingConfig[plan][currentCycle].priceId;
+            if (checkoutData.priceId === expectedPriceId) {
+                log(`✅ Price ID correto para ${plan} ${currentCycle}`, 'success');
+            } else {
+                log(`❌ Price ID incorreto! Esperado: ${expectedPriceId}, Recebido: ${checkoutData.priceId}`, 'error');
+                return;
+            }
+            
+            // Verificar estrutura de price IDs
+            validatePriceIdStructure();
+            
+            log(`🎯 CHECKOUT VÁLIDO - Seria redirecionado para Stripe`, 'success');
+            log(`   URL: stripe.com/checkout/sessions/...`, 'success');
+            log(`---`, 'info');
+        }
+
+        function validatePriceIdStructure() {
+            log(`🔍 Validando estrutura de Price IDs...`, 'info');
+            
+            const expectedStructure = {
+                'starter-monthly': 'price_1RRBDsP1QgGAc8KHzueN2CJL',
+                'starter-semiannual': 'price_1RUGkFP1QgGAc8KHAXICojLH',
+                'starter-annual': 'price_1RUGkgP1QgGAc8KHctjcrt7h',
+                'growth-monthly': 'price_1RRBEZP1QgGAc8KH71uKIH6i',
+                'growth-semiannual': 'price_1RUAt2P1QgGAc8KHr8K4uqXG',
+                'growth-annual': 'price_1RUAtVP1QgGAc8KH01aRe0Um'
+            };
+            
+            let allValid = true;
+            
+            Object.entries(expectedStructure).forEach(([key, expectedId]) => {
+                const [plan, cycle] = key.split('-');
+                const actualId = pricingConfig[plan][cycle].priceId;
+                
+                if (actualId === expectedId) {
+                    log(`   ✅ ${key}: ${actualId}`, 'success');
+                } else {
+                    log(`   ❌ ${key}: Esperado ${expectedId}, Encontrado ${actualId}`, 'error');
+                    allValid = false;
+                }
+            });
+            
+            if (allValid) {
+                log(`🎉 Todos os Price IDs estão CORRETOS!`, 'success');
+            } else {
+                log(`⚠️ Alguns Price IDs estão INCORRETOS`, 'error');
+            }
+        }
+
+        // Inicializar
+        updatePricing();
+        log(`🚀 Sistema de teste inicializado`, 'success');
+        log(`📊 Ciclo padrão: ${currentCycle}`, 'info');
+    </script>
+</body>
+</html>

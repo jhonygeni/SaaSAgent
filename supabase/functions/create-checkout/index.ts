@@ -101,6 +101,14 @@ serve(async (req) => {
     }
     const { planId, priceId, billingCycle = 'monthly' } = body;
     
+    // 🔍 DEBUG: Log all received parameters
+    logStep("🔍 BILLING CYCLE DEBUG - Parameters received", { 
+      planId, 
+      priceId, 
+      billingCycle,
+      fullBody: body 
+    });
+    
     if (!planId || !["starter", "growth"].includes(planId)) {
       logStep("Invalid or missing planId", { planId });
       return new Response(JSON.stringify({ error: "Invalid or missing planId. Must be 'starter' or 'growth'." }), {
@@ -120,6 +128,16 @@ serve(async (req) => {
     // Se um price ID específico for fornecido, use-o
     // Caso contrário, use o price ID baseado no plano e ciclo de cobrança
     const selectedPriceId = priceId || PRICE_IDS[planId as 'starter' | 'growth'][billingCycle as 'monthly' | 'semiannual' | 'annual'];
+    
+    // 🔍 DEBUG: Log price ID selection
+    logStep("🔍 BILLING CYCLE DEBUG - Price ID Selection", { 
+      receivedPriceId: priceId,
+      selectedPlan: planId,
+      selectedCycle: billingCycle,
+      finalPriceId: selectedPriceId,
+      availablePriceIds: PRICE_IDS,
+      priceIdFromConfig: PRICE_IDS[planId as 'starter' | 'growth'][billingCycle as 'monthly' | 'semiannual' | 'annual']
+    });
     
     logStep("Plan requested", { planId, billingCycle, priceId: selectedPriceId });
 

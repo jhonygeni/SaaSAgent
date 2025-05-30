@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Debug Checkout Real - Teste com Edge Function</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        .status-card {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .test-section {
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .billing-selector {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+            gap: 10px;
+        }
+        .billing-option {
+            padding: 12px 24px;
+            border: 2px solid #ddd;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: white;
+            font-weight: 500;
+        }
+        .billing-option.active {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        .plans {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin-top: 30px;
+        }
+        .plan-card {
+            border: 3px solid #e0e0e0;
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            background: white;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        .plan-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.1);
+        }
+        .plan-card.popular {
+            border-color: #007bff;
+            background: linear-gradient(135deg, #f8f9ff 0%, #e3f2fd 100%);
+            transform: scale(1.05);
+        }
+        .plan-name {
+            font-size: 1.8em;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .plan-price {
+            font-size: 3em;
+            font-weight: 900;
+            color: #007bff;
+            margin: 20px 0;
+        }
+        .plan-description {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .checkout-btn {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+            width: 100%;
+        }
+        .checkout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,123,255,0.3);
+        }
+        .checkout-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .logs {
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            max-height: 500px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .success { color: #28a745; font-weight: bold; }
+        .error { color: #dc3545; font-weight: bold; }
+        .info { color: #17a2b8; }
+        .warning { color: #ffc107; font-weight: bold; }
+        .code { 
+            background: #f8f9fa; 
+            padding: 10px; 
+            border-radius: 5px; 
+            font-family: monospace;
+            border-left: 4px solid #007bff;
+            margin: 10px 0;
+        }
+        .auth-section {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Debug Checkout Real - Teste com Edge Function</h1>
+        <p>Este teste faz chamadas REAIS para o edge function create-checkout para debugar o problema do billing cycle.</p>
+
+        <div class="auth-section">
+            <h3>⚠️ Autenticação Necessária</h3>
+            <p>Para testar, você precisa estar logado. Abra o DevTools (F12) e cole o seguinte código para obter o token:</p>
+            <div class="code">
+// Cole no console do DevTools quando estiver logado na aplicação:<br>
+localStorage.getItem('sb-pmzdtvqmftjjxnirctaa-auth-token')
+            </div>
+            <div>
+                <label>Token de Autenticação:</label><br>
+                <input type="text" id="authToken" placeholder="Copie o token aqui" style="width: 100%; padding: 10px; margin: 10px 0;">
+                <button onclick="setAuthToken()" style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 5px;">Definir Token</button>
+            </div>
+        </div>
+
+        <div class="status-card">
+            <h3>📊 Status do Sistema</h3>
+            <div id="systemStatus">
+                <p>❌ Token não configurado</p>
+                <p>❌ Edge Function não testada</p>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>🎯 Seletor de Ciclo de Cobrança</h2>
+            <div class="billing-selector">
+                <div class="billing-option active" data-cycle="monthly">💰 Mensal</div>
+                <div class="billing-option" data-cycle="semiannual">📦 Semestral (-15%)</div>
+                <div class="billing-option" data-cycle="annual">🎯 Anual (-25%)</div>
+            </div>
+            <p><strong>Ciclo Selecionado:</strong> <span id="currentCycle">monthly</span></p>
+        </div>
+
+        <div class="test-section">
+            <h2>💳 Testes de Checkout REAIS</h2>
+            <div class="plans">
+                <!-- Starter Plan -->
+                <div class="plan-card">
+                    <div class="plan-name">Starter</div>
+                    <div class="plan-price" id="starter-price">R$ 199/mês</div>
+                    <div class="plan-description" id="starter-description">Para pequenos negócios</div>
+                    <button class="checkout-btn" onclick="testRealCheckout('starter')" id="starter-btn">
+                        🚀 Testar Checkout Real Starter
+                    </button>
+                </div>
+
+                <!-- Growth Plan -->
+                <div class="plan-card popular">
+                    <div class="plan-name">Growth</div>
+                    <div class="plan-price" id="growth-price">R$ 249/mês</div>
+                    <div class="plan-description" id="growth-description">Para empresas em crescimento</div>
+                    <button class="checkout-btn" onclick="testRealCheckout('growth')" id="growth-btn">
+                        ⭐ Testar Checkout Real Growth
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>📋 Logs Detalhados</h2>
+            <div class="logs" id="logs">
+🚀 Sistema de Debug Inicializado<br>
+📋 Configuração de preços carregada<br>
+⚠️ Configure o token de autenticação para testar<br>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentCycle = 'monthly';
+        let authToken = null;
+        
+        // Configuração de preços (exatamente igual ao frontend)
+        const pricingConfig = {
+            starter: {
+                monthly: { price: 199, priceId: 'price_1RRBDsP1QgGAc8KHzueN2CJL' },
+                semiannual: { price: 169, priceId: 'price_1RUGkFP1QgGAc8KHAXICojLH' },
+                annual: { price: 149, priceId: 'price_1RUGkgP1QgGAc8KHctjcrt7h' }
+            },
+            growth: {
+                monthly: { price: 249, priceId: 'price_1RRBEZP1QgGAc8KH71uKIH6i' },
+                semiannual: { price: 211, priceId: 'price_1RUAt2P1QgGAc8KHr8K4uqXG' },
+                annual: { price: 187, priceId: 'price_1RUAtVP1QgGAc8KH01aRe0Um' }
+            }
+        };
+
+        // Event listeners para seletor de ciclo
+        document.querySelectorAll('.billing-option').forEach(option => {
+            option.addEventListener('click', () => {
+                document.querySelectorAll('.billing-option').forEach(opt => opt.classList.remove('active'));
+                option.classList.add('active');
+                
+                currentCycle = option.dataset.cycle;
+                document.getElementById('currentCycle').textContent = currentCycle;
+                updatePricing();
+                log(`🔄 Ciclo alterado para: ${currentCycle}`, 'info');
+            });
+        });
+
+        function setAuthToken() {
+            const token = document.getElementById('authToken').value.trim();
+            if (!token) {
+                log('❌ Token não pode estar vazio', 'error');
+                return;
+            }
+            
+            // Extrair o access_token se for um objeto JSON
+            try {
+                const parsed = JSON.parse(token);
+                if (parsed.access_token) {
+                    authToken = parsed.access_token;
+                    log('✅ Token extraído do JSON com sucesso', 'success');
+                } else {
+                    authToken = token;
+                    log('✅ Token definido como string', 'success');
+                }
+            } catch (e) {
+                authToken = token;
+                log('✅ Token definido como string', 'success');
+            }
+            
+            updateSystemStatus();
+            log(`🔑 Token configurado: ${authToken.substring(0, 20)}...`, 'info');
+        }
+
+        function updateSystemStatus() {
+            const statusDiv = document.getElementById('systemStatus');
+            let status = '';
+            
+            if (authToken) {
+                status += '<p>✅ Token configurado</p>';
+            } else {
+                status += '<p>❌ Token não configurado</p>';
+            }
+            
+            statusDiv.innerHTML = status;
+        }
+
+        function updatePricing() {
+            // Update Starter plan
+            const starterConfig = pricingConfig.starter[currentCycle];
+            document.getElementById('starter-price').textContent = `R$ ${starterConfig.price}/mês`;
+            
+            // Update Growth plan
+            const growthConfig = pricingConfig.growth[currentCycle];
+            document.getElementById('growth-price').textContent = `R$ ${growthConfig.price}/mês`;
+            
+            // Update descriptions based on cycle
+            if (currentCycle === 'monthly') {
+                document.getElementById('starter-description').textContent = 'Cobrança mensal';
+                document.getElementById('growth-description').textContent = 'Cobrança mensal';
+            } else {
+                const starterSavings = currentCycle === 'semiannual' ? 180 : 597;
+                const growthSavings = currentCycle === 'semiannual' ? 224 : 747;
+                document.getElementById('starter-description').innerHTML = 
+                    `<strong style="color: #28a745;">ECONOMIZE R$${starterSavings}</strong>`;
+                document.getElementById('growth-description').innerHTML = 
+                    `<strong style="color: #28a745;">ECONOMIZE R$${growthSavings}</strong>`;
+            }
+        }
+
+        async function testRealCheckout(plan) {
+            if (!authToken) {
+                log('❌ Configure o token de autenticação primeiro!', 'error');
+                return;
+            }
+
+            const config = pricingConfig[plan][currentCycle];
+            const btnId = `${plan}-btn`;
+            const btn = document.getElementById(btnId);
+            
+            log(`\n🧪 INICIANDO TESTE REAL DE CHECKOUT`, 'warning');
+            log(`📋 Plano: ${plan}`, 'info');
+            log(`🔄 Ciclo: ${currentCycle}`, 'info');
+            log(`💰 Preço: R$ ${config.price}/mês`, 'info');
+            log(`🔗 Price ID: ${config.priceId}`, 'info');
+            
+            btn.disabled = true;
+            btn.textContent = 'Testando...';
+            
+            try {
+                // Dados exatos que seriam enviados pelo frontend
+                const requestData = {
+                    planId: plan,
+                    billingCycle: currentCycle,
+                    priceId: config.priceId
+                };
+                
+                log(`📤 Enviando para create-checkout:`, 'info');
+                log(`${JSON.stringify(requestData, null, 2)}`, 'code');
+                
+                // Chamada real para o edge function
+                const response = await fetch('http://localhost:54321/functions/v1/create-checkout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                log(`📥 Status da resposta: ${response.status}`, 'info');
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    log(`❌ ERRO na chamada:`, 'error');
+                    log(`Status: ${response.status}`, 'error');
+                    log(`Resposta: ${errorText}`, 'error');
+                    return;
+                }
+                
+                const responseData = await response.json();
+                log(`✅ SUCESSO! Resposta recebida:`, 'success');
+                log(`${JSON.stringify(responseData, null, 2)}`, 'code');
+                
+                if (responseData.url) {
+                    log(`🎯 URL do Stripe gerada:`, 'success');
+                    log(`${responseData.url}`, 'success');
+                    
+                    // Verificar se a URL contém o price ID correto
+                    if (responseData.url.includes(config.priceId)) {
+                        log(`✅ PRICE ID CORRETO na URL do Stripe!`, 'success');
+                    } else {
+                        log(`❌ PRICE ID INCORRETO na URL do Stripe!`, 'error');
+                        log(`Esperado: ${config.priceId}`, 'error');
+                    }
+                    
+                    log(`\n🚀 Checkout seria redirecionado para Stripe`, 'success');
+                } else {
+                    log(`❌ URL não encontrada na resposta`, 'error');
+                }
+                
+            } catch (error) {
+                log(`💥 ERRO na requisição:`, 'error');
+                log(`${error.message}`, 'error');
+                console.error('Erro detalhado:', error);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = btn.textContent.replace('Testando...', `Testar Checkout Real ${plan.charAt(0).toUpperCase() + plan.slice(1)}`);
+                log(`─────────────────────────────────`, 'info');
+            }
+        }
+
+        function log(message, type = 'info') {
+            const logs = document.getElementById('logs');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type;
+            const prefix = type === 'code' ? '' : `[${timestamp}] `;
+            logs.innerHTML += `<span class="${className}">${prefix}${message}</span><br>`;
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        // Inicializar
+        updatePricing();
+        updateSystemStatus();
+        log(`🚀 Sistema de Debug inicializado`, 'success');
+        log(`📊 Configuração de preços carregada`, 'info');
+        log(`⚠️ Configure o token para testar chamadas reais`, 'warning');
+    </script>
+</body>
+</html>
