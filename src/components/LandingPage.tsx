@@ -1,10 +1,52 @@
 
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, MessageSquare, ArrowRight, Zap, Lock, Users, Star, Crown } from "lucide-react";
 
 export function LandingPage() {
   const navigate = useNavigate();
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'semiannual' | 'annual'>('monthly');
+
+  // Configuração de preços dinâmica (mesma do PricingPlans)
+  const pricingConfig = {
+    starter: {
+      monthly: { price: 199 },
+      semiannual: { price: 169, totalPrice: 1014, savings: 180 },
+      annual: { price: 149, totalPrice: 1791, savings: 597 }
+    },
+    growth: {
+      monthly: { price: 249 },
+      semiannual: { price: 211, totalPrice: 1270, savings: 224 },
+      annual: { price: 187, totalPrice: 2241, savings: 747 }
+    }
+  };
+
+  const getSubtitle = (plan: 'starter' | 'growth') => {
+    const config = pricingConfig[plan][billingCycle];
+    switch (billingCycle) {
+      case 'monthly':
+        return <span className="text-neutral-400">Cobrança mensal</span>;
+      case 'semiannual':
+        return (
+          <div className="space-y-1">
+            <div className="text-sm text-gray-500">Pagamento único de R${(config as any).totalPrice}</div>
+            <div className="text-sm font-bold text-green-600 bg-green-50 px-2 py-1 rounded-md">
+              VOCÊ ECONOMIZA R${(config as any).savings}
+            </div>
+          </div>
+        );
+      case 'annual':
+        return (
+          <div className="space-y-1">
+            <div className="text-sm text-gray-500">Pagamento único de R${(config as any).totalPrice}</div>
+            <div className="text-sm font-bold text-green-600 bg-green-50 px-2 py-1 rounded-md">
+              VOCÊ ECONOMIZA R${(config as any).savings}
+            </div>
+          </div>
+        );
+    }
+  };
 
   return (
     <div>
@@ -57,6 +99,39 @@ export function LandingPage() {
               Comece grátis e escale conforme sua empresa cresce. Sem taxas escondidas, sem surpresas.
             </p>
           </div>
+
+          {/* Seletor de Ciclo de Cobrança */}
+          <div className="flex justify-center mb-8">
+            <div className="inline-flex bg-white rounded-xl p-1 shadow-lg border border-gray-200">
+              <button 
+                className={`px-6 py-3 rounded-lg cursor-pointer transition-all duration-300 text-sm font-medium ${
+                  billingCycle === 'monthly' 
+                  ? 'bg-brand-500 text-white shadow-lg' 
+                  : 'text-gray-600 hover:text-brand-600 hover:bg-gray-50'
+                }`}
+                onClick={() => setBillingCycle('monthly')}>
+                Mensal
+              </button>
+              <button 
+                className={`px-6 py-3 rounded-lg cursor-pointer transition-all duration-300 text-sm font-medium ${
+                  billingCycle === 'semiannual' 
+                  ? 'bg-brand-500 text-white shadow-lg' 
+                  : 'text-gray-600 hover:text-brand-600 hover:bg-gray-50'
+                }`}
+                onClick={() => setBillingCycle('semiannual')}>
+                Semestral
+              </button>
+              <button 
+                className={`px-6 py-3 rounded-lg cursor-pointer transition-all duration-300 text-sm font-medium ${
+                  billingCycle === 'annual' 
+                  ? 'bg-brand-500 text-white shadow-lg' 
+                  : 'text-gray-600 hover:text-brand-600 hover:bg-gray-50'
+                }`}
+                onClick={() => setBillingCycle('annual')}>
+                Anual
+              </button>
+            </div>
+          </div>
           
           <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
             {/* Plano Grátis */}
@@ -95,15 +170,32 @@ export function LandingPage() {
 
             {/* Plano Growth - DESTAQUE */}
             <div className="bg-white rounded-2xl border-2 border-brand-500 p-8 relative scale-105 shadow-lg">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand-500 text-white px-4 py-1 rounded-full text-sm font-semibold flex items-center gap-1">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand-500 text-white px-4 py-1 rounded-full text-sm font-semibold flex items-center gap-1 whitespace-nowrap">
                 <Crown className="h-4 w-4" />
-                Mais Popular
+                <span>Mais Popular</span>
               </div>
+              
+              {/* Tag de Desconto */}
+              {billingCycle === 'semiannual' && (
+                <div className="absolute -top-3 -right-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-3 py-1 rounded-full text-xs font-bold animate-pulse shadow-lg">
+                  -15%
+                </div>
+              )}
+              {billingCycle === 'annual' && (
+                <div className="absolute -top-3 -right-3 bg-gradient-to-r from-green-500 to-green-600 text-white px-3 py-1 rounded-full text-xs font-bold animate-pulse shadow-lg">
+                  -25%
+                </div>
+              )}
+              
               <div className="text-center mb-6">
                 <h3 className="text-2xl font-bold mb-2 text-gray-900">Growth</h3>
                 <p className="text-gray-600 mb-4">Para empresas em crescimento</p>
-                <div className="text-4xl font-black text-brand-600 mb-2">R$249<span className="text-lg text-gray-500">/mês</span></div>
-                <div className="text-sm text-brand-600 font-medium">Economize R$996/ano</div>
+                <div className="text-4xl font-black text-brand-600 mb-2">
+                  R${pricingConfig.growth[billingCycle].price}<span className="text-lg text-gray-500">/mês</span>
+                </div>
+                <div className="min-h-[60px] flex items-center justify-center">
+                  {getSubtitle('growth')}
+                </div>
               </div>
               <Button 
                 className="w-full mb-6 py-3 text-base font-semibold bg-brand-500 hover:bg-brand-600" 
@@ -137,10 +229,27 @@ export function LandingPage() {
 
             {/* Plano Starter */}
             <div className="bg-white rounded-2xl border-2 border-gray-200 p-8 relative">
+              {/* Tag de Desconto */}
+              {billingCycle === 'semiannual' && (
+                <div className="absolute -top-3 -right-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-3 py-1 rounded-full text-xs font-bold animate-pulse shadow-lg">
+                  -15%
+                </div>
+              )}
+              {billingCycle === 'annual' && (
+                <div className="absolute -top-3 -right-3 bg-gradient-to-r from-green-500 to-green-600 text-white px-3 py-1 rounded-full text-xs font-bold animate-pulse shadow-lg">
+                  -25%
+                </div>
+              )}
+              
               <div className="text-center mb-6">
                 <h3 className="text-2xl font-bold mb-2 text-gray-900">Starter</h3>
                 <p className="text-gray-600 mb-4">Para pequenos negócios</p>
-                <div className="text-4xl font-black mb-2 text-gray-900">R$199<span className="text-lg text-gray-500">/mês</span></div>
+                <div className="text-4xl font-black mb-2 text-gray-900">
+                  R${pricingConfig.starter[billingCycle].price}<span className="text-lg text-gray-500">/mês</span>
+                </div>
+                <div className="min-h-[60px] flex items-center justify-center">
+                  {getSubtitle('starter')}
+                </div>
               </div>
               <Button 
                 className="w-full mb-6 py-3 text-base font-semibold" 

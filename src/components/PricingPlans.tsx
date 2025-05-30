@@ -1,9 +1,9 @@
-import { useUser } from "@/context/UserContext";
-import { Button } from "@/components/ui/button";
-import { Check } from "lucide-react";
 import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { CheckCircle, Crown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useUser } from "@/context/UserContext";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 export function PricingPlans() {
@@ -27,33 +27,34 @@ export function PricingPlans() {
     }
   };
 
-  const getPriceDisplay = (plan: 'starter' | 'growth') => {
-    const config = pricingConfig[plan][billingCycle];
-    switch (billingCycle) {
-      case 'monthly':
-        return `R$${config.price}/mês`;
-      case 'semiannual':
-        return `R$${config.price}/mês`;
-      case 'annual':
-        return `R$${config.price}/mês`;
-    }
-  };
-
   const getSubtitle = (plan: 'starter' | 'growth') => {
     const config = pricingConfig[plan][billingCycle];
     switch (billingCycle) {
       case 'monthly':
-        return 'Cobrança mensal';
+        return <span className="text-neutral-400">Cobrança mensal</span>;
       case 'semiannual':
-        return `Pagamento único de R$${(config as any).totalPrice} • Economize R$${(config as any).savings}`;
+        return (
+          <div className="space-y-1">
+            <div className="text-sm text-gray-500">Pagamento único de R${(config as any).totalPrice}</div>
+            <div className="text-sm font-bold text-green-600 bg-green-50 px-2 py-1 rounded-md">
+              VOCÊ ECONOMIZA R${(config as any).savings}
+            </div>
+          </div>
+        );
       case 'annual':
-        return `Pagamento único de R$${(config as any).totalPrice} • Economize R$${(config as any).savings}`;
+        return (
+          <div className="space-y-1">
+            <div className="text-sm text-gray-500">Pagamento único de R${(config as any).totalPrice}</div>
+            <div className="text-sm font-bold text-green-600 bg-green-50 px-2 py-1 rounded-md">
+              VOCÊ ECONOMIZA R${(config as any).savings}
+            </div>
+          </div>
+        );
     }
   };
 
   const handleSelectPlan = async (plan: "free" | "starter" | "growth") => {
-    // Verificar se o usuário está autenticado (se não estiver, redirecione para login em vez de registro)
-    // Isso evita um possível loop quando o usuário acabou de se registrar
+    // Verificar se o usuário está autenticado
     if (!user) {
       toast({
         title: "Ação necessária",
@@ -213,170 +214,282 @@ export function PricingPlans() {
   };
 
   return (
-    <div className="container mx-auto py-12">
-      <div className="text-center mb-10">
-        <h1 className="text-4xl font-extrabold mb-2 tracking-tight">Escolha seu plano</h1>
-        <p className="text-base text-muted-foreground max-w-xl mx-auto">
-          Comece grátis e faça upgrade conforme sua empresa cresce
-        </p>
-        
-        {/* Seletor de ciclo de cobrança */}
-        <div className="flex flex-col items-center">
-          <div className="flex justify-center items-center gap-2 mt-8 bg-gray-800/50 p-2 rounded-xl backdrop-blur-sm border border-gray-700">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-16">
+      <div className="container mx-auto px-4">
+        <div className="text-center mb-12">
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 text-gray-900">
+            Escolha seu plano
+          </h1>
+          <p className="text-xl text-gray-700 max-w-2xl mx-auto">
+            Planos flexíveis que crescem com o seu negócio. Comece grátis e escale conforme sua necessidade.
+          </p>
+        </div>
+
+        {/* Seletor de Ciclo de Cobrança */}
+        <div className="flex justify-center mb-12">
+          <div className="inline-flex bg-white rounded-xl p-1 shadow-lg border border-gray-200">
             <button 
-              className={`px-6 py-3 rounded-lg cursor-pointer transition-all duration-300 text-sm font-medium ${billingCycle === 'monthly' 
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25' 
-                : 'text-gray-300 hover:text-white hover:bg-gray-700/50'}`} 
+              className={`px-6 py-3 rounded-lg cursor-pointer transition-all duration-300 text-sm font-medium ${
+                billingCycle === 'monthly' 
+                ? 'bg-brand-500 text-white shadow-lg' 
+                : 'text-gray-600 hover:text-brand-600 hover:bg-gray-50'
+              }`}
               onClick={() => setBillingCycle('monthly')}>
               Mensal
             </button>
             <button 
-              className={`px-6 py-3 rounded-lg cursor-pointer transition-all duration-300 text-sm font-medium relative ${billingCycle === 'semiannual' 
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25' 
-                : 'text-gray-300 hover:text-white hover:bg-gray-700/50'}`}
+              className={`px-6 py-3 rounded-lg cursor-pointer transition-all duration-300 text-sm font-medium ${
+                billingCycle === 'semiannual' 
+                ? 'bg-brand-500 text-white shadow-lg' 
+                : 'text-gray-600 hover:text-brand-600 hover:bg-gray-50'
+              }`}
               onClick={() => setBillingCycle('semiannual')}>
               Semestral
-              <span className="absolute -top-2 -right-1 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full animate-pulse">-15%</span>
             </button>
             <button 
-              className={`px-6 py-3 rounded-lg cursor-pointer transition-all duration-300 text-sm font-medium relative ${billingCycle === 'annual' 
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25' 
-                : 'text-gray-300 hover:text-white hover:bg-gray-700/50'}`}
+              className={`px-6 py-3 rounded-lg cursor-pointer transition-all duration-300 text-sm font-medium ${
+                billingCycle === 'annual' 
+                ? 'bg-brand-500 text-white shadow-lg' 
+                : 'text-gray-600 hover:text-brand-600 hover:bg-gray-50'
+              }`}
               onClick={() => setBillingCycle('annual')}>
               Anual
-              <span className="absolute -top-2 -right-1 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full animate-pulse">-25%</span>
             </button>
           </div>
-          <div className="mt-4 mb-6 text-sm text-neutral-400 max-w-md text-center">
-            {billingCycle === 'monthly' && '💳 Cobrança mensal sem compromisso. Cancele a qualquer momento.'}
-            {billingCycle === 'semiannual' && '💰 Pagamento único a cada 6 meses com desconto especial.'}
-            {billingCycle === 'annual' && '🎯 Melhor valor! Pagamento único anual com economia máxima.'}
+        </div>
+        
+        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          {/* Plano Grátis */}
+          <div className="bg-white rounded-2xl border-2 border-gray-200 p-8 relative">
+            <div className="text-center mb-6">
+              <h3 className="text-2xl font-bold mb-2 text-gray-900">Grátis</h3>
+              <p className="text-gray-600 mb-4">Para começar e testar</p>
+              <div className="text-4xl font-black mb-2 text-gray-900">
+                R$0<span className="text-lg text-gray-500">/mês</span>
+              </div>
+              <div className="min-h-[60px] flex items-center justify-center">
+                <span className="text-neutral-400">Para sempre grátis</span>
+              </div>
+            </div>
+            <Button 
+              className="w-full mb-6 py-3 text-base font-semibold" 
+              variant="outline"
+              onClick={() => handleSelectPlan("free")}
+              disabled={isCurrentPlan("free")}
+            >
+              {isCurrentPlan("free") ? "✓ Plano Atual" : "Começar Grátis"}
+            </Button>
+            <ul className="space-y-3 text-sm text-gray-700">
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                <span>100 mensagens/mês</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                <span>1 agente de IA</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                <span>1 WhatsApp conectado</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                <span>Suporte por email</span>
+              </li>
+            </ul>
+          </div>
+
+          {/* Plano Growth - DESTAQUE */}
+          <div className="bg-white rounded-2xl border-2 border-brand-500 p-8 relative scale-105 shadow-lg">
+            {/* Tag "Mais Popular" */}
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand-500 text-white px-4 py-1 rounded-full text-sm font-semibold flex items-center gap-1 whitespace-nowrap">
+              <Crown className="h-4 w-4" />
+              <span>Mais Popular</span>
+            </div>
+            
+            {/* Tag de Desconto */}
+            {billingCycle === 'semiannual' && (
+              <div className="absolute -top-3 -right-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-3 py-1 rounded-full text-xs font-bold animate-pulse shadow-lg">
+                -15%
+              </div>
+            )}
+            {billingCycle === 'annual' && (
+              <div className="absolute -top-3 -right-3 bg-gradient-to-r from-green-500 to-green-600 text-white px-3 py-1 rounded-full text-xs font-bold animate-pulse shadow-lg">
+                -25%
+              </div>
+            )}
+            
+            <div className="text-center mb-6">
+              <h3 className="text-2xl font-bold mb-2 text-gray-900">Growth</h3>
+              <p className="text-gray-600 mb-4">Para empresas em crescimento</p>
+              <div className="text-4xl font-black text-brand-600 mb-2">
+                R${pricingConfig.growth[billingCycle].price}<span className="text-lg text-gray-500">/mês</span>
+              </div>
+              <div className="min-h-[60px] flex items-center justify-center">
+                {getSubtitle('growth')}
+              </div>
+            </div>
+            {isCurrentPlan("growth") ? (
+              <Button 
+                className="w-full mb-6 py-3 text-base font-semibold bg-green-500 hover:bg-green-600" 
+                onClick={openCustomerPortal}
+                disabled={loading !== null}
+              >
+                ⚙️ Gerenciar Assinatura
+              </Button>
+            ) : (
+              <Button 
+                className="w-full mb-6 py-3 text-base font-semibold bg-brand-500 hover:bg-brand-600" 
+                onClick={() => handleSelectPlan("growth")}
+                disabled={loading !== null}
+              >
+                Escolher Growth
+              </Button>
+            )}
+            <ul className="space-y-3 text-sm text-gray-700">
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                <span><strong>5.000</strong> mensagens/mês</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                <span><strong>3</strong> agentes de IA</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                <span><strong>2</strong> WhatsApps conectados</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                <span>Suporte prioritário</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                <span>Análise de conversas</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                <span>API de integração</span>
+              </li>
+            </ul>
+          </div>
+
+          {/* Plano Starter */}
+          <div className="bg-white rounded-2xl border-2 border-gray-200 p-8 relative">
+            {/* Tag de Desconto */}
+            {billingCycle === 'semiannual' && (
+              <div className="absolute -top-3 -right-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-3 py-1 rounded-full text-xs font-bold animate-pulse shadow-lg">
+                -15%
+              </div>
+            )}
+            {billingCycle === 'annual' && (
+              <div className="absolute -top-3 -right-3 bg-gradient-to-r from-green-500 to-green-600 text-white px-3 py-1 rounded-full text-xs font-bold animate-pulse shadow-lg">
+                -25%
+              </div>
+            )}
+            
+            <div className="text-center mb-6">
+              <h3 className="text-2xl font-bold mb-2 text-gray-900">Starter</h3>
+              <p className="text-gray-600 mb-4">Para pequenos negócios</p>
+              <div className="text-4xl font-black mb-2 text-gray-900">
+                R${pricingConfig.starter[billingCycle].price}<span className="text-lg text-gray-500">/mês</span>
+              </div>
+              <div className="min-h-[60px] flex items-center justify-center">
+                {getSubtitle('starter')}
+              </div>
+            </div>
+            {isCurrentPlan("starter") ? (
+              <Button 
+                className="w-full mb-6 py-3 text-base font-semibold bg-green-500 hover:bg-green-600" 
+                onClick={openCustomerPortal}
+                disabled={loading !== null}
+              >
+                ⚙️ Gerenciar Assinatura
+              </Button>
+            ) : (
+              <Button 
+                className="w-full mb-6 py-3 text-base font-semibold" 
+                variant="outline"
+                onClick={() => handleSelectPlan("starter")}
+                disabled={loading !== null}
+              >
+                Escolher Starter
+              </Button>
+            )}
+            <ul className="space-y-3 text-sm text-gray-700">
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                <span><strong>2.500</strong> mensagens/mês</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                <span>1 agente de IA</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                <span>1 WhatsApp conectado</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                <span>Suporte por email</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                <span>Análises básicas</span>
+              </li>
+            </ul>
           </div>
         </div>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-        {/* Free */}
-        <div className="flex flex-col items-center rounded-2xl border border-[#232A36] bg-gradient-to-br from-[#111827] to-[#1F2937] p-8 min-h-[480px] transition-all duration-300 hover:shadow-xl hover:shadow-gray-900/50 hover:border-gray-600">
-          <div className="mb-4 p-3 rounded-full bg-gray-700/50">
-            <span className="text-2xl">🚀</span>
-          </div>
-          <h3 className="font-extrabold text-2xl mb-1 text-white">Grátis</h3>
-          <p className="text-sm text-neutral-400 mb-4">Para começar</p>
-          <div className="text-4xl font-black text-white mb-4">R$0<span className='text-base font-normal text-neutral-400'>/mês</span></div>
-          <Button 
-            className="w-full mb-6 mt-2 font-bold text-base bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg transition-all duration-300 hover:shadow-blue-600/25" 
-            variant="default" 
-            onClick={() => handleSelectPlan("free")} 
-            disabled={isCurrentPlan("free")}>
-            {isCurrentPlan("free") ? "✓ Plano Atual" : "Começar Grátis"}
-          </Button>
-          <ul className="text-sm space-y-3 text-left text-neutral-200 w-full">
-            <li className="flex items-center gap-3"><span className="text-blue-400 text-lg">✓</span>100 mensagens/mês</li>
-            <li className="flex items-center gap-3"><span className="text-blue-400 text-lg">✓</span>1 agente IA</li>
-            <li className="flex items-center gap-3"><span className="text-blue-400 text-lg">✓</span>1 número WhatsApp conectado</li>
-            <li className="flex items-center gap-3"><span className="text-blue-400 text-lg">✓</span>Smart bot pause</li>
-            <li className="flex items-center gap-3"><span className="text-blue-400 text-lg">✓</span>Lead notification</li>
-            <li className="flex items-center gap-3"><span className="text-blue-400 text-lg">✓</span>Respostas de texto e áudio</li>
-          </ul>
-        </div>
-        {/* Growth - DESTAQUE */}
-        <div className="relative flex flex-col items-center rounded-2xl border-2 border-blue-500 bg-gradient-to-br from-[#151F33] to-[#1E293B] p-8 min-h-[500px] scale-105 z-10 shadow-2xl shadow-blue-600/20 transition-all duration-300 hover:shadow-blue-600/30">
-          <span className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold px-6 py-2 rounded-full text-sm shadow-lg border border-blue-400 animate-pulse">
-            ⭐ Mais Popular
-          </span>
-          <div className="mb-4 p-3 rounded-full bg-blue-600/20 border border-blue-500/30">
-            <span className="text-2xl">🚀</span>
-          </div>
-          <h3 className="font-extrabold text-2xl mb-1 text-white">Growth</h3>
-          <p className="text-sm text-blue-300 mb-2">Para empresas em expansão</p>
-          <div className="text-4xl font-black text-white mb-1">
-            <span className="bg-gradient-to-r from-blue-400 to-blue-300 bg-clip-text text-transparent">
-              R${pricingConfig.growth[billingCycle].price}
-            </span>
-            <span className='text-base font-normal text-neutral-400'>/mês</span>
-          </div>
-          <p className="text-xs text-blue-400 h-8 text-center font-medium">
-            {getSubtitle('growth')}
+
+        {/* Seção de garantias e comparação */}
+        <div className="text-center mt-12">
+          <p className="text-sm text-gray-600 mb-4">
+            🎯 <strong>Garantia de 7 dias</strong> - Teste sem riscos | 🔒 <strong>Dados 100% seguros</strong> | 🚀 <strong>Cancele quando quiser</strong>
           </p>
-          {isCurrentPlan("growth") ? (
-            <Button 
-              className="w-full mb-6 mt-2 font-bold text-base bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg transition-all duration-300 hover:shadow-green-500/25" 
-              variant="default" 
-              onClick={openCustomerPortal}
-              disabled={loading !== null}
-              loading={loading === "manage"}
-            >
-              ⚙️ Gerenciar Assinatura
-            </Button>
-          ) : (
-            <Button 
-              className="w-full mb-6 mt-2 font-bold text-base bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg transition-all duration-300 hover:shadow-blue-500/25 hover:scale-105" 
-              variant="default" 
-              onClick={() => handleSelectPlan("growth")} 
-              disabled={loading !== null} 
-              loading={loading === "growth"}
-            >
-              🚀 Começar Growth
-            </Button>
-          )}
-          <ul className="text-sm space-y-3 text-left text-neutral-200 w-full">
-            <li className="flex items-center gap-3"><span className="text-blue-400 text-lg">✓</span>5.000 mensagens/mês</li>
-            <li className="flex items-center gap-3"><span className="text-blue-400 text-lg">✓</span>3 agentes IA</li>
-            <li className="flex items-center gap-3"><span className="text-blue-400 text-lg">✓</span>2 números WhatsApp conectados</li>
-            <li className="flex items-center gap-3"><span className="text-blue-400 text-lg">✓</span>Smart bot pause</li>
-            <li className="flex items-center gap-3"><span className="text-blue-400 text-lg">✓</span>Lead notification</li>
-            <li className="flex items-center gap-3"><span className="text-blue-400 text-lg">✓</span>Respostas de texto e áudio</li>
-            <li className="flex items-center gap-3"><span className="text-blue-400 text-lg">✓</span>Suporte prioritário</li>
-            <li className="flex items-center gap-3"><span className="text-blue-400 text-lg">✓</span>Análise avançada de conversas</li>
-          </ul>
+          <div className="bg-white rounded-lg p-6 max-w-2xl mx-auto shadow-lg border border-gray-200">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900">Todos os planos incluem:</h3>
+            <div className="grid md:grid-cols-2 gap-4 text-sm text-gray-700">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                <span>Setup em 5 minutos</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                <span>Atendimento 24/7</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                <span>Integração WhatsApp Business</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                <span>Dashboard em tempo real</span>
+              </div>
+            </div>
+          </div>
         </div>
-        {/* Starter */}
-        <div className="flex flex-col items-center rounded-2xl border border-[#232A36] bg-gradient-to-br from-[#111827] to-[#1F2937] p-8 min-h-[480px] transition-all duration-300 hover:shadow-xl hover:shadow-gray-900/50 hover:border-gray-600">
-          <div className="mb-4 p-3 rounded-full bg-orange-600/20 border border-orange-500/30">
-            <span className="text-2xl">💼</span>
+
+        {/* FAQ rápido */}
+        <div className="mt-16 max-w-4xl mx-auto">
+          <h3 className="text-2xl font-bold text-center mb-8 text-gray-900">Perguntas Frequentes</h3>
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
+              <h4 className="font-semibold mb-2 text-gray-900">Posso cancelar a qualquer momento?</h4>
+              <p className="text-sm text-gray-600">Sim, você pode cancelar seu plano a qualquer momento sem taxas ou multas.</p>
+            </div>
+            <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
+              <h4 className="font-semibold mb-2 text-gray-900">Como funciona a garantia?</h4>
+              <p className="text-sm text-gray-600">Oferecemos 7 dias de garantia total. Se não ficar satisfeito, devolvemos 100% do valor.</p>
+            </div>
+            <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
+              <h4 className="font-semibold mb-2 text-gray-900">Posso trocar de plano?</h4>
+              <p className="text-sm text-gray-600">Sim, você pode fazer upgrade ou downgrade do seu plano a qualquer momento.</p>
+            </div>
+            <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
+              <h4 className="font-semibold mb-2 text-gray-900">Preciso de conhecimentos técnicos?</h4>
+              <p className="text-sm text-gray-600">Não! Nossa plataforma é 100% no-code. Você configura tudo em minutos.</p>
+            </div>
           </div>
-          <h3 className="font-extrabold text-2xl mb-1 text-white">Starter</h3>
-          <p className="text-sm text-orange-300 mb-2">Para pequenos negócios</p>
-          <div className="text-4xl font-black text-white mb-1">
-            <span className="bg-gradient-to-r from-orange-400 to-orange-300 bg-clip-text text-transparent">
-              R${pricingConfig.starter[billingCycle].price}
-            </span>
-            <span className='text-base font-normal text-neutral-400'>/mês</span>
-          </div>
-          <p className="text-xs text-orange-400 h-8 text-center font-medium">
-            {getSubtitle('starter')}
-          </p>
-          {isCurrentPlan("starter") ? (
-            <Button 
-              className="w-full mb-6 mt-2 font-bold text-base bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg transition-all duration-300 hover:shadow-green-500/25" 
-              variant="default" 
-              onClick={openCustomerPortal}
-              disabled={loading !== null}
-              loading={loading === "manage"}
-            >
-              ⚙️ Gerenciar Assinatura
-            </Button>
-          ) : (
-            <Button 
-              className="w-full mb-6 mt-2 font-bold text-base bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg transition-all duration-300 hover:shadow-orange-500/25 hover:scale-105" 
-              variant="default" 
-              onClick={() => handleSelectPlan("starter")} 
-              disabled={loading !== null} 
-              loading={loading === "starter"}
-            >
-              💼 Começar Starter
-            </Button>
-          )}
-          <ul className="text-sm space-y-3 text-left text-neutral-200 w-full">
-            <li className="flex items-center gap-3"><span className="text-orange-400 text-lg">✓</span>2.500 mensagens/mês</li>
-            <li className="flex items-center gap-3"><span className="text-orange-400 text-lg">✓</span>1 agente IA</li>
-            <li className="flex items-center gap-3"><span className="text-orange-400 text-lg">✓</span>1 número WhatsApp conectado</li>
-            <li className="flex items-center gap-3"><span className="text-orange-400 text-lg">✓</span>Smart bot pause</li>
-            <li className="flex items-center gap-3"><span className="text-orange-400 text-lg">✓</span>Lead notification</li>
-            <li className="flex items-center gap-3"><span className="text-orange-400 text-lg">✓</span>Respostas de texto e áudio</li>
-            <li className="flex items-center gap-3"><span className="text-orange-400 text-lg">✓</span>Suporte prioritário</li>
-          </ul>
         </div>
       </div>
     </div>
