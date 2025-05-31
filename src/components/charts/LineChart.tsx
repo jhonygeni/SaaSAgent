@@ -27,19 +27,36 @@ interface LineChartProps {
 }
 
 export function LineChart({ data, title, lines, chartConfig }: LineChartProps) {
+  // Calculate the maximum value across all lines to set appropriate Y domain
+  const maxValue = Math.max(
+    ...data.flatMap(item => lines.map(line => item[line.dataKey] || 0))
+  );
+  const yDomainMax = Math.ceil(maxValue * 1.1); // Add 10% margin at the top
+
   return (
     <Card className="bg-card dark:bg-card border-border">
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-medium">{title}</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="h-[300px] w-full">
+        <div className="h-[400px] w-full">
           <ChartContainer config={chartConfig}>
             <ResponsiveContainer width="100%" height="100%">
-              <RechartsLineChart data={data}>
+              <RechartsLineChart 
+                data={data} 
+                margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="dia" className="text-xs" />
-                <YAxis className="text-xs" />
+                <XAxis 
+                  dataKey="dia" 
+                  className="text-xs"
+                  tick={{ fontSize: 12 }}
+                />
+                <YAxis 
+                  className="text-xs"
+                  domain={[0, yDomainMax]}
+                  tick={{ fontSize: 12 }}
+                />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Legend />
                 {lines.map((line) => (
@@ -49,8 +66,9 @@ export function LineChart({ data, title, lines, chartConfig }: LineChartProps) {
                     dataKey={line.dataKey} 
                     name={line.name}
                     stroke={line.color} 
-                    strokeWidth={2}
-                    dot={{ r: 4 }} 
+                    strokeWidth={3}
+                    dot={{ r: 5, strokeWidth: 2 }} 
+                    activeDot={{ r: 6, strokeWidth: 2 }}
                   />
                 ))}
               </RechartsLineChart>
