@@ -5,7 +5,6 @@ import { OverviewTab } from "./dashboard/OverviewTab";
 import { ComparisonTab } from "./dashboard/ComparisonTab";
 import { chartConfig } from "./dashboard/chartConfig";
 import { 
-  mockClientsData, 
   mockMessagesData, 
   mockComparisonData 
 } from "./dashboard/mockData";
@@ -13,15 +12,13 @@ import {
 export function DashboardAnalytics() {
   const [activeTab, setActiveTab] = useState<'overview' | 'comparison'>('overview');
   
-  // Calculate total clients across all channels for this week
-  const totalClients = mockClientsData.reduce((sum, day) => 
-    sum + day.WhatsApp + day.Instagram + day.Facebook + day.Site, 0
-  );
-  
   // Calculate total messages
   const totalMessages = mockMessagesData.reduce(
     (sum, day) => sum + day.enviadas + day.recebidas, 0
   );
+  
+  // Calculate estimate of total clients based on message patterns
+  const totalClients = Math.round(totalMessages * 0.3); // Approximation: 30% of messages lead to new clients
 
   return (
     <div className="space-y-6">
@@ -33,7 +30,6 @@ export function DashboardAnalytics() {
         <OverviewTab 
           totalClients={totalClients}
           totalMessages={totalMessages}
-          clientsData={mockClientsData}
           messagesData={mockMessagesData}
           chartConfig={chartConfig}
         />
