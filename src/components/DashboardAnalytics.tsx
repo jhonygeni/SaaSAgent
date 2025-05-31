@@ -5,17 +5,15 @@ import { OverviewTab } from "./dashboard/OverviewTab";
 import { ComparisonTab } from "./dashboard/ComparisonTab";
 import { chartConfig } from "./dashboard/chartConfig";
 import { 
-  mockMessagesData, 
   mockComparisonData 
 } from "./dashboard/mockData";
+import { useUsageStats } from "@/hooks/useUsageStats";
 
 export function DashboardAnalytics() {
   const [activeTab, setActiveTab] = useState<'overview' | 'comparison'>('overview');
   
-  // Calculate total messages
-  const totalMessages = mockMessagesData.reduce(
-    (sum, day) => sum + day.enviadas + day.recebidas, 0
-  );
+  // Buscar dados reais do Supabase
+  const { data: messagesData, totalMessages, isLoading, error } = useUsageStats();
   
   // Calculate estimate of total clients based on message patterns
   const totalClients = Math.round(totalMessages * 0.3); // Approximation: 30% of messages lead to new clients
@@ -30,8 +28,10 @@ export function DashboardAnalytics() {
         <OverviewTab 
           totalClients={totalClients}
           totalMessages={totalMessages}
-          messagesData={mockMessagesData}
+          messagesData={messagesData}
           chartConfig={chartConfig}
+          isLoading={isLoading}
+          error={error}
         />
       )}
 
