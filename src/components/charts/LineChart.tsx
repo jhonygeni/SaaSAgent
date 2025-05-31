@@ -32,10 +32,9 @@ export function LineChart({ data, title, lines, chartConfig }: LineChartProps) {
   const maxValue = Math.max(...allValues);
   const minValue = Math.min(...allValues);
   
-  // Add very robust padding to ensure lines never touch boundaries
-  // This should definitively solve overflow issues
+  // Add moderate padding to prevent overflow while maximizing chart space
   const range = maxValue - minValue;
-  const padding = Math.max(range * 0.5, 25); // 50% padding or minimum 25 units
+  const padding = Math.max(range * 0.15, 10); // Reduced to 15% padding or minimum 10 units
   const yDomainMin = 0; // Always start from 0 for clarity
   const yDomainMax = Math.ceil(maxValue + padding);
 
@@ -49,30 +48,28 @@ export function LineChart({ data, title, lines, chartConfig }: LineChartProps) {
       </CardHeader>
       <CardContent>
         <div 
-          className="h-[520px] w-full relative bg-background" 
+          className="h-[450px] w-full relative" 
           style={{ 
-            overflow: 'hidden',
-            border: '1px solid transparent',
-            borderRadius: '8px'
+            overflow: 'hidden'
           }}
         >
           <ChartContainer config={chartConfig}>
             <div 
               className="w-full h-full absolute inset-0" 
               style={{ 
-                padding: '25px',
+                padding: '12px',
                 boxSizing: 'border-box'
               }}
             >
               <ResponsiveContainer width="100%" height="100%">
                 <RechartsLineChart 
                   data={data} 
-                  margin={{ top: 70, right: 70, left: 70, bottom: 70 }}
+                  margin={{ top: 40, right: 30, left: 20, bottom: 40 }}
                   style={{ overflow: 'hidden' }}
                 >
                   <defs>
                     <clipPath id={`${chartId}-plot`}>
-                      <rect x="70" y="30" width="calc(100% - 140px)" height="calc(100% - 120px)" />
+                      <rect x="20" y="25" width="calc(100% - 50px)" height="calc(100% - 85px)" />
                     </clipPath>
                     <clipPath id={`${chartId}-full`}>
                       <rect x="0" y="0" width="100%" height="100%" />
@@ -90,7 +87,7 @@ export function LineChart({ data, title, lines, chartConfig }: LineChartProps) {
                     tick={{ fontSize: 11, fill: 'currentColor' }}
                     axisLine={{ stroke: 'currentColor', strokeWidth: 1 }}
                     tickLine={{ stroke: 'currentColor', strokeWidth: 1 }}
-                    height={70}
+                    height={40}
                     interval={0}
                   />
                   <YAxis 
@@ -99,11 +96,11 @@ export function LineChart({ data, title, lines, chartConfig }: LineChartProps) {
                     tick={{ fontSize: 11, fill: 'currentColor' }}
                     axisLine={{ stroke: 'currentColor', strokeWidth: 1 }}
                     tickLine={{ stroke: 'currentColor', strokeWidth: 1 }}
-                    width={70}
+                    width={20}
                     allowDataOverflow={false}
                     type="number"
                     scale="linear"
-                    tickCount={5}
+                    tickCount={6}
                   />
                   <ChartTooltip 
                     content={<ChartTooltipContent />}
@@ -111,9 +108,9 @@ export function LineChart({ data, title, lines, chartConfig }: LineChartProps) {
                   />
                   <Legend 
                     verticalAlign="top" 
-                    height={40}
+                    height={30}
                     iconType="line"
-                    wrapperStyle={{ paddingBottom: '20px' }}
+                    wrapperStyle={{ paddingBottom: '10px' }}
                   />
                   {lines.map((line) => (
                     <Line 
