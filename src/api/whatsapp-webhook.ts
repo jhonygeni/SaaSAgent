@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { sendWithRetries } from '@/lib/webhook-utils';
 import { checkMessageProcessing } from '@/lib/message-tracking';
+import { recordInboundMessage, recordOutboundMessage } from '@/lib/usage-stats-updater';
 
 // Tipos para melhor type safety
 interface WhatsAppWebhookData {
@@ -316,6 +317,28 @@ export async function processarWebhookWhatsApp(request: WhatsAppWebhookRequest):
 
     if (resultado.success) {
       console.log(`[WEBHOOK] Sucesso para instância ${request.instance} em ${duration}ms`);
+      
+      // 8. Atualizar estatísticas de uso em tempo real
+      try {
+        console.log(`📊 [WEBHOOK] Atualizando estatísticas para usuário ${usuario.id}...`);
+        
+        const statsResult = await recordInboundMessage(usuario.id, {
+          instanceId: instancia.id,
+          phoneNumber: telefoneRemetente,
+          messageId: messageId,
+          timestamp: new Date()
+        });
+        
+        if (statsResult.success) {
+          console.log(`✅ [WEBHOOK] Estatísticas atualizadas com sucesso:`, statsResult.data);
+        } else {
+          console.warn(`⚠️ [WEBHOOK] Erro ao atualizar estatísticas:`, statsResult.error);
+        }
+      } catch (error) {
+        console.error(`❌ [WEBHOOK] Erro crítico ao atualizar estatísticas:`, error);
+        // Não falhar o webhook por erro nas estatísticas
+      }
+      
       return { 
         success: true, 
         message: `Webhook processado com sucesso em ${duration}ms` 

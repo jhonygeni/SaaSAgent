@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateWebhookSignature, validateWebhookData, extractMessageFromWebhook } from '@/lib/webhook-utils';
 import { recordWebhookMetric } from '@/lib/webhook-monitor';
+import { recordInboundMessage } from '@/lib/usage-stats-updater';
 import { WEBHOOK_CONFIG } from '@/config/webhook';
+import { supabase } from '@/integrations/supabase/client';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -134,6 +136,9 @@ async function processIncomingMessage(message: {
     // 4. Executar automações baseadas no conteúdo
     await processAutomations(message);
     
+    // 5. Atualizar estatísticas de uso
+    await updateUsageStats(message);
+    
     console.log(`Mensagem ${message.type} de ${message.from} processada com sucesso`);
     
   } catch (error) {
@@ -158,6 +163,60 @@ async function forwardToAI(message: any) {
 async function notifyAgentsIfNeeded(message: any) {
   // TODO: Implementar notificação de agentes humanos
   console.log('👨‍💼 Verificando necessidade de notificar agentes...');
+}
+
+// Função auxiliar para atualizar estatísticas de uso
+async function updateUsageStats(message: any) {
+  try {
+    console.log('📊 Atualizando estatísticas de uso...');
+    
+    // Buscar usuário baseado no phoneNumberId ou instanceId
+    const instanceId = message.phoneNumberId || message.instanceId;
+    
+    if (!instanceId) {
+      console.log('🔍 Nenhum identificador de instância encontrado para atualização de estatísticas');
+      return;
+    }
+    
+    // Buscar dados da instância e usuário no Supabase
+    const { data: instanceData, error } = await supabase
+      .from('whatsapp_instances')
+      .select(`
+        id,
+        user_id,
+        name,
+        phone_number
+      `)
+      .or(`id.eq.${instanceId},name.eq.${instanceId},phone_number.eq.${instanceId}`)
+      .single();
+    
+    if (error || !instanceData) {
+      console.log(`🔍 Instância não encontrada para ID: ${instanceId}`, error);
+      return;
+    }
+    
+    const userId = instanceData.user_id;
+    
+    if (userId) {
+      const result = await recordInboundMessage(userId, {
+        instanceId: instanceData.id,
+        phoneNumber: message.from,
+        messageId: message.messageId,
+        timestamp: new Date(parseInt(message.timestamp) * 1000)
+      });
+      
+      if (result.success) {
+        console.log('✅ Estatísticas atualizadas com sucesso:', result.data);
+      } else {
+        console.warn('⚠️ Erro ao atualizar estatísticas:', result.error);
+      }
+    } else {
+      console.log('🔍 Usuário não identificado para a instância:', instanceId);
+    }
+  } catch (error) {
+    console.error('❌ Erro ao atualizar estatísticas:', error);
+    // Não falhar o processamento da mensagem por erro nas estatísticas
+  }
 }
 
 // Função auxiliar para processar automações
