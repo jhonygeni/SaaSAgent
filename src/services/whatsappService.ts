@@ -397,6 +397,22 @@ const whatsappService = {
   // Get connection status for an instance
   getConnectionState: async (instanceName: string): Promise<ConnectionStateResponse> => {
     try {
+      // Implementar rate limiting para evitar loops infinitos
+      const rateLimit = new Map<string, number>();
+      const now = Date.now();
+      const lastCall = rateLimit.get(instanceName) || 0;
+      const minInterval = 2000; // 2 segundos entre chamadas
+
+      if (now - lastCall < minInterval) {
+        console.log(`Rate limiting: Aguardando ${minInterval}ms entre chamadas para ${instanceName}`);
+        return {
+          state: 'throttled',
+          status: 'throttled',
+          message: 'Rate limiting em efeito'
+        };
+      }
+      rateLimit.set(instanceName, now);
+
       // First check Supabase for instance status
       try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -407,6 +423,16 @@ const whatsappService = {
             .eq('name', instanceName)
             .eq('user_id', user.id)
             .single();
+
+          // Se já estiver conectado, não precisa verificar novamente
+          if (instanceData?.status === 'connected') {
+            console.log(`Instance ${instanceName} já está conectada no Supabase`);
+            return {
+              state: 'connected',
+              status: 'connected',
+              message: 'Instance already connected'
+            };
+          }
 
           // If instance is marked as deleted in Supabase, return disconnected state immediately
           if (instanceData?.status === 'deleted') {
@@ -422,22 +448,6 @@ const whatsappService = {
         console.warn(`Could not verify instance status in Supabase: ${supabaseError}`);
       }
 
-      // Verificar se a instância existe primeiro
-      try {
-        const instanceInfo = await whatsappService.getInstanceInfo(instanceName);
-        if (!instanceInfo?.instance) {
-          console.log(`Instance ${instanceName} not found, returning disconnected state`);
-          return {
-            state: 'disconnected',
-            status: 'disconnected',
-            message: 'Instance not found'
-          };
-        }
-      } catch (infoError) {
-        console.warn(`Could not verify instance existence: ${infoError}`);
-        // Continue anyway to try the connection state endpoint
-      }
-
       // Tentar obter o estado da conexão
       const endpoint = `${EVOLUTION_API_URL}/instance/connectionState/${instanceName}`;
       console.log(`Getting connection state from endpoint: ${endpoint}`);
@@ -449,7 +459,8 @@ const whatsappService = {
             'Content-Type': 'application/json',
             'apikey': EVOLUTION_API_KEY,
             'Accept': 'application/json'
-          }
+          },
+          signal: AbortSignal.timeout(5000) // 5 segundos de timeout
         });
 
         if (!response.ok) {
@@ -488,42 +499,50 @@ const whatsappService = {
         console.log(`Connection state response for ${instanceName}:`, stateData);
         
         // Verificar se a instância está realmente conectada
-        if (stateData?.state === 'open' || stateData?.status === 'open' || 
-            stateData?.instance?.state === 'open' || stateData?.instance?.status === 'open') {
-          try {
-            const instanceInfo = await whatsappService.getInstanceInfo(instanceName);
-            if (instanceInfo?.instance?.status === 'connected' || instanceInfo?.instance?.isConnected === true) {
-              stateData.state = 'connected';
-              stateData.status = 'connected';
-              if (stateData.instance) {
-                stateData.instance.state = 'connected';
-                stateData.instance.status = 'connected';
-              }
+        const isConnected = stateData?.state === 'open' || 
+                          stateData?.status === 'open' || 
+                          stateData?.instance?.state === 'open' || 
+                          stateData?.instance?.status === 'open';
 
-              // Atualizar status no Supabase
-              try {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (user?.id) {
-                  await supabase
-                    .from('whatsapp_instances')
-                    .update({ 
-                      status: 'connected',
-                      updated_at: new Date().toISOString()
-                    })
-                    .eq('name', instanceName)
-                    .eq('user_id', user.id);
-                }
-              } catch (supabaseError) {
-                console.error("Failed to update instance status in Supabase:", supabaseError);
+        if (isConnected) {
+          // Atualizar status no Supabase apenas se estiver conectado
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user?.id) {
+              const { error } = await supabase
+                .from('whatsapp_instances')
+                .update({ 
+                  status: 'connected',
+                  updated_at: new Date().toISOString()
+                })
+                .eq('name', instanceName)
+                .eq('user_id', user.id);
+
+              if (error) {
+                console.error("Failed to update connected status in Supabase:", error);
               }
             }
-          } catch (infoError) {
-            console.error("Error getting additional instance info:", infoError);
+          } catch (supabaseError) {
+            console.error("Failed to update instance status in Supabase:", supabaseError);
           }
+
+          return {
+            ...stateData,
+            state: 'connected',
+            status: 'connected'
+          };
         }
         
         return stateData;
       } catch (error) {
+        if (error instanceof Error && error.name === 'TimeoutError') {
+          console.warn(`Timeout ao verificar estado da conexão para ${instanceName}`);
+          return {
+            state: 'timeout',
+            status: 'timeout',
+            message: 'Connection state check timed out'
+          };
+        }
         console.error(`Error getting connection state for ${instanceName}:`, error);
         throw error;
       }

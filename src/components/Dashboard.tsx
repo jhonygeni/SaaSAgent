@@ -22,7 +22,6 @@ import { useSearchParams } from "react-router-dom";
 import { useAgent } from "@/context/AgentContext";
 import { ErrorState } from "@/components/ErrorState";
 import { throttledSubscriptionCheck, resetSubscriptionCache } from "@/lib/subscription-throttle";
-import { WhatsAppStatusCard } from "@/components/WhatsAppStatusCard";
 
 export function Dashboard() {
   const { user, checkSubscriptionStatus, isLoading: isUserLoading } = useUser();
@@ -215,26 +214,18 @@ export function Dashboard() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    <div className="container mx-auto py-6 space-y-8">
       <DashboardHeader />
-      <div className="container mx-auto py-4 md:py-6 space-y-6 md:space-y-8 px-4 md:px-6">
+      <div className="space-y-6">
         {isLoading ? (
-          <div className="flex flex-col justify-center items-center h-64 gap-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-            <p className="text-muted-foreground text-sm">Carregando dashboard...</p>
-            {loadAttempts > 1 && (
-              <p className="text-xs text-muted-foreground">Tentativa {loadAttempts}...</p>
-            )}
+          <div className="flex items-center justify-center py-8">
+            <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : loadError && !forceShowContent ? (
-          // Error state - but only show if we're not forcing content
-          <div className="rounded-md bg-destructive/10 p-6">
-            <ErrorState 
-              errorMessage={loadError}
-              isAuthError={false}
-              onRetry={handleRetryLoading}
-            />
-          </div>
+          <ErrorState
+            errorMessage="Não foi possível carregar os dados do dashboard. Por favor, tente novamente."
+            onRetry={handleRetryLoading}
+          />
         ) : (
           <>
             {/* Show warning if there were errors but we're forcing content */}
@@ -264,11 +255,6 @@ export function Dashboard() {
                 <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Visão Geral</h2>
                 <DashboardAnalytics />
               </div>
-            </div>
-            
-            {/* WhatsApp Status Card */}
-            <div className="grid grid-cols-1 gap-4">
-              <WhatsAppStatusCard />
             </div>
             
             {/* Interested Clients Section */}
