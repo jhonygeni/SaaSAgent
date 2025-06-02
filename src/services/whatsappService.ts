@@ -696,59 +696,65 @@ const whatsappService = {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       };
+
+      // Try direct fetch first with proper endpoint
       try {
-        response = await apiClient.get<QrCodeResponse>(endpoint);
-      } catch (apiError) {
-        console.warn(`Failed to get QR code using apiClient: ${apiError}`);
+        const fullUrl = `${EVOLUTION_API_URL}/instance/connect/${instanceName}`;
+        console.log(`Trying direct QR code fetch from: ${fullUrl}`);
         
-        // Check if this was an authentication error (401/403)
-        if (apiError.name === 'AuthenticationError' || 
-            (apiError instanceof Error && 
-             (apiError.message.includes('401') || apiError.message.includes('403')))) {
-          throw new Error(
-            `Falha na autenticação com Evolution API. Seu token não foi aceito pelo servidor. ` +
-            `Status: ${apiError.status || 401}. ` +
-            `Por favor, verifique se o token está correto e ativo no painel Evolution API.`
-          );
+        const directResponse = await fetch(fullUrl, {
+          method: 'GET',
+          headers: authHeaders
+        });
+        
+        if (!directResponse.ok) {
+          if (directResponse.status === 401 || directResponse.status === 403) {
+            throw new Error(
+              `Falha na autenticação com Evolution API (${directResponse.status}). ` +
+              `Verifique seu token no painel Evolution API e atualize a variável de ambiente EVOLUTION_API_KEY.`
+            );
+          }
+          throw new Error(`Direct fetch failed: ${directResponse.status}`);
         }
         
-        // Try direct fetch with all auth headers at once
+        response = await directResponse.json();
+        console.log(`QR code fetched successfully from ${fullUrl}`);
+      } catch (directError) {
+        console.warn(`Direct fetch failed, trying fallback method:`, directError);
+        
+        // Fallback to alternative endpoint
         try {
-          console.log(`Trying comprehensive fetch approach for QR code`);
-          const directResponse = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
+          const fallbackUrl = `${EVOLUTION_API_URL}/instance/qrcode/${instanceName}`;
+          console.log(`Trying fallback QR code fetch from: ${fallbackUrl}`);
+          
+          const fallbackResponse = await fetch(fallbackUrl, {
             method: 'GET',
             headers: authHeaders
           });
           
-          if (!directResponse.ok) {
-            // Special handling for 401/403 errors
-            if (directResponse.status === 401 || directResponse.status === 403) {
-              throw new Error(
-                `Falha na autenticação com Evolution API (${directResponse.status}). ` +
-                `Seu token não é válido ou expirou. Verifique-o no painel Evolution e atualize a variável EVOLUTION_API_KEY.`
-              );
-            }
-            throw new Error(`Direct fetch failed: ${directResponse.status}`);
+          if (!fallbackResponse.ok) {
+            throw new Error(`Fallback fetch failed: ${fallbackResponse.status}`);
           }
           
-          response = await directResponse.json();
-        } catch (directError) {
-          console.warn(`All fetch attempts failed: ${directError}`);
-          throw new Error(`Failed to get QR code: ${directError.message}`);
+          response = await fallbackResponse.json();
+          console.log(`QR code fetched successfully from fallback URL`);
+        } catch (fallbackError) {
+          console.error(`All QR code fetch attempts failed:`, fallbackError);
+          throw new Error(`Failed to get QR code: ${fallbackError.message}`);
         }
       }
+      
       // Normalizar resposta do QR code
       response = whatsappService.normalizeQrCodeResponse(response);
-      console.log(`QR code response for ${instanceName}:`, JSON.stringify(response, null, 2));
       
       // Ensure we have a valid QR code in the response
       if (!response.qrcode && !response.base64 && !response.code) {
         console.warn(`No QR code found in response for ${instanceName}. Response keys:`, Object.keys(response));
+        throw new Error('QR code data not found in response');
       }
       
       // Save QR code to Supabase if possible
       try {
-        // Check if user is logged in
         const { data: { user } } = await supabase.auth.getUser();
         if (user?.id && (response.code || response.qrcode || response.base64)) {
           const qrCode = response.code || response.qrcode || response.base64;
@@ -780,8 +786,7 @@ const whatsappService = {
   // Get the QR code for an instance (OPTIMIZED VERSION with faster timeouts)
   getQrCodeOptimized: async (instanceName: string): Promise<QrCodeResponse> => {
     try {
-      const endpoint = formatEndpoint(ENDPOINTS.instanceConnectQR, { instanceName });
-      console.log(`[OPTIMIZED] Getting QR code using connect endpoint: ${endpoint}`);
+      console.log(`[OPTIMIZED] Getting QR code for instance: ${instanceName}`);
       
       const authHeaders = {
         'apikey': EVOLUTION_API_KEY,
@@ -791,62 +796,64 @@ const whatsappService = {
 
       let response;
       
-      // Use direct fetch with optimized timeout for QR code retrieval
+      // Try primary endpoint first with short timeout
       try {
-        console.log(`[OPTIMIZED] Fetching QR code with 5s timeout`);
-        const directResponse = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
+        const primaryUrl = `${EVOLUTION_API_URL}/instance/connect/${instanceName}`;
+        console.log(`[OPTIMIZED] Trying primary QR fetch from: ${primaryUrl}`);
+        
+        const primaryResponse = await fetch(primaryUrl, {
           method: 'GET',
           headers: authHeaders,
-          signal: AbortSignal.timeout(5000) // Optimized 5s timeout for QR code
+          signal: AbortSignal.timeout(5000) // 5s timeout
         });
         
-        if (!directResponse.ok) {
-          // Special handling for 401/403 errors
-          if (directResponse.status === 401 || directResponse.status === 403) {
-            throw new Error(
-              `Falha na autenticação com Evolution API (${directResponse.status}). ` +
-              `Seu token não é válido ou expirou. Verifique-o no painel Evolution e atualize a variável EVOLUTION_API_KEY.`
-            );
-          }
-          throw new Error(`Optimized fetch failed: ${directResponse.status} ${directResponse.statusText}`);
+        if (!primaryResponse.ok) {
+          throw new Error(`Primary fetch failed: ${primaryResponse.status}`);
         }
         
-        response = await directResponse.json();
-        console.log(`[OPTIMIZED] QR code retrieved successfully`);
-      } catch (fetchError) {
-        console.warn(`[OPTIMIZED] Fast fetch failed, falling back to apiClient:`, fetchError);
+        response = await primaryResponse.json();
+        console.log(`[OPTIMIZED] QR code fetched successfully from primary URL`);
+      } catch (primaryError) {
+        console.warn(`[OPTIMIZED] Primary fetch failed, trying fallback:`, primaryError);
         
-        // Fallback to apiClient with very short timeout
+        // Try fallback endpoint with shorter timeout
         try {
-          response = await Promise.race([
-            apiClient.get<QrCodeResponse>(endpoint),
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Timeout')), 3000)
-            )
-          ]);
-        } catch (apiError) {
-          console.error(`[OPTIMIZED] All QR code fetch attempts failed:`, apiError);
-          throw new Error(`Failed to get QR code: ${fetchError.message || apiError.message}`);
+          const fallbackUrl = `${EVOLUTION_API_URL}/instance/qrcode/${instanceName}`;
+          console.log(`[OPTIMIZED] Trying fallback QR fetch from: ${fallbackUrl}`);
+          
+          const fallbackResponse = await fetch(fallbackUrl, {
+            method: 'GET',
+            headers: authHeaders,
+            signal: AbortSignal.timeout(3000) // 3s timeout for fallback
+          });
+          
+          if (!fallbackResponse.ok) {
+            throw new Error(`Fallback fetch failed: ${fallbackResponse.status}`);
+          }
+          
+          response = await fallbackResponse.json();
+          console.log(`[OPTIMIZED] QR code fetched successfully from fallback URL`);
+        } catch (fallbackError) {
+          console.error(`[OPTIMIZED] All QR code fetch attempts failed:`, fallbackError);
+          throw new Error(`Failed to get QR code: ${fallbackError.message}`);
         }
       }
       
-      // Normalizar resposta do QR code
+      // Normalize and validate response
       response = whatsappService.normalizeQrCodeResponse(response);
-      console.log(`[OPTIMIZED] QR code response for ${instanceName}: Success`);
       
-      // Ensure we have a valid QR code in the response
       if (!response.qrcode && !response.base64 && !response.code) {
-        console.warn(`[OPTIMIZED] No QR code found in response for ${instanceName}. Response keys:`, Object.keys(response));
+        throw new Error('QR code data not found in response');
       }
       
-      // Save QR code to Supabase in background (non-blocking)
+      // Save to Supabase in background (non-blocking)
       setTimeout(async () => {
         try {
           const { data: { user } } = await supabase.auth.getUser();
           if (user?.id && (response.code || response.qrcode || response.base64)) {
             const qrCode = response.code || response.qrcode || response.base64;
             
-            const { error } = await supabase
+            await supabase
               .from('whatsapp_instances')
               .update({ 
                 qr_code: qrCode,
@@ -854,15 +861,11 @@ const whatsappService = {
               })
               .eq('name', instanceName)
               .eq('user_id', user.id);
-              
-            if (error) {
-              console.error("[OPTIMIZED] Error saving QR code to Supabase:", error);
-            }
           }
         } catch (saveError) {
           console.error("[OPTIMIZED] Failed to save QR code to Supabase:", saveError);
         }
-      }, 0); // Execute immediately but non-blocking
+      }, 0);
       
       return response;
     } catch (error) {
