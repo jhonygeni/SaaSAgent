@@ -397,61 +397,113 @@ const whatsappService = {
   // Get connection status for an instance
   getConnectionState: async (instanceName: string): Promise<ConnectionStateResponse> => {
     try {
-      const endpoint = formatEndpoint(ENDPOINTS.connectionState, { instanceName });
+      // Verificar se a instância existe primeiro
+      try {
+        const instanceInfo = await whatsappService.getInstanceInfo(instanceName);
+        if (!instanceInfo?.instance) {
+          console.log(`Instance ${instanceName} not found, returning disconnected state`);
+          return {
+            state: 'disconnected',
+            status: 'disconnected',
+            message: 'Instance not found'
+          };
+        }
+      } catch (infoError) {
+        console.warn(`Could not verify instance existence: ${infoError}`);
+        // Continue anyway to try the connection state endpoint
+      }
+
+      // Tentar obter o estado da conexão
+      const endpoint = `${EVOLUTION_API_URL}/instance/connectionState/${instanceName}`;
       console.log(`Getting connection state from endpoint: ${endpoint}`);
       
-      const response = await apiClient.get<ConnectionStateResponse>(endpoint);
-      console.log(`Connection state response for ${instanceName}:`, response);
-      
-      // Verificar se a instância está realmente conectada através de uma chamada adicional
-      if (response?.state === 'open' || response?.status === 'open' || 
-          response?.instance?.state === 'open' || response?.instance?.status === 'open') {
-        try {
-          const instanceInfo = await apiClient.get(formatEndpoint(ENDPOINTS.instanceInfo, { instanceName }));
-          if (instanceInfo?.instance?.status === 'connected' || instanceInfo?.instance?.isConnected === true) {
-            response.state = 'connected';
-            response.status = 'connected';
-            if (response.instance) {
-              response.instance.state = 'connected';
-              response.instance.status = 'connected';
-            }
-          }
-        } catch (infoError) {
-          console.error("Error getting additional instance info:", infoError);
-        }
-      }
-      
-      // Store connection state in Supabase if possible
       try {
-        // Check if user is logged in
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user?.id) {
-          // Extract state from any of the possible response formats
-          const state = response?.state || 
-                      (response?.instance?.state) || 
-                      response?.status || 
-                      "unknown";
-                      
-          const { error } = await supabase
-            .from('whatsapp_instances')
-            .update({ 
-              status: state,
-              updated_at: new Date().toISOString()
-            })
-            .eq('name', instanceName)
-            .eq('user_id', user.id);
+        const response = await fetch(endpoint, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': EVOLUTION_API_KEY,
+            'Accept': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          // Se a instância não existe, retornar estado desconectado
+          if (response.status === 404) {
+            console.log(`Instance ${instanceName} not found in connectionState check`);
             
-          if (error) {
-            console.error("Error updating connection state in Supabase:", error);
+            // Atualizar Supabase para refletir o estado
+            try {
+              const { data: { user } } = await supabase.auth.getUser();
+              if (user?.id) {
+                await supabase
+                  .from('whatsapp_instances')
+                  .update({ 
+                    status: 'disconnected',
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('name', instanceName)
+                  .eq('user_id', user.id);
+              }
+            } catch (supabaseError) {
+              console.error("Failed to update instance status in Supabase:", supabaseError);
+            }
+
+            return {
+              state: 'disconnected',
+              status: 'disconnected',
+              message: 'Instance not found'
+            };
+          }
+
+          throw new Error(`API error: ${response.status} ${response.statusText}`);
+        }
+
+        const stateData = await response.json();
+        console.log(`Connection state response for ${instanceName}:`, stateData);
+        
+        // Verificar se a instância está realmente conectada
+        if (stateData?.state === 'open' || stateData?.status === 'open' || 
+            stateData?.instance?.state === 'open' || stateData?.instance?.status === 'open') {
+          try {
+            const instanceInfo = await whatsappService.getInstanceInfo(instanceName);
+            if (instanceInfo?.instance?.status === 'connected' || instanceInfo?.instance?.isConnected === true) {
+              stateData.state = 'connected';
+              stateData.status = 'connected';
+              if (stateData.instance) {
+                stateData.instance.state = 'connected';
+                stateData.instance.status = 'connected';
+              }
+
+              // Atualizar status no Supabase
+              try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user?.id) {
+                  await supabase
+                    .from('whatsapp_instances')
+                    .update({ 
+                      status: 'connected',
+                      updated_at: new Date().toISOString()
+                    })
+                    .eq('name', instanceName)
+                    .eq('user_id', user.id);
+                }
+              } catch (supabaseError) {
+                console.error("Failed to update instance status in Supabase:", supabaseError);
+              }
+            }
+          } catch (infoError) {
+            console.error("Error getting additional instance info:", infoError);
           }
         }
-      } catch (saveError) {
-        console.error("Failed to save connection state to Supabase:", saveError);
+        
+        return stateData;
+      } catch (error) {
+        console.error(`Error getting connection state for ${instanceName}:`, error);
+        throw error;
       }
-      
-      return response;
     } catch (error) {
-      console.error(`Error getting connection state for ${instanceName}:`, error);
+      console.error(`Error in getConnectionState for ${instanceName}:`, error);
       throw error;
     }
   },
@@ -464,7 +516,6 @@ const whatsappService = {
       const endpoint = ENDPOINTS.instanceCreate;
       const instanceData: WhatsAppInstanceRequest = {
         instanceName,
-        // IMPORTANTE: Use exatamente o valor correto para o parâmetro de integração
         integration: "WHATSAPP-BAILEYS", 
         token: userId || "default_user",
         qrcode: true,
@@ -476,31 +527,12 @@ const whatsappService = {
       };
       
       console.log("Creating instance with exact data:", JSON.stringify(instanceData, null, 2));
-      console.log("API URL:", EVOLUTION_API_URL);
-      console.log("API Key (first 4 chars):", EVOLUTION_API_KEY ? EVOLUTION_API_KEY.substring(0, 4) + "..." : "Missing");
       
-      // Try to create instance using corrected Evolution API v2 authentication
       let response: WhatsAppInstanceResponse;
       
-      // Primary attempt with apiClient (uses correct 'Authorization: Bearer' header)
       try {
-        response = await apiClient.post<WhatsAppInstanceResponse>(endpoint, instanceData);
-      } catch (apiError) {
-        console.warn("API client post failed, trying direct fetch:", apiError);
-        
-        // Check if this was an authentication error (401/403)
-        if (apiError.name === 'AuthenticationError' || 
-            (apiError instanceof Error && 
-             (apiError.message.includes('401') || apiError.message.includes('403')))) {
-          throw new Error(
-            `Falha na autenticação com Evolution API. Verifique se seu token está correto e ativo no painel Evolution API. ` +
-            `Status: ${apiError.status || 401}. ` +
-            `Detalhes: Por favor, verifique a variável de ambiente EVOLUTION_API_KEY.`
-          );
-        }
-        
-        // Fallback: Direct fetch with 'apikey' header (Evolution API v2 standard)
-        const directResponse = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
+        // Criar instância usando fetch direto
+        const createResponse = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -510,37 +542,95 @@ const whatsappService = {
           body: JSON.stringify(instanceData)
         });
         
-        if (!directResponse.ok) {
-          // Special handling for 401/403 errors
-          if (directResponse.status === 401 || directResponse.status === 403) {
+        if (!createResponse.ok) {
+          if (createResponse.status === 401 || createResponse.status === 403) {
             throw new Error(
-              `Falha na autenticação com Evolution API (${directResponse.status}). ` +
+              `Falha na autenticação com Evolution API (${createResponse.status}). ` +
               `Verifique seu token no painel Evolution API e atualize a variável de ambiente EVOLUTION_API_KEY.`
             );
           }
-          throw new Error(`API error: ${directResponse.status} ${directResponse.statusText}`);
+          throw new Error(`API error: ${createResponse.status} ${createResponse.statusText}`);
         }
         
-        response = await directResponse.json();
-      }
-      
-      // ETAPA ADICIONAL: Configurar automaticamente as configurações da instância (NON-BLOCKING)
-      // Execute webhook configuration in background to not delay QR code display
-      whatsappService.configureInstanceSettingsNonBlocking(instanceName)
-        .then(() => {
-          console.log(`Instance settings configured successfully for: ${instanceName}`);
-        })
-        .catch((settingsError) => {
-          console.warn(`Failed to configure instance settings for ${instanceName}:`, settingsError);
-          // Não falhar a criação da instância se as configurações falharem
-          console.log("Instance creation was successful, but settings configuration failed. The instance will work with default settings.");
+        response = await createResponse.json();
+        console.log("Instance created successfully:", response);
+
+        // Aplicar configurações imediatamente após a criação
+        console.log("Applying instance settings...");
+        const settingsUrl = `${EVOLUTION_API_URL}/settings/set/${instanceName}`;
+        const instanceSettings = {
+          rejectCall: false, // Não rejeitar chamadas
+          msgCall: "", // Sem mensagem de rejeição
+          groupsIgnore: true,
+          alwaysOnline: true,
+          readMessages: true,
+          readStatus: true,
+          syncFullHistory: false // Não sincronizar histórico
+        };
+
+        const settingsResponse = await fetch(settingsUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': EVOLUTION_API_KEY,
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(instanceSettings)
         });
 
-      // Store instance data in Supabase if possible
+        if (!settingsResponse.ok) {
+          console.error(`Failed to apply settings: ${settingsResponse.status} ${settingsResponse.statusText}`);
+        } else {
+          console.log("Settings applied successfully");
+        }
+
+        // Configurar webhook
+        console.log("Configuring webhook...");
+        const webhookUrl = `${EVOLUTION_API_URL}/webhook/set/${instanceName}`;
+        const webhookConfig = {
+          webhook: {
+            url: "https://webhooksaas.geni.chat/webhook/principal",
+            enabled: true,
+            events: ["MESSAGES_UPSERT"]
+          }
+        };
+
+        const webhookResponse = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': EVOLUTION_API_KEY,
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(webhookConfig)
+        });
+
+        if (!webhookResponse.ok) {
+          console.error(`Failed to configure webhook: ${webhookResponse.status} ${webhookResponse.statusText}`);
+        } else {
+          console.log("Webhook configured successfully");
+        }
+
+      } catch (error) {
+        console.error("Error during instance creation or configuration:", error);
+        throw error;
+      }
+
+      // Store instance data in Supabase
       if (userId) {
         try {
-          // Convert the complex object to a JSON-compatible structure
-          const sessionData = JSON.parse(JSON.stringify(response));
+          const sessionData = {
+            ...response,
+            settings: {
+              rejectCall: false,
+              msgCall: "",
+              groupsIgnore: true,
+              alwaysOnline: true,
+              readMessages: true,
+              readStatus: true,
+              syncFullHistory: false
+            }
+          };
           
           const { error } = await supabase
             .from('whatsapp_instances')
@@ -550,6 +640,7 @@ const whatsappService = {
               status: 'created',
               evolution_instance_id: response.instance?.instanceId || null,
               session_data: sessionData,
+              settings: sessionData.settings,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
             });
