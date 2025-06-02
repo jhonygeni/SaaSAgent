@@ -67,7 +67,7 @@ const whatsappService = {
    */
   configureInstanceSettings: async (instanceName: string): Promise<any> => {
     try {
-      console.log(`Configuring instance settings for: ${instanceName}`);
+      console.log(`Configurando instance settings for: ${instanceName}`);
       
       if (USE_MOCK_DATA) {
         console.warn("MOCK MODE IS ACTIVE - This should never be used in production!");
@@ -75,49 +75,33 @@ const whatsappService = {
           status: "success",
           message: "Instance settings configured successfully (mock)",
           settings: {
-            rejectCall: true,
+            rejectCall: false,
             alwaysOnline: true,
             readMessages: true
           }
         };
       }
 
-      const endpoint = formatEndpoint(ENDPOINTS.settingsConfig, { instanceName });
-      console.log("Instance settings configuration URL:", `${apiClient.baseUrl}${endpoint}`);
+      // Usar o endpoint correto da Evolution API
+      const settingsUrl = `${EVOLUTION_API_URL}/settings/set/${instanceName}`;
+      console.log("Instance settings configuration URL:", settingsUrl);
       
-      // Configurações recomendadas para todas as instâncias
+      // Configurações padrão recomendadas para todas as instâncias
       const instanceSettings = {
-        rejectCall: true,
-        msgCall: "Chamadas não são aceitas neste número. Por favor, envie uma mensagem de texto.",
+        rejectCall: false,
+        msgCall: "",
         groupsIgnore: true,
         alwaysOnline: true,
         readMessages: true,
         readStatus: true,
-        syncFullHistory: true
+        syncFullHistory: false
       };
 
       let response;
       
-      // Primary attempt with apiClient
       try {
-        response = await apiClient.post(endpoint, instanceSettings);
-        console.log("Instance settings configuration successful via apiClient:", response);
-      } catch (apiError) {
-        console.warn("API client post failed for settings, trying direct fetch:", apiError);
-        
-        // Check if this was an authentication error (401/403)
-        if (apiError.name === 'AuthenticationError' || 
-            (apiError instanceof Error && 
-             (apiError.message.includes('401') || apiError.message.includes('403')))) {
-          throw new Error(
-            `Falha na autenticação com Evolution API ao configurar settings. Verifique se seu token está correto e ativo no painel Evolution API. ` +
-            `Status: ${apiError.status || 401}. ` +
-            `Detalhes: Por favor, verifique a variável de ambiente EVOLUTION_API_KEY.`
-          );
-        }
-        
-        // Fallback: Direct fetch with 'apikey' header (Evolution API v2 standard)
-        const directResponse = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
+        // Tentar com fetch direto primeiro
+        const directResponse = await fetch(settingsUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -128,10 +112,10 @@ const whatsappService = {
         });
         
         if (!directResponse.ok) {
-          // Special handling for 401/403 errors
+          // Tratamento especial para erros de autenticação
           if (directResponse.status === 401 || directResponse.status === 403) {
             throw new Error(
-              `Falha na autenticação com Evolution API (${directResponse.status}) ao configurar settings. ` +
+              `Falha na autenticação com Evolution API (${directResponse.status}). ` +
               `Verifique seu token no painel Evolution API e atualize a variável de ambiente EVOLUTION_API_KEY.`
             );
           }
@@ -139,7 +123,31 @@ const whatsappService = {
         }
         
         response = await directResponse.json();
-        console.log("Instance settings configuration successful via direct fetch:", response);
+        console.log("Instance settings configuration successful:", response);
+      } catch (fetchError) {
+        console.error("Direct fetch failed:", fetchError);
+        throw fetchError;
+      }
+      
+      // Atualizar status no Supabase
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id) {
+          const { error: supabaseError } = await supabase
+            .from('whatsapp_instances')
+            .update({ 
+              settings: instanceSettings,
+              updated_at: new Date().toISOString()
+            })
+            .eq('name', instanceName)
+            .eq('user_id', user.id);
+            
+          if (supabaseError) {
+            console.error("Error saving settings to Supabase:", supabaseError);
+          }
+        }
+      } catch (supabaseError) {
+        console.error("Failed to save settings to Supabase:", supabaseError);
       }
       
       return response;
@@ -155,36 +163,33 @@ const whatsappService = {
    * This version uses optimized timeouts and fire-and-forget pattern
    */
   configureInstanceSettingsNonBlocking: async (instanceName: string): Promise<void> => {
-    // Use fire-and-forget pattern - don't wait for completion
     setTimeout(async () => {
       try {
-        console.log(`[NON-BLOCKING] Configuring instance settings for: ${instanceName}`);
+        console.log(`[NON-BLOCKING] Configurando instance settings for: ${instanceName}`);
         
         if (USE_MOCK_DATA) {
           console.warn("MOCK MODE IS ACTIVE - Non-blocking settings configuration (mock)");
           return;
         }
 
-        const endpoint = formatEndpoint(ENDPOINTS.settingsConfig, { instanceName });
-        console.log(`[NON-BLOCKING] Instance settings URL: ${apiClient.baseUrl}${endpoint}`);
+        // Usar o endpoint correto da Evolution API
+        const settingsUrl = `${EVOLUTION_API_URL}/settings/set/${instanceName}`;
+        console.log(`[NON-BLOCKING] Instance settings URL: ${settingsUrl}`);
         
-        // Same settings as blocking version
+        // Mesmas configurações da versão bloqueante
         const instanceSettings = {
-          rejectCall: true,
-          msgCall: "Chamadas não são aceitas neste número. Por favor, envie uma mensagem de texto.",
+          rejectCall: false,
+          msgCall: "",
           groupsIgnore: true,
           alwaysOnline: true,
           readMessages: true,
           readStatus: true,
-          syncFullHistory: true
+          syncFullHistory: false
         };
-
-        // Use optimized timeouts for non-blocking calls
-        const { sendWebhookNonBlocking } = await import('../lib/webhook-utils');
         
-        // Convert to direct HTTP call with non-blocking pattern
+        // Usar fetch direto com timeout curto para não bloquear
         try {
-          const response = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
+          const response = await fetch(settingsUrl, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -192,23 +197,34 @@ const whatsappService = {
               'Accept': 'application/json'
             },
             body: JSON.stringify(instanceSettings),
-            signal: AbortSignal.timeout(2000) // Short timeout for non-blocking
+            signal: AbortSignal.timeout(5000) // 5 segundos de timeout
           });
           
           if (response.ok) {
             console.log(`[NON-BLOCKING] Instance settings configured successfully for: ${instanceName}`);
+            
+            // Atualizar Supabase em background
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user?.id) {
+              await supabase
+                .from('whatsapp_instances')
+                .update({ 
+                  settings: instanceSettings,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('name', instanceName)
+                .eq('user_id', user.id);
+            }
           } else {
             console.warn(`[NON-BLOCKING] Settings configuration failed with status: ${response.status}`);
           }
         } catch (error) {
           console.warn(`[NON-BLOCKING] Failed to configure instance settings for ${instanceName}:`, error);
-          // Silent failure - don't throw in non-blocking mode
         }
       } catch (error) {
         console.warn(`[NON-BLOCKING] Exception in settings configuration for ${instanceName}:`, error);
-        // Silent failure - don't throw in non-blocking mode
       }
-    }, 100); // Small delay to ensure this doesn't block the main flow
+    }, 100);
   },
 
   /**

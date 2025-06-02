@@ -36,15 +36,15 @@ export const PREVENT_CREDIT_CONSUMPTION_ON_FAILURE = true; // Prevent API credit
 export const ENDPOINTS = {
   // Instance management endpoints
   instanceCreate: "/instance/create", // Create new instance (POST)
-  instanceConnectQR: "/instance/connect/{instanceName}", // Connect and get QR code (GET)
-  instanceInfo: "/instance/info/{instanceName}", // Get instance info (GET)
+  instanceConnectQR: "/instance/connect", // Connect and get QR code (GET)
+  instanceInfo: "/instance/info", // Get instance info (GET)
   instanceFetch: "/instance/fetchInstances", // Fetch all instances (GET)
-  connectionState: "/instance/connectionState/{instanceName}", // Check connection status (GET)
-  instanceDelete: "/instance/delete/{instanceName}", // Delete instance (DELETE)
+  connectionState: "/instance/connectionState", // Check connection status (GET)
+  instanceDelete: "/instance/delete", // Delete instance (DELETE)
   
   // Webhook configuration
-  webhookSet: "/webhook/set/{instanceName}", // Set webhook URL (POST)
-  webhookFind: "/webhook/find/{instanceName}", // Get webhook info (GET)
+  webhookSet: "/webhook/set", // Set webhook URL (POST)
+  webhookFind: "/webhook/find", // Get webhook info (GET)
   
   // Message endpoints
   sendText: "/message/sendText/{instanceName}", // Send text message (POST)
@@ -58,6 +58,13 @@ export const ENDPOINTS = {
   // Status and health
   status: "/", // API status and version (GET)
   manager: "/manager", // Manager endpoints (GET)
+  
+  // New endpoints
+  settingsSet: "/settings/set",
+  fetchInstances: "/instance/fetchInstances",
+  instanceLogout: "/instance/logout",
+  webhookConfig: "/webhook/set",
+  settingsConfig: "/settings/set",
 };
 
 // ===============================
@@ -74,13 +81,13 @@ export const WEBHOOK_CONFIG = {
 // DEFAULT INSTANCE SETTINGS
 // ===============================
 export const DEFAULT_INSTANCE_SETTINGS = {
-  reject_call: false, // Accept incoming calls
-  msg_call: "", // Message for rejected calls
-  groups_ignore: true, // Ignore group messages by default
-  always_online: false, // Don't force always online status
-  read_messages: false, // Don't auto-read messages
-  read_status: false, // Don't auto-read status updates
-  sync_full_history: true, // Sync full message history
+  reject_call: false, // Não rejeitar chamadas
+  msg_call: "", // Sem mensagem de rejeição
+  groups_ignore: true, // Ignorar mensagens de grupo por padrão
+  always_online: true, // Manter status sempre online
+  read_messages: true, // Marcar mensagens como lidas
+  read_status: true, // Marcar status como lido
+  sync_full_history: false, // Não sincronizar histórico completo
 };
 
 // ===============================
