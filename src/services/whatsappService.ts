@@ -387,6 +387,24 @@ const whatsappService = {
       const response = await apiClient.get<ConnectionStateResponse>(endpoint);
       console.log(`Connection state response for ${instanceName}:`, response);
       
+      // Verificar se a instância está realmente conectada através de uma chamada adicional
+      if (response?.state === 'open' || response?.status === 'open' || 
+          response?.instance?.state === 'open' || response?.instance?.status === 'open') {
+        try {
+          const instanceInfo = await apiClient.get(formatEndpoint(ENDPOINTS.instanceInfo, { instanceName }));
+          if (instanceInfo?.instance?.status === 'connected' || instanceInfo?.instance?.isConnected === true) {
+            response.state = 'connected';
+            response.status = 'connected';
+            if (response.instance) {
+              response.instance.state = 'connected';
+              response.instance.status = 'connected';
+            }
+          }
+        } catch (infoError) {
+          console.error("Error getting additional instance info:", infoError);
+        }
+      }
+      
       // Store connection state in Supabase if possible
       try {
         // Check if user is logged in

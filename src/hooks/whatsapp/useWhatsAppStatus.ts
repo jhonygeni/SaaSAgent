@@ -1,10 +1,12 @@
-
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { ConnectionStatus } from '@/hooks/whatsapp/types';
 import whatsappService from '@/services/whatsappService';
 import { useToast } from '../use-toast';
 import { USE_MOCK_DATA, MAX_POLLING_ATTEMPTS, STATUS_POLLING_INTERVAL_MS, CONSECUTIVE_SUCCESS_THRESHOLD } from '@/constants/api';
 import { ConnectionStateResponse, QrCodeResponse, InstanceInfo } from '@/services/whatsapp/types';
+import { supabase } from '@/integrations/supabase/client';
+import { useUser } from '@/context/UserContext';
+import { UsageStatsData } from '@/hooks/useUsageStats';
 
 /**
  * Hook for managing WhatsApp connection status
@@ -31,6 +33,14 @@ export function useWhatsAppStatus() {
   const pollingInterval = useRef<NodeJS.Timeout | null>(null);
   const consecutiveSuccessCount = useRef(0);
   const currentInstanceNameRef = useRef<string | null>(null);
+  
+  const { user } = useUser();
+  const [data, setData] = useState<UsageStatsData[]>([]);
+  const [totalMessages, setTotalMessages] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [isConnected, setIsConnected] = useState<boolean>(false);
   
   // Cleanup polling on unmount
   useEffect(() => {
@@ -349,6 +359,171 @@ export function useWhatsAppStatus() {
     return pollingInterval.current;
   }, [clearPolling, connectionStatus, showSuccessToast, startConnectionTimer, stopConnectionTimer, updateDebugInfo]);
 
+  // Função para verificar o estado atual da conexão
+  const checkCurrentConnectionState = useCallback(async (instanceName: string) => {
+    try {
+      const stateData = await whatsappService.getConnectionState(instanceName);
+      const state = stateData?.state || 
+                   stateData?.status || 
+                   stateData?.instance?.state || 
+                   stateData?.instance?.status;
+                   
+      if (state === 'connected' || state === 'open') {
+        setIsConnected(true);
+        return true;
+      } else {
+        setIsConnected(false);
+        return false;
+      }
+    } catch (error) {
+      console.error('Erro ao verificar estado da conexão:', error);
+      setIsConnected(false);
+      return false;
+    }
+  }, []);
+
+  // Função para buscar dados iniciais
+  const fetchInitialData = useCallback(async () => {
+    if (!user?.id) return;
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      console.log('📊 [REALTIME] Carregando dados iniciais...');
+
+      // Primeiro, buscar instâncias do usuário para verificar conexão
+      const { data: instances } = await supabase
+        .from('whatsapp_instances')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'connected')
+        .single();
+
+      if (instances) {
+        await checkCurrentConnectionState(instances.name);
+      }
+
+      const today = new Date();
+      const sevenDaysAgo = new Date(today);
+      sevenDaysAgo.setDate(today.getDate() - 6);
+
+      const { data: usageData, error: usageError } = await supabase
+        .from('usage_stats')
+        .select('date, messages_sent, messages_received')
+        .eq('user_id', user.id)
+        .gte('date', sevenDaysAgo.toISOString().split('T')[0])
+        .lte('date', today.toISOString().split('T')[0])
+        .order('date', { ascending: true });
+
+      if (usageError) {
+        console.error('❌ [REALTIME] Erro ao carregar dados:', usageError);
+        setError(usageError.message);
+        return;
+      }
+
+      // Processar dados para os últimos 7 dias
+      const last7Days: string[] = [];
+      const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+      
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(today.getDate() - i);
+        last7Days.push(date.toISOString().split('T')[0]);
+      }
+
+      const processedData: UsageStatsData[] = last7Days.map((dateString) => {
+        const date = new Date(dateString);
+        const dayName = dayNames[date.getDay()];
+        const realData = usageData?.find(item => item.date === dateString);
+        
+        return {
+          dia: dayName,
+          enviadas: realData?.messages_sent || 0,
+          recebidas: realData?.messages_received || 0,
+          date: dateString
+        };
+      });
+
+      setData(processedData);
+      
+      const total = processedData.reduce(
+        (sum, day) => sum + day.enviadas + day.recebidas, 
+        0
+      );
+      setTotalMessages(total);
+      setLastUpdate(new Date());
+
+      console.log('✅ [REALTIME] Dados iniciais carregados:', {
+        dias: processedData.length,
+        totalMensagens: total
+      });
+
+    } catch (err) {
+      console.error('❌ [REALTIME] Erro geral:', err);
+      setError(err instanceof Error ? err.message : 'Erro desconhecido');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user?.id, checkCurrentConnectionState]);
+
+  // Configurar subscription para atualizações em tempo real
+  useEffect(() => {
+    if (!user?.id) return;
+
+    console.log('🔌 [REALTIME] Configurando subscription para atualizações...');
+
+    // Primeiro, buscar instância atual
+    const fetchCurrentInstance = async () => {
+      const { data: instance } = await supabase
+        .from('whatsapp_instances')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'connected')
+        .single();
+
+      if (instance) {
+        await checkCurrentConnectionState(instance.name);
+      }
+    };
+
+    fetchCurrentInstance();
+
+    // Inscrever-se para atualizações na tabela usage_stats
+    const subscription = supabase
+      .channel('usage_stats_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Escutar todos os eventos (INSERT, UPDATE, DELETE)
+          schema: 'public',
+          table: 'usage_stats',
+          filter: `user_id=eq.${user.id}` // Filtrar apenas para o usuário atual
+        },
+        async (payload) => {
+          console.log('📨 [REALTIME] Recebida atualização:', payload);
+          setLastUpdate(new Date());
+          
+          // Recarregar dados após qualquer mudança
+          await fetchInitialData();
+        }
+      )
+      .subscribe((status) => {
+        console.log('🔌 [REALTIME] Status da subscription:', status);
+        setIsConnected(status === 'SUBSCRIBED');
+      });
+
+    // Carregar dados iniciais
+    fetchInitialData();
+
+    // Cleanup
+    return () => {
+      console.log('🔌 [REALTIME] Limpando subscription...');
+      subscription.unsubscribe();
+      setIsConnected(false);
+    };
+  }, [user?.id, fetchInitialData, checkCurrentConnectionState]);
+
   return {
     connectionStatus,
     setConnectionStatus,
@@ -370,6 +545,12 @@ export function useWhatsAppStatus() {
     startStatusPolling,
     startConnectionTimer,
     stopConnectionTimer,
-    timeTaken
+    timeTaken,
+    data,
+    totalMessages,
+    isLoading,
+    error,
+    lastUpdate,
+    isConnected
   };
 }

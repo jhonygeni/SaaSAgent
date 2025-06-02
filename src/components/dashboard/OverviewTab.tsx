@@ -1,4 +1,3 @@
-
 import { StatsOverview } from "@/components/charts/StatsOverview";
 import { LineChart } from "@/components/charts/LineChart";
 import { MessageUsageCard } from "@/components/charts/MessageUsageCard";
@@ -6,6 +5,7 @@ import { useUser } from "@/context/UserContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertCircle, RefreshCw, Database } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useRealTimeUsageStats } from "@/hooks/useRealTimeUsageStats";
 
 interface OverviewTabProps {
   totalClients: number;
@@ -25,6 +25,7 @@ export function OverviewTab({
   error = null
 }: OverviewTabProps) {
   const { user } = useUser();
+  const { data: realTimeData, totalMessages: realTimeTotal, isConnected } = useRealTimeUsageStats();
   
   return (
     <>
@@ -160,8 +161,9 @@ export function OverviewTab({
       <div className="grid grid-cols-1 gap-6">
         {user && (
           <MessageUsageCard 
-            messageCount={user.messageCount}
+            messageCount={realTimeTotal || user.messageCount}
             messageLimit={user.messageLimit}
+            isRealTime={isConnected}
           />
         )}
       </div>

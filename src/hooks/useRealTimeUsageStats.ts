@@ -99,72 +99,13 @@ export function useRealTimeUsageStats(): RealTimeUsageStats {
     }
   }, [user?.id]);
 
-  // Função para processar atualizações em tempo real
-  const handleRealtimeUpdate = useCallback((payload: any) => {
-    console.log('🔄 [REALTIME] Atualização recebida:', payload);
-
-    if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-      const newRecord = payload.new;
-      
-      // Verificar se é do usuário atual
-      if (newRecord.user_id !== user?.id) {
-        console.log('📊 [REALTIME] Ignorando atualização de outro usuário');
-        return;
-      }
-
-      setData(prevData => {
-        const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-        const date = new Date(newRecord.date);
-        const dayName = dayNames[date.getDay()];
-
-        // Encontrar e atualizar o dia correspondente
-        const updatedData = prevData.map(item => {
-          if (item.date === newRecord.date) {
-            return {
-              ...item,
-              enviadas: newRecord.messages_sent || 0,
-              recebidas: newRecord.messages_received || 0
-            };
-          }
-          return item;
-        });
-
-        // Se não encontrou o dia, pode ser um dia novo - recriar os dados
-        const today = new Date().toISOString().split('T')[0];
-        if (newRecord.date === today && !prevData.find(item => item.date === today)) {
-          console.log('📅 [REALTIME] Novo dia detectado, atualizando período...');
-          // Recarregar dados para incluir o novo dia
-          setTimeout(() => fetchInitialData(), 100);
-          return prevData;
-        }
-
-        return updatedData;
-      });
-
-      // Atualizar total de mensagens
-      setTotalMessages(prevTotal => {
-        const newTotal = data.reduce(
-          (sum, day) => sum + day.enviadas + day.recebidas, 
-          0
-        );
-        return newTotal;
-      });
-
-      setLastUpdate(new Date());
-      console.log(`✅ [REALTIME] Dados atualizados para ${newRecord.date}`);
-    }
-  }, [user?.id, data, fetchInitialData]);
-
-  // Configurar subscription em tempo real
+  // Configurar subscription para atualizações em tempo real
   useEffect(() => {
     if (!user?.id) return;
 
-    console.log('🔗 [REALTIME] Configurando subscription para usuário:', user.id);
+    console.log('🔌 [REALTIME] Configurando subscription para atualizações...');
 
-    // Carregar dados iniciais
-    fetchInitialData();
-
-    // Configurar subscription para mudanças na tabela usage_stats
+    // Inscrever-se para atualizações na tabela usage_stats
     const subscription = supabase
       .channel('usage_stats_changes')
       .on(
@@ -175,19 +116,30 @@ export function useRealTimeUsageStats(): RealTimeUsageStats {
           table: 'usage_stats',
           filter: `user_id=eq.${user.id}` // Filtrar apenas para o usuário atual
         },
-        handleRealtimeUpdate
+        async (payload) => {
+          console.log('📨 [REALTIME] Recebida atualização:', payload);
+          setIsConnected(true);
+          setLastUpdate(new Date());
+          
+          // Recarregar dados após qualquer mudança
+          await fetchInitialData();
+        }
       )
       .subscribe((status) => {
-        console.log('🔗 [REALTIME] Status da subscription:', status);
+        console.log('🔌 [REALTIME] Status da subscription:', status);
         setIsConnected(status === 'SUBSCRIBED');
       });
 
+    // Carregar dados iniciais
+    fetchInitialData();
+
+    // Cleanup
     return () => {
-      console.log('🔌 [REALTIME] Desconectando subscription...');
+      console.log('🔌 [REALTIME] Limpando subscription...');
       subscription.unsubscribe();
       setIsConnected(false);
     };
-  }, [user?.id, handleRealtimeUpdate, fetchInitialData]);
+  }, [user?.id, fetchInitialData]);
 
   return {
     data,

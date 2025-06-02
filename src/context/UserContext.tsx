@@ -147,6 +147,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
         }
         
         console.log("Resposta de check-subscription:", data);
+        if (data && data.message_count !== undefined) {
+          console.log("[DIAGNOSTIC] Valor de message_count recebido do backend:", data.message_count);
+        }
         
         if (data) {
           // If we have a user but no data in context yet, create it
@@ -172,6 +175,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           }
           // Se já temos usuário e o plano não mudou, ainda assim atualizamos os contadores
           else if (user && data.message_count !== undefined) {
+            console.log("[DIAGNOSTIC] Atualizando user.messageCount para:", data.message_count);
             updateUser({
               messageCount: data.message_count
             });

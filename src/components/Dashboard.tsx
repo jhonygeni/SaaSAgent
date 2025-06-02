@@ -1,7 +1,7 @@
 import { useUser } from "@/context/UserContext";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button-extensions";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, RefreshCw } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -22,6 +22,7 @@ import { useSearchParams } from "react-router-dom";
 import { useAgent } from "@/context/AgentContext";
 import { ErrorState } from "@/components/ErrorState";
 import { throttledSubscriptionCheck, resetSubscriptionCache } from "@/lib/subscription-throttle";
+import { WhatsAppStatusCard } from "@/components/WhatsAppStatusCard";
 
 export function Dashboard() {
   const { user, checkSubscriptionStatus, isLoading: isUserLoading } = useUser();
@@ -36,6 +37,7 @@ export function Dashboard() {
   const [loadAttempts, setLoadAttempts] = useState(0);
   const [forceShowContent, setForceShowContent] = useState(false);
   const dashboardLoadedRef = useRef(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Check if redirected from successful checkout
   useEffect(() => {
@@ -168,6 +170,15 @@ export function Dashboard() {
     resetSubscriptionCache();
   };
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await checkSubscriptionStatus();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   // Se o usuário ainda está carregando, mostre um indicador de carregamento
   if (isUserLoading) {
     return (
@@ -255,37 +266,10 @@ export function Dashboard() {
               </div>
             </div>
             
-            {/* Connection Status Indicator - Only show if connectionStatus is available */}
-            {connectionStatus && (
-              <div className="grid grid-cols-1 gap-4">
-                <Card className={`border-l-4 ${
-                  connectionStatus === "connected" 
-                    ? "border-l-green-500" 
-                    : connectionStatus === "failed" 
-                      ? "border-l-red-500" 
-                      : "border-l-yellow-500"
-                }`}>
-                  <CardHeader className="py-3">
-                    <CardTitle className="text-base flex items-center space-x-2">
-                      <span>Status WhatsApp:</span>
-                      <span className={
-                        connectionStatus === "connected" 
-                          ? "text-green-500" 
-                          : connectionStatus === "failed" 
-                            ? "text-red-500" 
-                            : "text-yellow-500"
-                      }>
-                        {connectionStatus === "connected" 
-                          ? "Conectado" 
-                          : connectionStatus === "failed" 
-                            ? "Desconectado" 
-                            : "Aguardando conexão"}
-                      </span>
-                    </CardTitle>
-                  </CardHeader>
-                </Card>
-              </div>
-            )}
+            {/* WhatsApp Status Card */}
+            <div className="grid grid-cols-1 gap-4">
+              <WhatsAppStatusCard />
+            </div>
             
             {/* Interested Clients Section */}
             <div className="pt-2 md:pt-4">
