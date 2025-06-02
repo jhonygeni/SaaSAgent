@@ -18,6 +18,7 @@ import {
   registerMessage, 
   createMessageMetadata 
 } from "@/lib/message-utils";
+import { recordOutboundMessage } from "@/lib/usage-stats-updater";
 
 interface WebhookPayload {
   comportamento: string;
@@ -345,7 +346,15 @@ export function AgentChat() {
                 reconnectTimeoutRef.current = undefined;
                 // Aqui tentamos uma nova subscription em vez de reusar setupSubscription
                 // para garantir um estado limpo
-                supabase.removeChannel(channelId);
+                try {
+                  const channel = supabase.channel(channelId);
+                  if (channel) {
+                    supabase.removeChannel(channel);
+                  }
+                } catch (channelError) {
+                  console.log("Erro ao remover canal:", channelError);
+                }
+                
                 const newSubscription = setupSubscription();
                 if (!newSubscription) {
                   console.log("Falha ao criar nova subscription após problema");
@@ -511,60 +520,32 @@ export function AgentChat() {
       // Montagem automática do payload do webhook
       // Buscar dados adicionais do usuário, plano, empresa, agente, FAQs, etc.
       // Aqui, supondo que user, agent e outros já estão carregados no contexto
-      // Verificar se o agente está disponível (ativo)
+      // Declarar todas as variáveis no início para evitar problemas de escopo
+      let responseContent: string;
+      let webhookResponse: any = null;
+      let webhookError: any = null;
+      let responseWebhook: any = null;
+
+      // Verificar se há webhook configurado e processá-lo
       if (agent.status === 'ativo') {
-        // Exemplo de busca de dados adicionais (adapte conforme seu modelo real)
-        const plano = user?.plan || 'desconhecido';
-        const status_plano = (user as any)?.planStatus || 'ativo';
-        const site_empresa = (user as any)?.companySite || '';
-        const area_atuacao = (user as any)?.companyArea || '';
-        const info_empresa = (user as any)?.companyInfo || '';
-        const faqs = agent.faqs || [];
-        const prompt_agente = agent.prompt || '';
-        const nome_agente = agent.nome || '';
-        const nome_instancia = agent.instanceName || '';
-        const telefone_instancia = (agent as any).instancePhone || '';
-
-        // Dados do remetente (usuário final do WhatsApp)
-        const nome_remetente = user.name || '';
-        const telefone_remetente = (user as any).phoneNumber || '';
-
-        // Preparar para enviar ao webhook n8n com melhor tratamento de erros
-        console.log("[WEBHOOK] Preparando envio para n8n:", {
-          instance: nome_instancia,
-          agent: nome_agente,
-          message: messageContent.substring(0, 50) + (messageContent.length > 50 ? '...' : ''),
-        });
-        
-        let webhookResponse = null;
-        let webhookError = null;
-        
         try {
           // Criar constantes para valores default em caso de valores undefined
           const webhookUrl = "https://webhooksaas.geni.chat/webhook/principal";
           const webhookSecret = process.env.WEBHOOK_SECRET || "conversa-ai-n8n-token-2024";
           
-          webhookResponse = await dispararWebhookMensagemRecebida({
-            webhookUrl,
-            payload: {
-              usuario: user.id,
-              plano,
-              status_plano,
-              nome_instancia,
-              telefone_instancia,
-              nome_agente,
-              site_empresa,
-              area_atuacao,
-              info_empresa,
-              prompt_agente,
-              faqs,
-              nome_remetente,
-              telefone_remetente,
-              mensagem: messageContent
+          webhookResponse = await dispararWebhookMensagemRecebida(
+            agent.instanceName || "test-instance",
+            {
+              from: user.name || "User",
+              content: messageContent,
+              messageId: messageMetadata.originalMessageId,
+              timestamp: new Date().toISOString()
             },
-            webhookSecret,
-            timeout: 5000 // Optimized from 8000ms to prevent excessive timeout
-          });
+            {
+              webhookUrl,
+              timeout: 5000
+            }
+          );
           
           // Log da resposta para diagnóstico
           if (webhookResponse.success) {
@@ -581,7 +562,7 @@ export function AgentChat() {
               console.error("[WEBHOOK] Formato de payload incorreto (400 Bad Request).");
             }
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error("[WEBHOOK] Exceção ao enviar para webhook:", error);
           webhookError = {
             message: error.message || "Erro desconhecido",
@@ -589,10 +570,6 @@ export function AgentChat() {
           };
         }
       }
-
-      // Processar resposta do webhook ou gerar resposta local em caso de falha
-      let responseContent;
-      let responseWebhook = null;
 
       try {
         console.log("[WEBHOOK] Processando resposta do n8n...");
@@ -695,25 +672,29 @@ export function AgentChat() {
   
         if (saveResponseError) {
           console.error("[DATABASE] Erro ao salvar resposta (tentativa 1):", saveResponseError);
-          
-          // Tentativa 2 - Usar RPC se disponível
-          try {
-            console.log("[DATABASE] Tentando método alternativo de inserção");
-            const { error: rpcError } = await supabase
-              .rpc('insert_message', messageInsertData);
-              
-            if (rpcError) {
-              console.error("[DATABASE] Erro na tentativa 2:", rpcError);
-              throw rpcError;
-            } else {
-              console.log("[DATABASE] Inserção bem-sucedida via método alternativo");
-            }
-          } catch (rpcError) {
-            console.error("[DATABASE] Falha completa ao salvar no banco:", rpcError);
-            // Continua o fluxo mesmo com erro - mensagem aparecerá na UI
-          }
+          // Continua o fluxo mesmo com erro - mensagem aparecerá na UI
         } else {
           console.log("[DATABASE] Resposta salva com sucesso no banco");
+          
+          // Atualizar estatísticas de uso após sucesso do salvamento
+          try {
+            console.log("[USAGE-STATS] Atualizando estatísticas para mensagem enviada");
+            const statsResult = await recordOutboundMessage(user.id, {
+              instanceId: agent.id,
+              phoneNumber: "5511999999999", // Número do destinatário
+              messageId: agentMessageId,
+              timestamp: new Date()
+            });
+            
+            if (statsResult.success) {
+              console.log("[USAGE-STATS] Estatísticas atualizadas com sucesso");
+            } else {
+              console.warn("[USAGE-STATS] Falha ao atualizar estatísticas:", statsResult.error);
+            }
+          } catch (statsError) {
+            console.error("[USAGE-STATS] Exceção ao atualizar estatísticas:", statsError);
+            // Não interrompe o fluxo principal
+          }
         }
       } catch (dbError) {
         console.error("[DATABASE] Exceção ao salvar resposta:", dbError);
