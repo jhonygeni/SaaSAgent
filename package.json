@@ -118,6 +118,7 @@
     "msw": "^2.8.4",
     "node-fetch": "^3.3.2",
     "postcss": "^8.5.3",
+    "supabase": "^2.23.4",
     "tailwindcss": "^3.4.17",
     "ts-prune": "^0.10.3",
     "typescript": "^5.5.3",

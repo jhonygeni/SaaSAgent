@@ -1,3 +1,4 @@
+// filepath: /Users/jhonymonhol/Desktop/SaaSAgent-main/supabase/functions/check-subscription/index.ts
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // @ts-ignore
@@ -95,7 +96,7 @@ serve(async (req) => {
         const { data: messageStats, error: statsError } = await withTimeout(
           supabaseClient
             .from('usage_stats')
-            .select('message_count')
+            .select('messages_sent, messages_received')
             .eq('user_id', userId)
             .single(),
           2000,
@@ -107,7 +108,10 @@ serve(async (req) => {
           return 0;
         }
         
-        return messageStats.message_count || 0;
+        // Somamos as mensagens enviadas e recebidas para obter o total
+        const messageCount = (messageStats.messages_sent || 0) + (messageStats.messages_received || 0);
+        logStep("Message count retrieved", { messagesSent: messageStats.messages_sent, messagesReceived: messageStats.messages_received, total: messageCount });
+        return messageCount;
       } catch (error) {
         logStep("Error getting message count", { error: error.message });
         return 0;

@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { diagnostic, logStep, logAsyncStep } from '@/utils/diagnostic';
 import { throttledSubscriptionCheck, resetSubscriptionCache, getThrottleStats } from "@/lib/subscription-throttle";
 import { logAuthEvent, getAuthDiagnostics } from '@/utils/auth-diagnostic';
+import { getMockSubscriptionData, isMockModeEnabled } from '@/lib/mock-subscription-data';
 
 interface UserContextType {
   user: User | null;
@@ -86,17 +87,48 @@ export function UserProvider({ children }: { children: ReactNode }) {
       const supabaseUser = session.user;
       if (!supabaseUser) {
         console.log("Sem usuário na sessão");
-        logAuthEvent('check_session_failed', { reason: 'no_user_in_session', sessionId: session.id });
+        logAuthEvent('check_session_failed', { reason: 'no_user_in_session' });
         return null;
       }
       
       logAuthEvent('check_session_success', { 
-        sessionId: session.id, 
         userId: supabaseUser.id,
         email: supabaseUser.email
       });
       
       console.log("Chamando edge function check-subscription");
+      
+      // Se o modo mock estiver ativado, use dados simulados
+      if (isMockModeEnabled()) {
+        const mockData = getMockSubscriptionData(supabaseUser.id);
+        console.log("🧪 Usando dados mockados:", mockData);
+        
+        // Simular delay de rede
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        if (!user && supabaseUser) {
+          const newUser: User = {
+            id: supabaseUser.id,
+            email: supabaseUser.email || '',
+            name: supabaseUser.user_metadata?.name || supabaseUser.email || '',
+            plan: (mockData.plan || 'free') as SubscriptionPlan,
+            messageCount: mockData.message_count || 0,
+            messageLimit: getMessageLimitByPlan(mockData.plan || 'free'),
+            agents: [],
+          };
+          console.log("Criando novo usuário no contexto com dados mockados:", newUser);
+          setUser(newUser);
+          return mockData;
+        } else if (user) {
+          updateUser({
+            plan: mockData.plan as SubscriptionPlan,
+            messageCount: mockData.message_count || 0,
+            messageLimit: getMessageLimitByPlan(mockData.plan || 'free')
+          });
+          return mockData;
+        }
+        return mockData;
+      }
       
       try {
         // Call check-subscription edge function with performance logging
@@ -242,7 +274,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       if (session) {
         console.log("Sessão existente encontrada");
         logAuthEvent('session_found', { 
-          sessionId: session.id,
+          sessionId: session.user.id,
           userId: session.user.id,
           email: session.user.email
         });

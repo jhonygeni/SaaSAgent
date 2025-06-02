@@ -23,6 +23,8 @@ import UserProfilePage from "./pages/UserProfilePage";
 import EmailConfirmationPage from "./pages/EmailConfirmationPage";
 import EmailConfirmSuccessPage from "./pages/EmailConfirmSuccessPage";
 import ResendConfirmationPage from "./pages/ResendConfirmationPage";
+// Temporariamente removido para evitar erros de build
+// import DebugPanel from "./components/DebugPanel";
 
 const queryClient = logStep('Query Client Creation', () => new QueryClient({
   defaultOptions: {
@@ -58,6 +60,8 @@ const App = () => {
                 <Sonner />
                 <BrowserRouter>
                   {process.env.NODE_ENV !== 'production' && <AuthDiagnosticButton />}
+                  {/* Temporariamente removido para evitar erros de build */}
+                  {/* {process.env.NODE_ENV !== 'production' && <DebugPanel />} */}
                   <Routes>
                     <Route path="/" element={<Index />} />
                     <Route path="/dashboard" element={<DashboardPage />} />
