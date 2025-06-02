@@ -397,6 +397,31 @@ const whatsappService = {
   // Get connection status for an instance
   getConnectionState: async (instanceName: string): Promise<ConnectionStateResponse> => {
     try {
+      // First check Supabase for instance status
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id) {
+          const { data: instanceData } = await supabase
+            .from('whatsapp_instances')
+            .select('status')
+            .eq('name', instanceName)
+            .eq('user_id', user.id)
+            .single();
+
+          // If instance is marked as deleted in Supabase, return disconnected state immediately
+          if (instanceData?.status === 'deleted') {
+            console.log(`Instance ${instanceName} is marked as deleted in Supabase, skipping API calls`);
+            return {
+              state: 'deleted',
+              status: 'deleted',
+              message: 'Instance has been deleted'
+            };
+          }
+        }
+      } catch (supabaseError) {
+        console.warn(`Could not verify instance status in Supabase: ${supabaseError}`);
+      }
+
       // Verificar se a instância existe primeiro
       try {
         const instanceInfo = await whatsappService.getInstanceInfo(instanceName);
@@ -851,6 +876,34 @@ const whatsappService = {
     try {
       console.log(`Getting instance info for ${instanceName} (attempt ${attempt}/${maxAttempts})`);
       
+      // Check Supabase first for deleted instances
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id) {
+          const { data: instanceData } = await supabase
+            .from('whatsapp_instances')
+            .select('status')
+            .eq('name', instanceName)
+            .eq('user_id', user.id)
+            .single();
+
+          // If instance is marked as deleted, return immediately
+          if (instanceData?.status === 'deleted') {
+            console.log(`Instance ${instanceName} is marked as deleted in Supabase, skipping API calls`);
+            return {
+              instance: {
+                name: instanceName,
+                status: "deleted",
+                isConnected: false,
+                state: "deleted"
+              }
+            } as InstanceInfo;
+          }
+        }
+      } catch (supabaseError) {
+        console.warn(`Could not verify instance status in Supabase: ${supabaseError}`);
+      }
+      
       // Anti-loop: verificar se já excedeu tentativas máximas
       if (attempt > maxAttempts) {
         console.warn(`Máximo de tentativas (${maxAttempts}) excedido para ${instanceName}. Retornando dados parciais.`);
@@ -1069,6 +1122,29 @@ const whatsappService = {
         return true;
       }
 
+      // Update Supabase first to mark instance as deleted
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id) {
+          const { error: updateError } = await supabase
+            .from('whatsapp_instances')
+            .update({ 
+              status: 'deleted',
+              updated_at: new Date().toISOString()
+            })
+            .eq('name', instanceName)
+            .eq('user_id', user.id);
+            
+          if (updateError) {
+            console.error("Error marking instance as deleted in Supabase:", updateError);
+          } else {
+            console.log(`Successfully marked instance ${instanceName} as deleted in Supabase`);
+          }
+        }
+      } catch (supabaseError) {
+        console.error("Failed to update instance status in Supabase:", supabaseError);
+      }
+
       const endpoint = formatEndpoint(ENDPOINTS.instanceDelete, { instanceName });
       console.log("Delete instance URL:", `${apiClient.baseUrl}${endpoint}`);
 
@@ -1076,28 +1152,6 @@ const whatsappService = {
         // Primary attempt with apiClient
         await apiClient.delete(endpoint);
         console.log(`Instance ${instanceName} deleted successfully via apiClient`);
-        
-        // Update Supabase to reflect deletion
-        try {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user?.id) {
-            const { error } = await supabase
-              .from('whatsapp_instances')
-              .update({ 
-                status: 'deleted',
-                updated_at: new Date().toISOString()
-              })
-              .eq('name', instanceName)
-              .eq('user_id', user.id);
-              
-            if (error) {
-              console.error("Error updating instance status in Supabase:", error);
-            }
-          }
-        } catch (saveError) {
-          console.error("Failed to update instance status in Supabase:", saveError);
-        }
-
         return true;
       } catch (apiError) {
         console.warn("API client delete failed, trying direct fetch:", apiError);
@@ -1142,28 +1196,6 @@ const whatsappService = {
         }
         
         console.log(`Instance ${instanceName} deleted successfully via direct fetch`);
-        
-        // Update Supabase to reflect deletion
-        try {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user?.id) {
-            const { error } = await supabase
-              .from('whatsapp_instances')
-              .update({ 
-                status: 'deleted',
-                updated_at: new Date().toISOString()
-              })
-              .eq('name', instanceName)
-              .eq('user_id', user.id);
-              
-            if (error) {
-              console.error("Error updating instance status in Supabase:", error);
-            }
-          }
-        } catch (saveError) {
-          console.error("Failed to update instance status in Supabase:", saveError);
-        }
-
         return true;
       }
     } catch (error) {
