@@ -1,50 +1,48 @@
 #!/bin/bash
 
-# Script para configurar manualmente as variáveis de ambiente do Supabase para a função custom-email
-# Este script não depende do arquivo .env
+# Script para configurar função de email no Supabase usando variáveis de ambiente
 
-# Configurações do Supabase
-PROJECT_REF="hpovwcaskorzzrpphgkc"
+# Verificar variáveis obrigatórias
+required_vars=(
+  "SUPABASE_PROJECT_REF"
+  "VITE_SMTP_HOST"
+  "VITE_SMTP_PORT"
+  "VITE_SMTP_USERNAME"
+  "VITE_SMTP_PASSWORD"
+  "VITE_SITE_URL"
+)
 
-# Configurações SMTP
-SMTP_HOST="smtp.hostinger.com"
-SMTP_PORT="465"
-SMTP_USERNAME="validar@geni.chat"
-SMTP_PASSWORD="Vu1@+H*Mw^3" # Substitua por uma senha segura após resolver o problema
-SITE_URL="https://app.conversaai.com.br"
+echo "🔍 Verificando variáveis de ambiente..."
 
-echo "=== Configuração Manual das Variáveis de Ambiente da Função Custom Email ==="
-echo ""
-
-# 1. Configurar as variáveis de ambiente
-echo "1. Configurando variáveis de ambiente da função..."
-echo "SMTP_HOST: $SMTP_HOST"
-echo "SMTP_PORT: $SMTP_PORT"
-echo "SMTP_USERNAME: $SMTP_USERNAME"
-echo "SITE_URL: $SITE_URL"
-echo "PROJECT_REF: $PROJECT_REF"
-
-supabase secrets set SMTP_HOST="$SMTP_HOST" SMTP_PORT="$SMTP_PORT" SMTP_USERNAME="$SMTP_USERNAME" SMTP_PASSWORD="$SMTP_PASSWORD" SITE_URL="$SITE_URL" --project-ref "$PROJECT_REF"
-
-if [ $? -ne 0 ]; then
-    echo "Erro ao configurar as variáveis de ambiente. Verifique os logs acima."
+for var in "${required_vars[@]}"; do
+  if [ -z "${!var}" ]; then
+    echo "❌ Erro: $var não está definida"
+    echo "Configure a variável no arquivo .env.local ou no dashboard da Vercel"
     exit 1
-fi
+  fi
+done
 
-echo "✓ Variáveis de ambiente configuradas com sucesso!"
+echo "✅ Todas as variáveis necessárias estão configuradas"
 echo ""
 
-# 2. Reimplantar a função
-echo "2. Reimplantando função custom-email..."
-supabase functions deploy custom-email --project-ref "$PROJECT_REF"
+echo "🔧 Configurando função de email..."
 
-if [ $? -ne 0 ]; then
-    echo "Erro ao reimplantar a função. Verifique os logs acima."
-    exit 1
+# Configurar variáveis de ambiente da função Edge
+supabase secrets set \
+  SMTP_HOST="$VITE_SMTP_HOST" \
+  SMTP_PORT="$VITE_SMTP_PORT" \
+  SMTP_USERNAME="$VITE_SMTP_USERNAME" \
+  SMTP_PASSWORD="$VITE_SMTP_PASSWORD" \
+  SITE_URL="$VITE_SITE_URL" \
+  --project-ref "$SUPABASE_PROJECT_REF"
+
+if [ $? -eq 0 ]; then
+  echo "✅ Configuração concluída com sucesso!"
+  echo ""
+  echo "Para verificar as configurações:"
+  echo "supabase secrets list --project-ref $SUPABASE_PROJECT_REF"
+else
+  echo "❌ Erro ao configurar variáveis"
+  echo "Verifique se o token do Supabase está configurado corretamente"
+  exit 1
 fi
-
-echo "✓ Função reimplantada com sucesso!"
-echo ""
-
-echo "Configuração completa da função custom-email! Os emails agora devem ser enviados corretamente."
-echo "Você pode testar o envio de emails executando: node test-custom-email.js"

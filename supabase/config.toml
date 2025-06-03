@@ -1,11 +1,11 @@
-project_id = "hpovwcaskorzzrpphgkc"
+# Supabase Project Configuration
+project_id = "${SUPABASE_PROJECT_REF}"
 
 [auth]
 # Configuração personalizada para a autenticação
-site_url = "https://app.conversaai.com.br"
+site_url = "${VITE_SITE_URL}"
 additional_redirect_urls = [
-  "https://app.conversaai.com.br/*",
-  "https://conversaai.com.br/*",
+  "${VITE_SITE_URL}/*",
   "http://localhost:3000/*"
 ]
 
@@ -19,5 +19,7 @@ enable_confirmations = true
 [functions.custom-email]
 verify_jwt = false
 
-# As variáveis de ambiente da função precisam ser configuradas após o deploy
-# usando o comando supabase secrets set
+# Environment variables are configured via:
+# 1. Vercel Dashboard for production
+# 2. .env.local for development
+# 3. supabase/setup-env.sh for Edge Functions

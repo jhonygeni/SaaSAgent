@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom'
-import { vi } from 'vitest'
+import { vi, beforeEach, afterEach } from 'vitest'
 
 // Mock do Supabase
 vi.mock('@supabase/supabase-js', () => ({
@@ -66,13 +66,27 @@ Object.defineProperty(window, 'localStorage', {
   writable: true,
 })
 
-// Mock dos environment variables
-vi.mock('../lib/environment', () => ({
-  env: {
-    VITE_SUPABASE_URL: 'http://localhost:54321',
-    VITE_SUPABASE_ANON_KEY: 'test-anon-key',
-    WEBHOOK_SECRET: 'test-webhook-secret',
+// Mock environment variables for testing
+vi.mock('../lib/env', () => ({
+  SUPABASE_URL: 'http://localhost:54321',
+  SUPABASE_ANON_KEY: 'test-anon-key',
+  SMTP_CONFIG: {
+    host: 'test.smtp.com',
+    port: 587,
+    username: 'test@example.com',
+    password: 'test-password'
   },
+  SITE_URL: 'http://localhost:3000',
+  EVOLUTION_API: {
+    url: 'http://localhost:8080',
+    key: 'test-key'
+  },
+  STRIPE_CONFIG: {
+    publishableKey: 'test-publishable-key',
+    secretKey: 'test-secret-key'
+  },
+  IS_PRODUCTION: false,
+  IS_DEVELOPMENT: true
 }))
 
 // Setup de timers fake para testes de delay/timeout
