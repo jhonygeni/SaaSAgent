@@ -53,155 +53,96 @@ export function PricingPlans() {
     }
   };
 
-  const handleSelectPlan = async (plan: "free" | "starter" | "growth") => {
-    // Verificar se o usuário está autenticado
-    if (!user) {
-      toast({
-        title: "Ação necessária",
-        description: "Por favor, faça login antes de selecionar um plano.",
-      });
-      navigate("/entrar");
-      return;
-    }
+  // DEBUG: Temporary interceptor for checkout requests
+  const debugCheckout = async (checkoutData: any, token: string) => {
+    console.group("🔍 DEBUG: Checkout Request");
+    console.log("📦 Payload:", checkoutData);
+    console.log("🔑 Token:", token.substring(0, 10) + "...");
     
-    // Garante que temos uma sessão válida antes de continuar
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData?.session) {
-        toast({
-          title: "Sessão expirada",
-          description: "Sua sessão expirou. Por favor, faça login novamente.",
-        });
-        navigate("/entrar");
-        return;
-      }
-    } catch (sessionError) {
-      console.error("Erro ao verificar sessão:", sessionError);
-      toast({
-        title: "Erro de autenticação",
-        description: "Não foi possível verificar sua sessão. Por favor, faça login novamente.",
+      const response = await fetch("https://hpovwcaskorzzrpphgkc.supabase.co/functions/v1/create-checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify(checkoutData)
       });
-      navigate("/entrar");
-      return;
-    }
-    
-    if (plan === "free") {
+      
+      console.log("📡 Response Status:", response.status);
+      console.log("📡 Response Headers:", Object.fromEntries(response.headers.entries()));
+      
+      const text = await response.text();
+      console.log("📡 Raw Response:", text);
+      
       try {
-        setPlan(plan);
-        toast({
-          title: "Plano atualizado",
-          description: "Você está utilizando o plano Grátis.",
-        });
-        navigate("/dashboard");
-      } catch (error) {
-        console.error("Erro ao atualizar plano:", error);
-        toast({
-          title: "Erro ao atualizar plano",
-          description: "Não foi possível atualizar seu plano. Por favor, tente novamente.",
-        });
+        const json = JSON.parse(text);
+        console.log("📡 Parsed Response:", json);
+        return json;
+      } catch (e) {
+        console.error("❌ Failed to parse response as JSON:", e);
+        throw new Error("Invalid JSON response from server");
       }
-      return;
+    } catch (error) {
+      console.error("❌ Network Error:", error);
+      throw error;
+    } finally {
+      console.groupEnd();
     }
-    
+  };
+
+  const handleSelectPlan = async (plan: "free" | "starter" | "growth") => {
     try {
       setLoading(plan);
       
-      // ===== DEBUGGING LOGS START =====
-      console.log("🚀 CHECKOUT DEBUGGING - DADOS COLETADOS:");
-      console.log("  📋 Plan ID:", plan);
-      console.log("  🔄 Billing Cycle:", billingCycle);
-      console.log("  ⚙️ Estado do componente - billingCycle:", billingCycle);
-      
-      // Verificar se o billingCycle está realmente correto
-      const currentBillingCycle = billingCycle;
-      console.log("  🔍 Current billing cycle (verificação):", currentBillingCycle);
-      
-      // Determinar o price ID baseado no plano e ciclo de cobrança
+      // Get the session first
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session?.access_token) {
+        throw new Error("Você precisa estar logado para assinar um plano");
+      }
+
+      // Determine price ID based on plan and billing cycle
       const selectedPlan = plan as 'starter' | 'growth';
-      const selectedCycle = currentBillingCycle;
-      const priceConfig = pricingConfig[selectedPlan][selectedCycle];
+      const priceConfig = pricingConfig[selectedPlan][billingCycle];
       const priceId = priceConfig.priceId;
-      
-      console.log("  💰 Price Config:", priceConfig);
-      console.log("  🎯 Price ID selecionado:", priceId);
-      console.log("  📊 Configuração completa do pricing:", pricingConfig);
-      
-      // Dados que serão enviados
+
+      // Prepare checkout data
       const checkoutData = {
         planId: plan,
         priceId: priceId,
-        billingCycle: currentBillingCycle
+        billingCycle: billingCycle
       };
-      
-      console.log("  📦 DADOS QUE SERÃO ENVIADOS PARA CHECKOUT:");
-      console.log("     planId:", checkoutData.planId);
-      console.log("     priceId:", checkoutData.priceId);
-      console.log("     billingCycle:", checkoutData.billingCycle);
-      console.log("  📋 Objeto completo:", JSON.stringify(checkoutData, null, 2));
-      
-      // Verificação adicional de consistência
-      const expectedPriceId = pricingConfig[selectedPlan][selectedCycle].priceId;
-      if (priceId === expectedPriceId) {
-        console.log("  ✅ VERIFICAÇÃO: Price ID está correto");
-      } else {
-        console.log("  ❌ VERIFICAÇÃO: Price ID inconsistente!");
-        console.log("     Esperado:", expectedPriceId);
-        console.log("     Atual:", priceId);
-      }
-      console.log("🔚 DEBUGGING LOGS END");
-      // ===== DEBUGGING LOGS END =====
 
-      // Get the session
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData?.session?.access_token) {
-        throw new Error("No access token available");
-      }
+      // DEBUG: Use the interceptor
+      const data = await debugCheckout(checkoutData, sessionData.session.access_token);
 
-      console.log("🔑 Token de sessão obtido, chamando create-checkout...");
-
-      // Call Supabase Edge Function to create Stripe checkout
-      const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: checkoutData,
-        headers: {
-          Authorization: `Bearer ${sessionData.session.access_token}`,
-        },
-      });
-
-      console.log("📡 Resposta do create-checkout:", { data, error });
-      
-      if (error) {
-        console.error("Erro detalhado:", error);
-        throw error;
-      }
-      
       if (!data?.url) {
-        console.error("Resposta sem URL:", data);
+        console.error("Resposta sem URL do Stripe:", data);
         throw new Error("URL do checkout não retornada");
       }
-      
-      console.log("Redirecionando para:", data.url);
+
+      // Redirect to Stripe
       window.location.href = data.url;
+
     } catch (err: any) {
-      console.error("Erro detalhado do checkout:", err);
+      console.error("❌ Erro no checkout:", err);
       
-      let errorMessage = "Ocorreu um erro ao criar a sessão de pagamento. Por favor, tente novamente.";
+      let errorMessage = "Ocorreu um erro ao processar o pagamento. Por favor, tente novamente.";
       
-      if (err?.message?.includes("STRIPE_SECRET_KEY")) {
-        errorMessage = "Erro de configuração do sistema de pagamento. Por favor, contate o suporte.";
-      } else if (err?.message?.includes("Rate limit")) {
-        errorMessage = "Muitas tentativas de pagamento. Por favor, aguarde alguns minutos e tente novamente.";
-      } else if (err?.message?.includes("Authentication")) {
-        errorMessage = "Erro de autenticação. Por favor, faça login novamente.";
+      if (err?.message?.includes("logado")) {
+        errorMessage = "Você precisa estar logado para assinar um plano.";
+      } else if (err?.message?.includes("URL do checkout")) {
+        errorMessage = "Erro ao criar sessão de pagamento. Por favor, tente novamente.";
       } else if (err?.message) {
         errorMessage = err.message;
       }
       
       toast({
         variant: "destructive",
-        title: "Erro ao processar pagamento",
+        title: "Erro no checkout",
         description: errorMessage,
       });
-      
+    } finally {
       setLoading(null);
     }
   };

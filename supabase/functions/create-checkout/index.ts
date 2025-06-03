@@ -12,11 +12,12 @@ declare const Deno: {
   };
 };
 
-const corsHeaders = { 
+const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, Authorization",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Max-Age": "86400"
+  "Access-Control-Max-Age": "86400",
+  "Content-Type": "application/json"
 };
 
 // Helper logging function for debugging
@@ -72,6 +73,7 @@ const stripe = new Stripe(STRIPE_SECRET_KEY, {
 });
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -80,24 +82,37 @@ serve(async (req) => {
     logStep("Function started");
 
     // Validate Content-Type
-    if (req.headers.get("content-type") !== "application/json") {
-      logStep("Invalid content-type", { contentType: req.headers.get("content-type") });
-      return new Response(JSON.stringify({ error: "Content-Type must be application/json" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
-      });
+    const contentType = req.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      logStep("Invalid content-type", { contentType });
+      return new Response(
+        JSON.stringify({ 
+          error: "Content-Type must be application/json",
+          received: contentType 
+        }), 
+        { 
+          headers: corsHeaders,
+          status: 400 
+        }
+      );
     }
 
-    // Get the request body and validate shape
+    // Get and validate request body
     let body: any;
     try {
       body = await req.json();
     } catch (e) {
       logStep("Invalid JSON body", { error: String(e) });
-      return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
-      });
+      return new Response(
+        JSON.stringify({ 
+          error: "Invalid JSON body",
+          details: String(e)
+        }), 
+        { 
+          headers: corsHeaders,
+          status: 400 
+        }
+      );
     }
     const { planId, priceId, billingCycle = 'monthly' } = body;
     
@@ -256,16 +271,25 @@ serve(async (req) => {
 
     logStep("Checkout session created", { sessionId: session.id, url: session.url });
 
+    // All responses should include CORS headers
     return new Response(JSON.stringify({ url: session.url }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: corsHeaders,
       status: 200,
     });
+
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR in create-checkout", { message: errorMessage });
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
+    
+    return new Response(
+      JSON.stringify({ 
+        error: errorMessage,
+        timestamp: new Date().toISOString()
+      }), 
+      {
+        headers: corsHeaders,
+        status: 500,
+      }
+    );
   }
 });
