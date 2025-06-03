@@ -29,4 +29,14 @@ export default defineConfig(({ mode }) => ({
   optimizeDeps: {
     include: ['axios'],
   },
+  build: {
+    sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+        },
+      },
+    },
+  },
 }));
