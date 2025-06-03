@@ -47,16 +47,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       checkInProgress.current = true;
       lastCheckTime.current = Date.now();
 
-      // Verificar token armazenado
-      const storedSession = localStorage.getItem(storageKey);
-      if (!storedSession) {
-        console.log("Nenhuma sessão armazenada encontrada");
-        setUser(null);
-        setError(null);
-        return;
-      }
-
-      // Tentar recuperar a sessão
+      // Primeiro tentar obter a sessão atual
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
@@ -78,12 +69,40 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           setUser(refreshData.session.user);
         }
       } else {
+        // Se não encontrou sessão, verificar se temos token armazenado
+        const storedSession = localStorage.getItem(storageKey);
+        if (storedSession) {
+          try {
+            const parsedSession = JSON.parse(storedSession);
+            if (parsedSession.access_token) {
+              // Tentar recuperar sessão com o token armazenado
+              const { data: { user: refreshedUser }, error: refreshError } = 
+                await supabase.auth.getUser(parsedSession.access_token);
+              
+              if (refreshError) {
+                throw refreshError;
+              }
+
+              if (refreshedUser) {
+                console.log("Sessão recuperada do storage");
+                setUser(refreshedUser);
+                setError(null);
+                retryCount.current = 0;
+                return;
+              }
+            }
+          } catch (parseError) {
+            console.error("Erro ao processar sessão armazenada:", parseError);
+          }
+        }
+
         if (retryCount.current < maxRetries - 1) {
           console.log(`Tentativa ${retryCount.current + 1}: Sem sessão, tentando novamente em 1 segundo`);
           retryCount.current++;
           setTimeout(() => checkSession(true), 1000);
           return;
         }
+        
         console.log("Nenhuma sessão ativa encontrada após todas as tentativas");
         setUser(null);
         // Limpar tokens antigos
@@ -132,6 +151,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         setError(null);
         setIsLoading(false);
         retryCount.current = 0;
+        
+        // Forçar verificação de sessão após login
+        await checkSession(true);
       } else if (event === 'SIGNED_OUT') {
         console.log("Usuário deslogado");
         setUser(null);
@@ -142,6 +164,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       } else if (event === 'TOKEN_REFRESHED' && session) {
         console.log("Token atualizado, atualizando estado");
         setUser(session.user);
+        // Forçar verificação de sessão após atualização de token
+        await checkSession(true);
       }
     });
 
