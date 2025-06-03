@@ -18,9 +18,6 @@ import { useEffect, useState, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useSearchParams } from "react-router-dom";
 import { ErrorState } from "@/components/ErrorState";
-import { supabase } from "@/integrations/supabase/client";
-
-const storageKey = `sb-${import.meta.env.VITE_SUPABASE_URL.split('//')[1].split('.')[0]}-auth-token`;
 
 export function Dashboard() {
   const { user, checkSubscriptionStatus, isLoading: isUserLoading } = useUser();
@@ -31,9 +28,6 @@ export function Dashboard() {
   const [searchParams] = useSearchParams();
   const isMounted = useRef(true);
   const loadTimeoutRef = useRef<NodeJS.Timeout>();
-  const authChecked = useRef(false);
-  const retryCount = useRef(0);
-  const maxRetries = 3;
 
   // Cleanup on unmount
   useEffect(() => {
@@ -45,65 +39,6 @@ export function Dashboard() {
       }
     };
   }, []);
-
-  // Verificar autenticação com retry
-  useEffect(() => {
-    const checkAuth = async () => {
-      if (!isMounted.current || authChecked.current || retryCount.current >= maxRetries) return;
-      
-      try {
-        console.log(`Tentativa ${retryCount.current + 1} de verificar autenticação`);
-        
-        // Tentar obter a sessão atual
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          throw sessionError;
-        }
-        
-        if (!session) {
-          if (retryCount.current < maxRetries - 1) {
-            console.log("Sem sessão, tentando novamente em 1 segundo");
-            retryCount.current++;
-            setTimeout(checkAuth, 1000);
-            return;
-          }
-          throw new Error("Sem sessão após todas as tentativas");
-        }
-        
-        // Tentar atualizar o token
-        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-        if (refreshError) {
-          console.warn("Erro ao atualizar token:", refreshError);
-          // Continuar mesmo com erro de refresh
-        } else if (refreshData.session) {
-          console.log("Token atualizado com sucesso");
-        }
-        
-        console.log("Sessão encontrada:", session.user.email);
-        authChecked.current = true;
-        
-        if (isMounted.current) {
-          setIsLoading(false);
-          await checkSubscriptionStatus();
-        }
-      } catch (error: any) {
-        console.error("Erro ao verificar autenticação:", error);
-        if (retryCount.current < maxRetries - 1) {
-          console.log("Erro na verificação, tentando novamente em 1 segundo");
-          retryCount.current++;
-          setTimeout(checkAuth, 1000);
-        } else {
-          if (isMounted.current) {
-            setLoadError("Erro ao verificar autenticação");
-            navigate("/entrar", { replace: true });
-          }
-        }
-      }
-    };
-
-    checkAuth();
-  }, [navigate, checkSubscriptionStatus]);
 
   // Check if redirected from successful checkout
   useEffect(() => {
@@ -121,7 +56,7 @@ export function Dashboard() {
 
   // Load dashboard data
   useEffect(() => {
-    if (!isMounted.current || isUserLoading || !authChecked.current) return;
+    if (!isMounted.current || isUserLoading) return;
 
     const loadDashboard = async () => {
       try {
@@ -134,7 +69,7 @@ export function Dashboard() {
         setLoadError(null);
 
         // Simular carregamento para evitar loop infinito
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise(resolve => setTimeout(resolve, 1000));
         
         if (isMounted.current) {
           setIsLoading(false);
@@ -150,7 +85,7 @@ export function Dashboard() {
 
     loadDashboard();
 
-    // Força completar carregamento após timeout
+    // Force complete loading after timeout
     loadTimeoutRef.current = setTimeout(() => {
       if (isMounted.current && isLoading) {
         setIsLoading(false);
@@ -165,12 +100,12 @@ export function Dashboard() {
   }, [user, isUserLoading, navigate]);
 
   // Loading state
-  if (isUserLoading || (isLoading && !authChecked.current)) {
+  if (isUserLoading || isLoading) {
     return (
       <div className="container mx-auto p-4 md:py-8 flex justify-center items-center">
         <div className="flex flex-col items-center gap-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-          <p>Verificando sessão{retryCount.current > 0 ? ` (Tentativa ${retryCount.current}/${maxRetries})` : ""}...</p>
+          <p>Verificando sessão...</p>
         </div>
       </div>
     );
@@ -216,8 +151,6 @@ export function Dashboard() {
               if (isMounted.current) {
                 setLoadError(null);
                 setIsLoading(true);
-                retryCount.current = 0;
-                authChecked.current = false;
               }
             }}
           />

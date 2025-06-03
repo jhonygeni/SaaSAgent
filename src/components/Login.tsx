@@ -28,9 +28,8 @@ export function Login() {
     
     try {
       setIsLoading(true);
-      console.log("Tentando fazer login com:", { email });
+      console.log("Attempting login with:", { email });
 
-      // Tentar login com senha
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -41,43 +40,36 @@ export function Login() {
       }
 
       if (!data.session) {
-        throw new Error("Sessão não criada após login");
+        throw new Error("No session created after login");
       }
 
-      console.log("Login bem-sucedido:", data);
+      console.log("Login successful:", data);
       
-      // Aguardar um momento para o estado ser atualizado
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Verificar status da assinatura
+      // Check subscription status immediately
       await checkSubscriptionStatus();
 
       toast({
-        title: "Login realizado com sucesso",
-        description: "Bem-vindo de volta! Redirecionando para o dashboard...",
+        title: "Login successful",
+        description: "Welcome back! Redirecting to dashboard...",
       });
-
-      // Aguardar mais um momento antes de redirecionar
-      await new Promise(resolve => setTimeout(resolve, 1000));
       
       navigate("/dashboard", { replace: true });
     } catch (error: any) {
-      console.error("Erro no login:", error);
+      console.error("Login error:", error);
       
-      // Tratamento específico para erro de e-mail não confirmado
       if (error.message?.includes("Email not confirmed")) {
         toast({
           variant: "destructive",
-          title: "E-mail não confirmado",
-          description: "Por favor, confirme seu e-mail antes de fazer login.",
+          title: "Email not confirmed",
+          description: "Please confirm your email before logging in.",
         });
         return;
       }
       
       toast({
         variant: "destructive",
-        title: "Erro ao fazer login",
-        description: error.message || "Verifique suas credenciais e tente novamente.",
+        title: "Login failed",
+        description: error.message || "Please check your credentials and try again.",
       });
     } finally {
       setIsLoading(false);
@@ -87,19 +79,19 @@ export function Login() {
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
-        <CardTitle>Entrar</CardTitle>
+        <CardTitle>Login</CardTitle>
         <CardDescription>
-          Entre com sua conta para continuar na plataforma.
+          Sign in to your account to continue.
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleLogin}>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">E-mail</Label>
+            <Label htmlFor="email">Email</Label>
             <Input
               id="email"
               type="email"
-              placeholder="seu@email.com"
+              placeholder="your@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -107,11 +99,11 @@ export function Login() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Senha</Label>
+            <Label htmlFor="password">Password</Label>
             <Input
               id="password"
               type="password"
-              placeholder="Sua senha"
+              placeholder="Your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -128,10 +120,10 @@ export function Login() {
             {isLoading ? (
               <div className="flex items-center gap-2">
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                <span>Entrando...</span>
+                <span>Signing in...</span>
               </div>
             ) : (
-              "Entrar"
+              "Sign in"
             )}
           </Button>
           <div className="flex flex-col gap-2 w-full text-center">
@@ -139,17 +131,17 @@ export function Login() {
               type="button"
               variant="link"
               className="text-sm"
-              onClick={() => navigate("/esqueci-senha")}
+              onClick={() => navigate("/forgot-password")}
             >
-              Esqueceu sua senha?
+              Forgot your password?
             </Button>
             <Button
               type="button"
               variant="link"
               className="text-sm"
-              onClick={() => navigate("/registrar")}
+              onClick={() => navigate("/register")}
             >
-              Não tem uma conta? Registre-se
+              Don't have an account? Sign up
             </Button>
           </div>
         </CardFooter>
