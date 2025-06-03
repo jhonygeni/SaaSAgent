@@ -8,9 +8,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, Authorization",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, Authorization, prefer",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Max-Age": "86400"
+  "Access-Control-Max-Age": "86400",
+  "Content-Type": "application/json"
 };
 
 // Helper logging function for debugging
@@ -52,6 +53,7 @@ const PRICE_IDS = {
 };
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -262,10 +264,17 @@ serve(async (req) => {
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logStep("ERROR in check-subscription", { message: errorMessage });
-    return new Response(JSON.stringify({ error: errorMessage, plan: "free" }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200, // Mudar para 200 para que o cliente sempre receba uma resposta utilizável
-    });
+    console.error(`[CHECK-SUBSCRIPTION] Error:`, errorMessage);
+    
+    return new Response(
+      JSON.stringify({ 
+        error: errorMessage,
+        timestamp: new Date().toISOString()
+      }),
+      {
+        headers: corsHeaders,
+        status: 500
+      }
+    );
   }
 });
