@@ -9,7 +9,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 // Validate environment variables
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing Supabase environment variables');
-  throw new Error('Missing Supabase environment variables. Check your .env file.');
+  throw new Error('Supabase URL and Anon Key must be defined in environment variables');
 }
 
 // Security validation - ensure we're not using demo/mock credentials
@@ -23,41 +23,22 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
-    flowType: 'pkce',
-    storage: {
-      getItem: (key) => {
-        try {
-          const value = localStorage.getItem(key);
-          return value ? JSON.parse(value) : null;
-        } catch (error) {
-          console.error('Error reading from localStorage:', error);
-          return null;
-        }
-      },
-      setItem: (key, value) => {
-        try {
-          localStorage.setItem(key, JSON.stringify(value));
-        } catch (error) {
-          console.error('Error writing to localStorage:', error);
-        }
-      },
-      removeItem: (key) => {
-        try {
-          localStorage.removeItem(key);
-        } catch (error) {
-          console.error('Error removing from localStorage:', error);
-        }
-      }
-    }
+    storage: window.localStorage,
+    storageKey: `sb-${supabaseUrl.split('//')[1].split('.')[0]}-auth-token`,
+  },
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  },
+  global: {
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
   },
   realtime: {
     params: {
       eventsPerSecond: 10
-    }
-  },
-  global: {
-    headers: {
-      'x-client-info': 'saas-agent'
     }
   }
 });

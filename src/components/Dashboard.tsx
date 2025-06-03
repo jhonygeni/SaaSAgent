@@ -54,12 +54,6 @@ export function Dashboard() {
       try {
         console.log(`Tentativa ${retryCount.current + 1} de verificar autenticação`);
         
-        // Verificar se temos uma sessão armazenada
-        const storedSession = localStorage.getItem(storageKey);
-        if (!storedSession) {
-          throw new Error("Sessão não encontrada");
-        }
-
         // Tentar obter a sessão atual
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
@@ -81,6 +75,7 @@ export function Dashboard() {
         const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
         if (refreshError) {
           console.warn("Erro ao atualizar token:", refreshError);
+          // Continuar mesmo com erro de refresh
         } else if (refreshData.session) {
           console.log("Token atualizado com sucesso");
         }
@@ -101,9 +96,6 @@ export function Dashboard() {
         } else {
           if (isMounted.current) {
             setLoadError("Erro ao verificar autenticação");
-            // Limpar tokens e redirecionar para login
-            localStorage.removeItem(storageKey);
-            localStorage.removeItem('auth_token');
             navigate("/entrar", { replace: true });
           }
         }

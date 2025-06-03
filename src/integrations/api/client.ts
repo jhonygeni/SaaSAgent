@@ -1,19 +1,25 @@
+import { supabase } from '@/integrations/supabase/client';
+
 const API_URL = import.meta.env.VITE_API_URL || '/api';
-const storageKey = `sb-${import.meta.env.VITE_SUPABASE_URL.split('//')[1].split('.')[0]}-auth-token`;
+
+async function getAuthToken() {
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    if (!session) throw new Error('No active session');
+    return session.access_token;
+  } catch (error) {
+    console.error('Error getting auth token:', error);
+    throw error;
+  }
+}
 
 async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
   try {
-    // Tentar obter a sessão do Supabase
-    const storedSession = localStorage.getItem(storageKey);
-    if (!storedSession) {
-      throw new Error('Sessão não encontrada');
-    }
-
-    const session = JSON.parse(storedSession);
-    const token = session.access_token;
-
+    const token = await getAuthToken();
+    
     if (!token) {
-      throw new Error('Token não encontrado na sessão');
+      throw new Error('No authentication token available');
     }
 
     const headers = {
@@ -28,9 +34,28 @@ async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
     });
 
     if (response.status === 401) {
-      // Redirecionar para login se não autenticado
-      window.location.href = '/entrar';
-      throw new Error('Não autorizado');
+      // Try to refresh the session
+      const { data: { session }, error } = await supabase.auth.refreshSession();
+      if (error || !session) {
+        // If refresh fails, redirect to login
+        window.location.href = '/entrar';
+        throw new Error('Session expired');
+      }
+      
+      // Retry the request with new token
+      const retryResponse = await fetch(`${API_URL}${endpoint}`, {
+        ...options,
+        headers: {
+          ...headers,
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!retryResponse.ok) {
+        throw new Error(`HTTP error! status: ${retryResponse.status}`);
+      }
+
+      return { data: await retryResponse.json() };
     }
 
     if (!response.ok) {
