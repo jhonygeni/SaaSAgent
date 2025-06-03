@@ -20,8 +20,8 @@ const logStep = (step: string, details?: any) => {
 };
 
 // Handler para gerenciar timeouts internos
-const withTimeout = async (promise, timeoutMs = 4000, fallbackValue = null) => {
-  let timeoutHandle;
+const withTimeout = async (promise: Promise<any>, timeoutMs = 4000, fallbackValue = null) => {
+  let timeoutHandle: number;
   const timeoutPromise = new Promise((_, reject) => {
     timeoutHandle = setTimeout(() => reject(new Error(`Operation timed out after ${timeoutMs}ms`)), timeoutMs);
   });
@@ -48,6 +48,31 @@ const PRICE_IDS = {
     monthly: "price_1RRBEZP1QgGAc8KH71uKIH6i",
     semiannual: "price_1RUAt2P1QgGAc8KHr8K4uqXG",
     annual: "price_1RUAtVP1QgGAc8KH01aRe0Um"
+  }
+};
+
+// Função para obter contagem de mensagens do usuário
+const getMessageCount = async (supabaseClient: any, userId: string): Promise<number> => {
+  try {
+    const { data: messageStats, error: statsError } = await withTimeout(
+      supabaseClient
+        .from('usage_stats')
+        .select('message_count')
+        .eq('user_id', userId)
+        .single(),
+      2000,
+      { data: null, error: null }
+    );
+    
+    if (statsError || !messageStats) {
+      logStep("No message stats found, returning 0");
+      return 0;
+    }
+    
+    return messageStats.message_count || 0;
+  } catch (error) {
+    logStep("Error getting message count", { error: error.message });
+    return 0;
   }
 };
 
@@ -89,51 +114,8 @@ serve(async (req) => {
     const user = userResult.data?.user;
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
-    
-    // Função para obter contagem de mensagens do usuário
-    const getMessageCount = async (userId: string) => {
-      try {
-        // Consulta todos os registros de uso do usuário e soma os valores
-        const { data: messageStats, error: statsError } = await withTimeout(
-          supabaseClient
-            .from('usage_stats')
-            .select('messages_sent, messages_received')
-            .eq('user_id', userId),
-          2000,
-          { data: [], error: null }
-        );
-        
-        if (statsError || !messageStats || messageStats.length === 0) {
-          logStep("No message stats found, returning 0");
-          return 0;
-        }
-        
-        // Somamos todas as mensagens enviadas e recebidas para obter o total
-        let totalSent = 0;
-        let totalReceived = 0;
-        
-        messageStats.forEach(stat => {
-          totalSent += (stat.messages_sent || 0);
-          totalReceived += (stat.messages_received || 0);
-        });
-        
-        const messageCount = totalSent + totalReceived;
-        logStep("Message count retrieved", { 
-          messagesSent: totalSent, 
-          messagesReceived: totalReceived, 
-          total: messageCount,
-          recordsCount: messageStats.length
-        });
-        
-        return messageCount;
-      } catch (error) {
-        logStep("Error getting message count", { error: error.message });
-        return 0;
-      }
-    };
 
     // Antes de chamar o Stripe, verificar se há uma assinatura no banco de dados
-    // Isso pode evitar chamadas desnecessárias ao Stripe
     try {
       const { data: subscriptionData, error: dbError } = await withTimeout(
         supabaseClient
@@ -149,7 +131,7 @@ serve(async (req) => {
       if (subscriptionData && !dbError) {
         logStep("Found subscription in database", { plan: subscriptionData.subscription_plans?.name || 'free' });
         const dbPlan = subscriptionData.subscription_plans?.name?.toLowerCase() || 'free';
-        const messageCount = await getMessageCount(user.id);
+        const messageCount = await getMessageCount(supabaseClient, user.id);
         
         return new Response(JSON.stringify({
           subscribed: true,
@@ -162,18 +144,15 @@ serve(async (req) => {
         });
       }
     } catch (dbCheckError) {
-      // Apenas log, continuar com Stripe como fallback
       logStep("Error checking database subscription", { error: dbCheckError.message });
     }
 
     // Se não encontrou no banco, verificar no Stripe
-    // Inicializar Stripe com timeout mais curto
     const stripe = new Stripe(stripeKey, { 
       apiVersion: "2023-10-16",
-      timeout: 5000 // milliseconds
+      timeout: 5000
     });
     
-    // Usar timeout para chamada ao Stripe
     const customersResult = await withTimeout(
       stripe.customers.list({ email: user.email, limit: 1 }),
       4000,
@@ -184,7 +163,7 @@ serve(async (req) => {
     
     if (customers.length === 0) {
       logStep("No customer found, returning free plan");
-      const messageCount = await getMessageCount(user.id);
+      const messageCount = await getMessageCount(supabaseClient, user.id);
       
       return new Response(JSON.stringify({ 
         subscribed: false, 
@@ -199,7 +178,6 @@ serve(async (req) => {
     const customerId = customers[0].id;
     logStep("Found Stripe customer", { customerId });
 
-    // Usar timeout para buscar assinaturas
     const subscriptionsResult = await withTimeout(
       stripe.subscriptions.list({
         customer: customerId,
@@ -218,7 +196,8 @@ serve(async (req) => {
     if (hasActiveSub) {
       const subscription = subscriptions[0];
       subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
-      logStep("Active subscription found", { subscriptionId: subscription.id, endDate: subscriptionEnd });        // Determine subscription tier from price ID
+      logStep("Active subscription found", { subscriptionId: subscription.id, endDate: subscriptionEnd });
+      
       if (subscription.items?.data?.length > 0) {
         const priceId = subscription.items.data[0].price.id;
         
@@ -249,7 +228,7 @@ serve(async (req) => {
     }
 
     logStep("Returning subscription status", { subscribed: hasActiveSub, plan });
-    const messageCount = await getMessageCount(user.id);
+    const messageCount = await getMessageCount(supabaseClient, user.id);
     
     return new Response(JSON.stringify({
       subscribed: hasActiveSub,
@@ -263,9 +242,14 @@ serve(async (req) => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR in check-subscription", { message: errorMessage });
-    return new Response(JSON.stringify({ error: errorMessage, plan: "free" }), {
+    return new Response(JSON.stringify({ 
+      error: errorMessage,
+      subscribed: false,
+      plan: "free",
+      message_count: 0
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200, // Mudar para 200 para que o cliente sempre receba uma resposta utilizável
+      status: error instanceof Error && error.message.includes("No authorization header") ? 401 : 500,
     });
   }
 });

@@ -69,7 +69,7 @@ const log = {
 
 // Template de e-mail de confirmação
 const generateConfirmationEmailHTML = (confirmationLink, userName) => {
-  const appUrl = "https://app.conversaai.com.br";
+  const appUrl = "https://ia.geni.chat";
   const supportEmail = "suporte@conversaai.com.br";
   
   return `
@@ -184,7 +184,7 @@ const parsePayload = (body) => {
       userId = body.user?.id;
       
       // Construir URL de redirecionamento se não fornecido
-      const baseUrl = Deno.env.get("SITE_URL") || "https://app.conversaai.com.br";
+      const baseUrl = Deno.env.get("SITE_URL") || "https://ia.geni.chat";
       if (type === "signup" || type === "email_signup") {
         redirectTo = `${baseUrl}/confirmar-email`;
       } else if (type === "recovery" || type === "password_recovery") {
@@ -302,7 +302,7 @@ const sendCustomEmail = async (email, type, token, redirectTo, metadata) => {
     const userName = metadata?.name || email.split("@")[0];
     
     // Construir link com base nos parâmetros recebidos
-    const baseUrl = Deno.env.get("SITE_URL") || "https://app.conversaai.com.br";
+    const baseUrl = Deno.env.get("SITE_URL") || "https://ia.geni.chat";
     
     // Adicionar as tabelas de projeto do Supabase
     const projectRef = Deno.env.get("PROJECT_REF") || "hpovwcaskorzzrpphgkc";
