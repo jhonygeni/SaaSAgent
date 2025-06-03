@@ -23,6 +23,7 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 export function UserProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
+  const lastMessageCount = useRef<number | null>(null);
   
   console.log('👤 UserProvider: Inicializando... (VERSÃO CORRIGIDA)');
   
@@ -63,8 +64,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
     });
   }, [user]);
   
-  // Check subscription status sem throttle inicialmente para depuração
-  const rawCheckSubscriptionStatus = useCallback(async () => {
+  // Check subscription status com throttle
+  const checkSubscriptionStatus = useCallback(async () => {
     try {
       console.log("🔍 Verificando status da assinatura...");
       
@@ -87,45 +88,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
         console.log("Sem usuário na sessão");
         logAuthEvent('check_session_failed', { reason: 'no_user_in_session' });
         return null;
-      }        console.log("✅ Sessão válida encontrada para:", supabaseUser.email);
-        logAuthEvent('check_session_success', { 
-          userId: supabaseUser.id,
-          email: supabaseUser.email
-        });
+      }
+      
+      console.log("✅ Sessão válida encontrada para:", supabaseUser.email);
+      logAuthEvent('check_session_success', { 
+        userId: supabaseUser.id,
+        email: supabaseUser.email
+      });
       
       console.log("Chamando edge function check-subscription");
-      
-      // Se o modo mock estiver ativado, use dados simulados
-      if (isMockModeEnabled()) {
-        const mockData = getMockSubscriptionData(supabaseUser.id);
-        console.log("🧪 Usando dados mockados:", mockData);
-        
-        // Simular delay de rede
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        if (!user && supabaseUser) {
-          const newUser: User = {
-            id: supabaseUser.id,
-            email: supabaseUser.email || '',
-            name: supabaseUser.user_metadata?.name || supabaseUser.email || '',
-            plan: (mockData.plan || 'free') as SubscriptionPlan,
-            messageCount: mockData.message_count || 0,
-            messageLimit: getMessageLimitByPlan(mockData.plan || 'free'),
-            agents: [],
-          };
-          console.log("Criando novo usuário no contexto com dados mockados:", newUser);
-          setUser(newUser);
-          return mockData;
-        } else if (user) {
-          updateUser({
-            plan: mockData.plan as SubscriptionPlan,
-            messageCount: mockData.message_count || 0,
-            messageLimit: getMessageLimitByPlan(mockData.plan || 'free')
-          });
-          return mockData;
-        }
-        return mockData;
-      }
       
       try {
         // Call check-subscription edge function with performance logging
@@ -144,9 +115,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
         }
         
         console.log("Resposta de check-subscription:", data);
-        if (data && data.message_count !== undefined) {
-          console.log("[DIAGNOSTIC] Valor de message_count recebido do backend:", data.message_count);
-        }
         
         if (data) {
           // If we have a user but no data in context yet, create it
@@ -162,20 +130,22 @@ export function UserProvider({ children }: { children: ReactNode }) {
             };
             console.log("Criando novo usuário no contexto:", newUser);
             setUser(newUser);
+            lastMessageCount.current = data.message_count;
             return data;
           }
-          // If we already have user data, just update the plan
+          // If we already have user data, just update the plan if it changed
           else if (user && data.plan && data.plan !== user.plan) {
             console.log(`Atualizando plano de ${user.plan} para ${data.plan}`);
             setPlan(data.plan as SubscriptionPlan);
             return data;
           }
-          // Se já temos usuário e o plano não mudou, ainda assim atualizamos os contadores
-          else if (user && data.message_count !== undefined) {
+          // Se já temos usuário e o plano não mudou, atualizamos os contadores apenas se houver mudança
+          else if (user && data.message_count !== undefined && data.message_count !== lastMessageCount.current) {
             console.log("[DIAGNOSTIC] Atualizando user.messageCount para:", data.message_count);
             updateUser({
               messageCount: data.message_count
             });
+            lastMessageCount.current = data.message_count;
             return data;
           }
           return data;
@@ -206,14 +176,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   }, [user, createUserWithDefaultPlan]);
   
-  // Simplificando o checkSubscriptionStatus (removendo throttle temporariamente)
-  const checkSubscriptionStatus = useCallback(async () => {
-    return rawCheckSubscriptionStatus();
-  }, [rawCheckSubscriptionStatus]);
-  
-  // Simplificando o useEffect - REMOVENDO o ref que estava bloqueando
+  // Configurar listener de autenticação
   useEffect(() => {
-    console.log("🚀 Configurando listener de autenticação (SEM REF BLOQUEANTE)");
+    console.log("🚀 Configurando listener de autenticação");
     setIsLoading(true);
     logAuthEvent('provider_init', { timestamp: Date.now() });
     
@@ -247,13 +212,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
           console.log("👋 Usuário deslogado");
           setUser(null);
           resetSubscriptionCache();
+          lastMessageCount.current = null;
         }
         
         setIsLoading(false);
       }
     );
     
-    // Check initial session - SEMPRE executar
+    // Check initial session
     const checkSession = async () => {
       console.log("🔍 Verificando sessão inicial...");
       logAuthEvent('initial_session_check', { timestamp: Date.now() });
@@ -295,7 +261,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       console.log("🧹 Removendo listener de autenticação");
       subscription?.unsubscribe?.();
     };
-  }, []); // Dependências vazias - nunca recriar o listener
+  }, [createUserWithDefaultPlan, checkSubscriptionStatus]);
 
   const updateUser = useCallback((updatedUser: Partial<User>) => {
     if (!user) {
@@ -326,6 +292,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     
     console.log("👤 Login manual:", newUser);
     setUser(newUser);
+    lastMessageCount.current = 0;
     
     // Limpar cache antes de verificar assinatura
     resetSubscriptionCache();
@@ -342,6 +309,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     logAuthEvent('logout', { userId: user?.id, email: user?.email });
     await supabase.auth.signOut();
     setUser(null);
+    lastMessageCount.current = null;
   };
 
   const setPlan = useCallback((plan: SubscriptionPlan) => {
@@ -373,6 +341,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         userEmail: user?.email,
         plan: user?.plan,
         messageCount: user?.messageCount,
+        lastMessageCount: lastMessageCount.current,
         timestamp: Date.now(),
       }
     };
