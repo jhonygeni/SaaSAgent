@@ -27,26 +27,25 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const lastCheckTime = useRef(0);
   const checkInProgress = useRef(false);
   const subscriptionRef = useRef<any>(null);
+  const retryCount = useRef(0);
+  const maxRetries = 3;
 
-  // Função para verificar sessão com throttling
+  // Função para verificar sessão com throttling e retry
   const checkSession = useCallback(async (force = false) => {
-    // Prevenir múltiplas chamadas simultâneas
     if (checkInProgress.current && !force) {
       console.log("Verificação de sessão já em andamento");
       return;
     }
 
-    // Throttling: permitir apenas uma chamada a cada 2 segundos
-    const now = Date.now();
-    if (!force && now - lastCheckTime.current < 2000) {
-      console.log("Throttling: muito cedo para nova verificação");
+    if (!force && retryCount.current >= maxRetries) {
+      console.log("Número máximo de tentativas atingido");
       return;
     }
 
     try {
       console.log("Iniciando verificação de sessão");
       checkInProgress.current = true;
-      lastCheckTime.current = now;
+      lastCheckTime.current = Date.now();
 
       // Verificar token armazenado
       const storedSession = localStorage.getItem(storageKey);
@@ -61,7 +60,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
-        console.error("Erro ao obter sessão:", sessionError);
         throw sessionError;
       }
 
@@ -69,6 +67,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         console.log("Sessão encontrada, atualizando usuário");
         setUser(session.user);
         setError(null);
+        retryCount.current = 0; // Reset retry count on success
         
         // Tentar atualizar o token de acesso
         const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
@@ -76,22 +75,32 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           console.warn("Erro ao atualizar token:", refreshError);
         } else if (refreshData.session) {
           console.log("Token atualizado com sucesso");
-          // O cliente Supabase cuidará do armazenamento do token
+          setUser(refreshData.session.user);
         }
       } else {
-        console.log("Nenhuma sessão ativa encontrada");
+        if (retryCount.current < maxRetries - 1) {
+          console.log(`Tentativa ${retryCount.current + 1}: Sem sessão, tentando novamente em 1 segundo`);
+          retryCount.current++;
+          setTimeout(() => checkSession(true), 1000);
+          return;
+        }
+        console.log("Nenhuma sessão ativa encontrada após todas as tentativas");
         setUser(null);
         // Limpar tokens antigos
         localStorage.removeItem(storageKey);
-        localStorage.removeItem('auth_token');
       }
     } catch (err) {
       console.error('Erro ao verificar sessão:', err);
+      if (retryCount.current < maxRetries - 1) {
+        console.log(`Tentativa ${retryCount.current + 1}: Erro, tentando novamente em 1 segundo`);
+        retryCount.current++;
+        setTimeout(() => checkSession(true), 1000);
+        return;
+      }
       setError('Erro ao verificar sessão');
       setUser(null);
       // Limpar tokens em caso de erro
       localStorage.removeItem(storageKey);
-      localStorage.removeItem('auth_token');
     } finally {
       checkInProgress.current = false;
       setIsLoading(false);
@@ -108,43 +117,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
       console.log("Iniciando verificação inicial de sessão");
       initializationAttempted.current = true;
-
-      try {
-        // Tentar recuperar sessão existente
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          throw sessionError;
-        }
-
-        if (session?.user) {
-          console.log("Sessão inicial encontrada:", session.user.email);
-          setUser(session.user);
-          setError(null);
-          
-          // Atualizar token
-          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-          if (refreshError) {
-            console.warn("Erro ao atualizar token:", refreshError);
-          } else if (refreshData.session) {
-            console.log("Token atualizado com sucesso");
-          }
-        } else {
-          console.log("Nenhuma sessão inicial encontrada");
-          setUser(null);
-          // Limpar tokens antigos
-          localStorage.removeItem(storageKey);
-          localStorage.removeItem('auth_token');
-        }
-      } catch (err) {
-        console.error("Erro na inicialização:", err);
-        setError("Erro ao inicializar autenticação");
-        // Limpar tokens em caso de erro
-        localStorage.removeItem(storageKey);
-        localStorage.removeItem('auth_token');
-      } finally {
-        setIsLoading(false);
-      }
+      await checkSession(true);
     };
 
     initializeAuth();
@@ -152,17 +125,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     // Escutar mudanças de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("Evento de autenticação:", event, session ? "com sessão" : "sem sessão");
-      
-      // Limpar estado anterior
-      if (subscriptionRef.current) {
-        subscriptionRef.current.unsubscribe();
-      }
 
       if (event === 'SIGNED_IN' && session?.user) {
         console.log("Usuário logado, atualizando estado");
         setUser(session.user);
         setError(null);
         setIsLoading(false);
+        retryCount.current = 0;
       } else if (event === 'SIGNED_OUT') {
         console.log("Usuário deslogado");
         setUser(null);
@@ -170,7 +139,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(false);
         // Limpar tokens
         localStorage.removeItem(storageKey);
-        localStorage.removeItem('auth_token');
       } else if (event === 'TOKEN_REFRESHED' && session) {
         console.log("Token atualizado, atualizando estado");
         setUser(session.user);
@@ -186,7 +154,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         subscriptionRef.current.unsubscribe();
       }
     };
-  }, []);
+  }, [checkSession]);
 
   // Função de logout com limpeza de estado
   const logout = async () => {
@@ -201,7 +169,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
       // Limpar tokens
       localStorage.removeItem(storageKey);
-      localStorage.removeItem('auth_token');
       
       const { error: signOutError } = await supabase.auth.signOut();
       if (signOutError) throw signOutError;
@@ -211,6 +178,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setError(null);
       initializationAttempted.current = false;
       lastCheckTime.current = 0;
+      retryCount.current = 0;
       
       console.log("Logout concluído com sucesso");
     } catch (err) {

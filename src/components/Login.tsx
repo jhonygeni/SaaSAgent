@@ -11,104 +11,61 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { toast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/context/UserContext";
 import { supabase } from "@/integrations/supabase/client";
 
 export function Login() {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const { checkSubscriptionStatus } = useUser();
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const { checkSubscriptionStatus } = useUser();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email || !password) {
-      toast({
-        title: "Erro no formulário",
-        description: "Preencha todos os campos.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    setLoading(true);
-    
     try {
+      setIsLoading(true);
       console.log("Tentando fazer login com:", { email });
-      
-      // Limpar tokens antigos antes de tentar novo login
-      localStorage.removeItem('supabase.auth.token');
-      localStorage.removeItem('auth_token');
-      
-      // Tentar login com Supabase
-      const { data, error } = await supabase.auth.signInWithPassword({
+
+      const { data, error } = await supabase.auth.signInWithOtp({
         email,
-        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
       });
-      
+
       if (error) {
-        console.error("Erro de login:", error);
-        // Verificar se é um erro de e-mail não confirmado
-        if (error.message.includes("Email not confirmed")) {
-          toast({
-            title: "E-mail não confirmado",
-            description: (
-              <div>
-                Você precisa confirmar seu e-mail antes de fazer login.{" "}
-                <Button
-                  variant="link"
-                  className="p-0 h-auto text-primary"
-                  onClick={() => navigate("/reenviar-confirmacao", { state: { email } })}
-                >
-                  Clique aqui para reenviar o email de confirmação
-                </Button>
-              </div>
-            ),
-            duration: 10000,
-          });
-          return;
-        }
-        
         throw error;
       }
-      
-      if (!data.session) {
-        throw new Error("Sessão não criada após login");
-      }
-      
+
       console.log("Login bem-sucedido:", data);
       
-      // Salvar token de acesso
-      localStorage.setItem('auth_token', data.session.access_token);
+      // Aguardar um momento para o estado ser atualizado
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Verificar se a sessão está realmente ativa
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error("Sessão não estabelecida após login");
-      }
-      
-      // Check subscription status after login
+      // Verificar status da assinatura
       await checkSubscriptionStatus();
-      
+
       toast({
         title: "Login realizado com sucesso",
-        description: "Bem-vindo de volta!",
+        description: "Bem-vindo de volta! Redirecionando para o dashboard...",
       });
+
+      // Aguardar mais um momento antes de redirecionar
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Redirect to dashboard on successful login
       navigate("/dashboard", { replace: true });
-    } catch (err: any) {
-      console.error("Erro no login:", err);
+    } catch (error: any) {
+      console.error("Erro no login:", error);
       toast({
-        title: "Erro no login",
-        description: err.message || "Verifique suas credenciais e tente novamente.",
         variant: "destructive",
+        title: "Erro ao fazer login",
+        description: error.message || "Ocorreu um erro ao tentar fazer login.",
       });
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -120,7 +77,7 @@ export function Login() {
           Entre com sua conta para continuar na plataforma.
         </CardDescription>
       </CardHeader>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleLogin}>
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">E-mail</Label>
@@ -131,16 +88,7 @@ export function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Senha</Label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
+              disabled={isLoading}
             />
           </div>
         </CardContent>
@@ -148,9 +96,16 @@ export function Login() {
           <Button 
             type="submit" 
             className="w-full"
-            disabled={loading}
+            disabled={isLoading}
           >
-            {loading ? "Entrando..." : "Entrar"}
+            {isLoading ? (
+              <div className="flex items-center gap-2">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                <span>Enviando link...</span>
+              </div>
+            ) : (
+              "Entrar com Email"
+            )}
           </Button>
           <Button
             type="button"
