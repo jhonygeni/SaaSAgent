@@ -4,21 +4,21 @@ import { EVOLUTION_CONFIG, FEATURE_FLAGS } from '../config/environment';
 // ===============================
 // EVOLUTION API CONFIGURATION  
 // ===============================
-export const EVOLUTION_API_URL = EVOLUTION_CONFIG.url; // API URL from environment config
-export const EVOLUTION_API_KEY = EVOLUTION_CONFIG.key; // API Key from environment config
+export const EVOLUTION_API_URL = EVOLUTION_CONFIG.url;
+export const EVOLUTION_API_KEY = EVOLUTION_CONFIG.key;
 
 // Authentication configuration - Based on Evolution API v2 requirements
-export const USE_BEARER_AUTH = false; // Evolution API v2 uses 'apikey' header, not Bearer token
-export const USE_MOCK_DATA = FEATURE_FLAGS.useMockData; // Disable in production for real API calls
+export const USE_BEARER_AUTH = false;
+export const USE_MOCK_DATA = false; // Disable in production for real API calls
 
 // ===============================
 // CONNECTION CONFIGURATION
 // ===============================
-export const MAX_CONNECTION_RETRIES = 3; // Maximum number of retry attempts
-export const RETRY_DELAY_MS = 1000; // Delay between retries in milliseconds
+export const MAX_CONNECTION_RETRIES = 3;
+export const RETRY_DELAY_MS = 1000;
 export const CONNECTION_TIMEOUT_MS = 30000; // Request timeout in milliseconds
 export const STATUS_POLLING_INTERVAL_MS = 2000; // Status polling interval in milliseconds
-export const MAX_POLLING_ATTEMPTS = 20; // Maximum number of polling attempts
+export const MAX_POLLING_ATTEMPTS = 30;
 export const CONSECUTIVE_SUCCESS_THRESHOLD = 2; // Success threshold for polling
 
 // Auto-close dialog parameters
@@ -28,43 +28,37 @@ export const AUTO_CLOSE_DELAY_MS = 2000;
 // ===============================
 // FEATURE FLAGS
 // ===============================
-export const PREVENT_CREDIT_CONSUMPTION_ON_FAILURE = true; // Prevent API credit waste on repeated failures
+export const PREVENT_CREDIT_CONSUMPTION_ON_FAILURE = true;
 
 // ===============================
-// API ENDPOINTS - Evolution API v2
+// API ENDPOINTS
 // ===============================
 export const ENDPOINTS = {
   // Instance management endpoints
-  instanceCreate: "/instance/create", // Create new instance (POST)
-  instanceConnectQR: "/instance/connect", // Connect and get QR code (GET)
-  instanceInfo: "/instance/info", // Get instance info (GET)
-  instanceFetch: "/instance/fetchInstances", // Fetch all instances (GET)
-  connectionState: "/instance/connectionState", // Check connection status (GET)
-  instanceDelete: "/instance/delete", // Delete instance (DELETE)
+  instanceCreate: "/instance/create",
+  instanceConnectQR: "/instance/connect/{instanceName}",
+  instanceInfo: "/instance/info/{instanceName}",
+  connectionState: "/instance/connectionState/{instanceName}",
+  instanceDelete: "/instance/delete/{instanceName}",
+  instanceLogout: "/instance/logout/{instanceName}",
+  fetchInstances: "/instance/fetchInstances",
   
-  // Webhook configuration
-  webhookSet: "/webhook/set", // Set webhook URL (POST)
-  webhookFind: "/webhook/find", // Get webhook info (GET)
+  // Webhook configuration endpoints
+  webhookConfig: "/instance/webhook/{instanceName}",
+  webhookSet: "/instance/webhook/set/{instanceName}",
+  webhookFind: "/instance/webhook/find/{instanceName}",
+  
+  // Settings configuration endpoints
+  settingsConfig: "/settings/set/{instanceName}",
+  settingsFind: "/settings/find/{instanceName}",
   
   // Message endpoints
-  sendText: "/message/sendText/{instanceName}", // Send text message (POST)
-  sendMedia: "/message/sendMedia/{instanceName}", // Send media message (POST)
+  sendMessage: "/message/sendText/{instanceName}",
+  sendImage: "/message/sendImage/{instanceName}",
+  sendDocument: "/message/sendDocument/{instanceName}",
   
-  // QR Code and connection
-  qrcode: "/instance/qrcode/{instanceName}", // Get QR code (GET)
-  restart: "/instance/restart/{instanceName}", // Restart instance (PUT)
-  logout: "/instance/logout/{instanceName}", // Logout instance (DELETE)
-  
-  // Status and health
-  status: "/", // API status and version (GET)
-  manager: "/manager", // Manager endpoints (GET)
-  
-  // New endpoints
-  settingsSet: "/settings/set",
-  fetchInstances: "/instance/fetchInstances",
-  instanceLogout: "/instance/logout",
-  webhookConfig: "/webhook/set",
-  settingsConfig: "/settings/set",
+  // Manager endpoints
+  manager: "/manager"
 };
 
 // ===============================
@@ -81,13 +75,13 @@ export const WEBHOOK_CONFIG = {
 // DEFAULT INSTANCE SETTINGS
 // ===============================
 export const DEFAULT_INSTANCE_SETTINGS = {
-  reject_call: false, // Não rejeitar chamadas
-  msg_call: "", // Sem mensagem de rejeição
-  groups_ignore: true, // Ignorar mensagens de grupo por padrão
-  always_online: true, // Manter status sempre online
-  read_messages: true, // Marcar mensagens como lidas
-  read_status: true, // Marcar status como lido
-  sync_full_history: false, // Não sincronizar histórico completo
+  reject_call: false, // Accept incoming calls
+  msg_call: "", // Message for rejected calls
+  groups_ignore: true, // Ignore group messages by default
+  always_online: false, // Don't force always online status
+  read_messages: false, // Don't auto-read messages
+  read_status: false, // Don't auto-read status updates
+  sync_full_history: true, // Sync full message history
 };
 
 // ===============================

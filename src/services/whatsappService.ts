@@ -1036,7 +1036,7 @@ const whatsappService = {
         
         const instances = await apiClient.get<InstancesListResponse>(endpoint);
         console.log(`Successfully fetched ${instances?.length || 0} instances`);
-        return instances;
+        return instances || [];
       } catch (apiError) {
         // Primary method failed, try second method
         console.warn("Primary API client fetch failed, trying fallback method:", apiError);
@@ -1059,7 +1059,8 @@ const whatsappService = {
             method: 'GET',
             headers: { 
               'apikey': EVOLUTION_API_KEY,
-              'Accept': 'application/json' 
+              'Accept': 'application/json',
+              'Content-Type': 'application/json'
             }
           });
           
@@ -1076,7 +1077,7 @@ const whatsappService = {
           
           const instances = await response.json();
           console.log(`Successfully fetched ${instances?.length || 0} instances via direct fetch`);
-          return instances;
+          return instances || [];
         } catch (directError) {
           // Second method failed, try third method
           console.warn("Direct fetch failed, trying emergency method:", directError);
@@ -1085,7 +1086,7 @@ const whatsappService = {
           const { emergencyFetchInstances } = await import('@/services/directApiClient');
           const instances = await emergencyFetchInstances();
           console.log(`Emergency fetch retrieved ${instances?.length || 0} instances`);
-          return instances;
+          return instances || [];
         }
       }
     } catch (error) {
@@ -1236,10 +1237,11 @@ const whatsappService = {
   // List all instances
   listInstances: async (): Promise<InstancesListResponse> => {
     try {
-      return await whatsappService.fetchInstances();
+      const instances = await whatsappService.fetchInstances();
+      return instances || [];
     } catch (error) {
       console.error("Error listing instances:", error);
-      throw error;
+      return [];
     }
   }
 };

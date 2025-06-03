@@ -32,7 +32,11 @@ export function useUsageStats(): UsageStatsResponse {
       console.log('🔍 Iniciando busca de dados de uso...');
 
       // Estratégia 1: Tentar com usuário atual ou mock
-      const userId = user?.id || '123e4567-e89b-12d3-a456-426614174000';
+      const userId = user?.id;
+      if (!userId) {
+        console.warn('Usuário não autenticado, usando dados de demonstração');
+        return useDemoData();
+      }
       console.log('👤 Usuário para busca:', userId);
 
       // Estratégia 2: Buscar dados dos últimos 7 dias
@@ -75,10 +79,9 @@ export function useUsageStats(): UsageStatsResponse {
             usageError = null;
             console.log('✅ Encontrados dados do usuário específico:', userSpecificData.length);
           } else {
-            // Usar qualquer dado disponível para demonstração
-            usageData = result2.data.slice(0, 7); // Pegar apenas os primeiros 7
-            usageError = null;
-            console.log('ℹ️ Usando dados disponíveis para demonstração:', usageData.length);
+            // Usar dados de demonstração
+            console.log('ℹ️ Nenhum dado encontrado para o usuário, usando dados de demonstração');
+            return useDemoData();
           }
         } else {
           usageError = result2.error;
@@ -91,37 +94,11 @@ export function useUsageStats(): UsageStatsResponse {
         errorMessage: usageError?.message 
       });
 
-            // Se ainda assim não conseguimos dados reais, usar fallback
+      // Se ainda assim não conseguimos dados reais, usar dados de demonstração
       if (usageError || !usageData || usageData.length === 0) {
         console.warn('⚠️ Não foi possível acessar dados reais do Supabase');
         console.warn('🔄 Motivo:', usageError?.message || 'Nenhum dado encontrado');
-        console.log('🎭 Usando dados de demonstração...');
-        
-        // Dados de demonstração mais realistas
-        const mockData: UsageStatsData[] = [
-          { dia: 'Dom', enviadas: 18, recebidas: 15, date: getDateString(-6) },
-          { dia: 'Seg', enviadas: 35, recebidas: 32, date: getDateString(-5) },
-          { dia: 'Ter', enviadas: 28, recebidas: 25, date: getDateString(-4) },
-          { dia: 'Qua', enviadas: 42, recebidas: 38, date: getDateString(-3) },
-          { dia: 'Qui', enviadas: 39, recebidas: 33, date: getDateString(-2) },
-          { dia: 'Sex', enviadas: 47, recebidas: 41, date: getDateString(-1) },
-          { dia: 'Sáb', enviadas: 25, recebidas: 21, date: getDateString(0) }
-        ];
-        
-        const total = mockData.reduce((sum, day) => sum + day.enviadas + day.recebidas, 0);
-        
-        setData(mockData);
-        setTotalMessages(total);
-        setError(`Dados de demonstração (${usageError?.message || 'sem dados reais'})`);
-        setIsLoading(false);
-        return;
-      }
-
-      // Função auxiliar para gerar strings de data
-      function getDateString(daysFromToday: number): string {
-        const date = new Date();
-        date.setDate(date.getDate() + daysFromToday);
-        return date.toISOString().split('T')[0];
+        return useDemoData();
       }
 
       // Processar dados reais encontrados
@@ -168,31 +145,38 @@ export function useUsageStats(): UsageStatsResponse {
 
     } catch (err) {
       console.error('Erro ao buscar estatísticas de uso:', err);
-      setError(err instanceof Error ? err.message : 'Erro desconhecido');
-      
-      // Em caso de erro, usar dados vazios mas manter a estrutura
-      const today = new Date();
-      const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-      const fallbackData: UsageStatsData[] = [];
-      
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date(today);
-        date.setDate(today.getDate() - i);
-        const dayName = dayNames[date.getDay()];
-        
-        fallbackData.push({
-          dia: dayName,
-          enviadas: 0,
-          recebidas: 0,
-          date: date.toISOString().split('T')[0]
-        });
-      }
-      
-      setData(fallbackData);
-      setTotalMessages(0);
+      return useDemoData();
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Função para gerar dados de demonstração
+  const useDemoData = () => {
+    // Função auxiliar para gerar strings de data
+    function getDateString(daysFromToday: number): string {
+      const date = new Date();
+      date.setDate(date.getDate() + daysFromToday);
+      return date.toISOString().split('T')[0];
+    }
+
+    // Dados de demonstração mais realistas
+    const mockData: UsageStatsData[] = [
+      { dia: 'Dom', enviadas: 18, recebidas: 15, date: getDateString(-6) },
+      { dia: 'Seg', enviadas: 35, recebidas: 32, date: getDateString(-5) },
+      { dia: 'Ter', enviadas: 28, recebidas: 25, date: getDateString(-4) },
+      { dia: 'Qua', enviadas: 42, recebidas: 38, date: getDateString(-3) },
+      { dia: 'Qui', enviadas: 39, recebidas: 33, date: getDateString(-2) },
+      { dia: 'Sex', enviadas: 47, recebidas: 41, date: getDateString(-1) },
+      { dia: 'Sáb', enviadas: 25, recebidas: 21, date: getDateString(0) }
+    ];
+    
+    const total = mockData.reduce((sum, day) => sum + day.enviadas + day.recebidas, 0);
+    
+    setData(mockData);
+    setTotalMessages(total);
+    setError('Mostrando dados de demonstração');
+    setIsLoading(false);
   };
 
   const refetch = () => {

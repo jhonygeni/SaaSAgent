@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useRef } from 'react';
 import { nanoid } from 'nanoid';
 import whatsappService from '@/services/whatsappService';
@@ -116,7 +115,8 @@ export function useInstanceManager() {
         const { data: supabaseInstances, error } = await supabase
           .from('whatsapp_instances')
           .select('*')
-          .eq('user_id', userData.user.id);
+          .eq('user_id', userData.user.id)
+          .not('status', 'eq', 'deleted'); // Não mostrar instâncias deletadas
           
         if (!error && supabaseInstances) {
           console.log("Found instances in Supabase:", supabaseInstances);
@@ -127,7 +127,7 @@ export function useInstanceManager() {
       // Fallback to WhatsApp API if no instances in Supabase
       const response: InstancesListResponse = await whatsappService.listInstances();
       console.log("Instances from WhatsApp API:", response);
-      return response.instances || [];
+      return response || [];
     } catch (error) {
       console.error("Error fetching user instances:", error);
       return [];

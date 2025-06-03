@@ -2,43 +2,55 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-// Get environment variables
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// 🔒 SECURITY: Get credentials from environment variables ONLY
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Validate environment variables
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing Supabase environment variables');
-  throw new Error('Supabase URL and Anon Key must be defined in environment variables');
+// 🚨 CRITICAL: Environment validation
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.error('❌ CRITICAL CONFIGURATION ERROR:');
+  console.error('   - VITE_SUPABASE_URL:', SUPABASE_URL ? '✅ SET' : '❌ MISSING');
+  console.error('   - VITE_SUPABASE_ANON_KEY:', SUPABASE_ANON_KEY ? '✅ SET' : '❌ MISSING');
+  console.error('');
+  console.error('🔧 TO FIX:');
+  console.error('   1. Create .env.local file with real credentials');
+  console.error('   2. Or set Environment Variables in Vercel Dashboard');
+  console.error('   3. Make sure variables start with VITE_');
+  console.error('');
+  console.error('📚 See: /GUIA-CONFIGURACAO-VERCEL.md');
+  
+  throw new Error('SUPABASE CREDENTIALS NOT CONFIGURED - Check environment variables');
 }
 
-// Security validation - ensure we're not using demo/mock credentials
-if (supabaseUrl.includes('demo.supabase.co') || supabaseUrl.includes('mock')) {
-  throw new Error('Invalid Supabase configuration. Check environment variables.');
+// 🔍 Security validation - ensure we're not using demo/mock credentials
+if (SUPABASE_URL.includes('demo.supabase.co') || SUPABASE_URL.includes('mock')) {
+  throw new Error('🚨 SECURITY ERROR: Mock/Demo credentials detected. Use real Supabase credentials.');
 }
 
-// Create Supabase client with secure configuration
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+// 📊 Log configuration (safe - no sensitive data)
+const isProduction = import.meta.env.PROD;
+const urlDomain = new URL(SUPABASE_URL).hostname;
+console.log(`🔧 Supabase Client Initialized:`);
+console.log(`   Mode: ${isProduction ? 'PRODUCTION' : 'DEVELOPMENT'}`);
+console.log(`   Domain: ${urlDomain}`);
+console.log(`   Key: ${SUPABASE_ANON_KEY.substring(0, 20)}...`);
+
+// 🏗️ Create Supabase client with optimized configuration
+const supabaseClient = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
-    autoRefreshToken: true,
+    storage: typeof window !== 'undefined' ? localStorage : undefined,
     persistSession: true,
+    autoRefreshToken: true,
     detectSessionInUrl: true,
-    storage: window.localStorage,
-    storageKey: `sb-${supabaseUrl.split('//')[1].split('.')[0]}-auth-token`,
-  },
-  headers: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
   },
   global: {
     headers: {
-      'Content-Type': 'application/json',
+      'X-Client-Info': 'conversa-ai-brasil@1.0.0',
       'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
     },
   },
-  realtime: {
-    params: {
-      eventsPerSecond: 10
-    }
-  }
 });
+
+export const supabase = supabaseClient;

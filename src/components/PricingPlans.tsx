@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export function PricingPlans() {
   const { user, setPlan } = useUser();
-  const [loading, setLoading] = useState<string | boolean | null>(null);
+  const [loading, setLoading] = useState<string | null>(null);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'semiannual' | 'annual'>('monthly');
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -54,64 +54,155 @@ export function PricingPlans() {
   };
 
   const handleSelectPlan = async (plan: "free" | "starter" | "growth") => {
+    // Verificar se o usuário está autenticado
     if (!user) {
       toast({
-        title: "Erro",
-        description: "Você precisa estar logado para assinar um plano.",
-        variant: "destructive",
+        title: "Ação necessária",
+        description: "Por favor, faça login antes de selecionar um plano.",
       });
+      navigate("/entrar");
       return;
     }
-
-    setLoading(true);
-
+    
+    // Garante que temos uma sessão válida antes de continuar
     try {
-      const { data: { session }, error } = await supabase.auth.getSession();
-
-      if (error || !session) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session) {
         toast({
-          title: "Erro",
-          description: "Erro ao obter sessão. Por favor, faça login novamente.",
-          variant: "destructive",
+          title: "Sessão expirada",
+          description: "Sua sessão expirou. Por favor, faça login novamente.",
         });
+        navigate("/entrar");
         return;
       }
-
-      const response = await fetch('/api/create-checkout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({
-          planId: plan,
-          userId: user.id,
-          email: user.email,
-          name: user.name,
-          successUrl: window.location.origin + '/dashboard',
-          cancelUrl: window.location.origin + '/pricing'
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Erro ao criar sessão de checkout');
-      }
-
-      const { url } = await response.json();
-
-      if (url) {
-        window.location.href = url;
-      } else {
-        throw new Error('URL de checkout não retornada');
-      }
-    } catch (error) {
+    } catch (sessionError) {
+      console.error("Erro ao verificar sessão:", sessionError);
       toast({
-        title: "Erro",
-        description: "Erro ao processar checkout. Por favor, tente novamente.",
-        variant: "destructive",
+        title: "Erro de autenticação",
+        description: "Não foi possível verificar sua sessão. Por favor, faça login novamente.",
       });
-    } finally {
-      setLoading(false);
+      navigate("/entrar");
+      return;
+    }
+    
+    if (plan === "free") {
+      try {
+        setPlan(plan);
+        toast({
+          title: "Plano atualizado",
+          description: "Você está utilizando o plano Grátis.",
+        });
+        navigate("/dashboard");
+      } catch (error) {
+        console.error("Erro ao atualizar plano:", error);
+        toast({
+          title: "Erro ao atualizar plano",
+          description: "Não foi possível atualizar seu plano. Por favor, tente novamente.",
+        });
+      }
+      return;
+    }
+    
+    try {
+      setLoading(plan);
+      
+      // ===== DEBUGGING LOGS START =====
+      console.log("🚀 CHECKOUT DEBUGGING - DADOS COLETADOS:");
+      console.log("  📋 Plan ID:", plan);
+      console.log("  🔄 Billing Cycle:", billingCycle);
+      console.log("  ⚙️ Estado do componente - billingCycle:", billingCycle);
+      
+      // Verificar se o billingCycle está realmente correto
+      const currentBillingCycle = billingCycle;
+      console.log("  🔍 Current billing cycle (verificação):", currentBillingCycle);
+      
+      // Determinar o price ID baseado no plano e ciclo de cobrança
+      const selectedPlan = plan as 'starter' | 'growth';
+      const selectedCycle = currentBillingCycle;
+      const priceConfig = pricingConfig[selectedPlan][selectedCycle];
+      const priceId = priceConfig.priceId;
+      
+      console.log("  💰 Price Config:", priceConfig);
+      console.log("  🎯 Price ID selecionado:", priceId);
+      console.log("  📊 Configuração completa do pricing:", pricingConfig);
+      
+      // Dados que serão enviados
+      const checkoutData = {
+        planId: plan,
+        priceId: priceId,
+        billingCycle: currentBillingCycle
+      };
+      
+      console.log("  📦 DADOS QUE SERÃO ENVIADOS PARA CHECKOUT:");
+      console.log("     planId:", checkoutData.planId);
+      console.log("     priceId:", checkoutData.priceId);
+      console.log("     billingCycle:", checkoutData.billingCycle);
+      console.log("  📋 Objeto completo:", JSON.stringify(checkoutData, null, 2));
+      
+      // Verificação adicional de consistência
+      const expectedPriceId = pricingConfig[selectedPlan][selectedCycle].priceId;
+      if (priceId === expectedPriceId) {
+        console.log("  ✅ VERIFICAÇÃO: Price ID está correto");
+      } else {
+        console.log("  ❌ VERIFICAÇÃO: Price ID inconsistente!");
+        console.log("     Esperado:", expectedPriceId);
+        console.log("     Atual:", priceId);
+      }
+      console.log("🔚 DEBUGGING LOGS END");
+      // ===== DEBUGGING LOGS END =====
+
+      // Get the session
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session?.access_token) {
+        throw new Error("No access token available");
+      }
+
+      console.log("🔑 Token de sessão obtido, chamando create-checkout...");
+
+      // Call Supabase Edge Function to create Stripe checkout
+      const { data, error } = await supabase.functions.invoke("create-checkout", {
+        body: checkoutData,
+        headers: {
+          Authorization: `Bearer ${sessionData.session.access_token}`,
+        },
+      });
+
+      console.log("📡 Resposta do create-checkout:", { data, error });
+      
+      if (error) {
+        console.error("Erro detalhado:", error);
+        throw error;
+      }
+      
+      if (!data?.url) {
+        console.error("Resposta sem URL:", data);
+        throw new Error("URL do checkout não retornada");
+      }
+      
+      console.log("Redirecionando para:", data.url);
+      window.location.href = data.url;
+    } catch (err: any) {
+      console.error("Erro detalhado do checkout:", err);
+      
+      let errorMessage = "Ocorreu um erro ao criar a sessão de pagamento. Por favor, tente novamente.";
+      
+      if (err?.message?.includes("STRIPE_SECRET_KEY")) {
+        errorMessage = "Erro de configuração do sistema de pagamento. Por favor, contate o suporte.";
+      } else if (err?.message?.includes("Rate limit")) {
+        errorMessage = "Muitas tentativas de pagamento. Por favor, aguarde alguns minutos e tente novamente.";
+      } else if (err?.message?.includes("Authentication")) {
+        errorMessage = "Erro de autenticação. Por favor, faça login novamente.";
+      } else if (err?.message) {
+        errorMessage = err.message;
+      }
+      
+      toast({
+        variant: "destructive",
+        title: "Erro ao processar pagamento",
+        description: errorMessage,
+      });
+      
+      setLoading(null);
     }
   };
 

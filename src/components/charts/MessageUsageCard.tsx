@@ -6,26 +6,17 @@ import { useState, useEffect } from "react";
 interface MessageUsageCardProps {
   messageCount: number;
   messageLimit: number;
-  isRealTime?: boolean;
 }
 
-export function MessageUsageCard({ messageCount, messageLimit, isRealTime = false }: MessageUsageCardProps) {
+export function MessageUsageCard({ messageCount, messageLimit }: MessageUsageCardProps) {
   const [progress, setProgress] = useState(0);
   
   const messageUsage = (messageCount / messageLimit) * 100;
   const formattedCount = messageCount.toLocaleString();
   const formattedLimit = messageLimit.toLocaleString();
   
-  // Determinar a cor da barra de progresso baseado no uso
-  const getProgressColor = (usage: number) => {
-    if (usage > 90) return "bg-red-500";
-    if (usage > 75) return "bg-orange-500";
-    if (usage > 50) return "bg-yellow-500";
-    return "bg-green-500";
-  };
-  
   useEffect(() => {
-    console.log("[DIAGNOSTIC] MessageUsageCard props:", { messageCount, messageLimit, isRealTime });
+    console.log("[DIAGNOSTIC] MessageUsageCard props:", { messageCount, messageLimit });
     // Animate progress bar
     const timer = setTimeout(() => {
       setProgress(messageUsage);
@@ -36,14 +27,7 @@ export function MessageUsageCard({ messageCount, messageLimit, isRealTime = fals
   return (
     <Card className="bg-card dark:bg-card border-border h-full">
       <CardHeader className="pb-2">
-        <CardTitle className="text-base font-medium flex items-center justify-between">
-          Uso de Mensagens
-          {isRealTime && (
-            <span className="text-xs text-green-500 bg-green-100 dark:bg-green-900/20 px-2 py-1 rounded-full">
-              Tempo Real
-            </span>
-          )}
-        </CardTitle>
+        <CardTitle className="text-base font-medium">Uso de Mensagens</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex justify-between items-center">
@@ -52,23 +36,12 @@ export function MessageUsageCard({ messageCount, messageLimit, isRealTime = fals
             {formatLimit(messageCount, messageLimit)}
           </span>
         </div>
-        <Progress 
-          value={progress} 
-          className={`h-3 ${getProgressColor(messageUsage)}`}
-        />
+        <Progress value={progress} className="h-3" />
         
         <div className="flex flex-col space-y-2">
           <div className="flex justify-between items-center">
             <span className="text-lg font-bold">{formattedCount} / {formattedLimit}</span>
-            <span className={`text-sm px-2 py-0.5 rounded ${
-              messageUsage > 90 
-                ? 'bg-red-100 text-red-700'
-                : messageUsage > 75
-                ? 'bg-orange-100 text-orange-700'
-                : messageUsage > 50
-                ? 'bg-yellow-100 text-yellow-700'
-                : 'bg-green-100 text-green-700'
-            }`}>
+            <span className="text-sm px-2 py-0.5 rounded bg-primary/10 text-primary">
               {messageUsage.toFixed(1)}%
             </span>
           </div>
@@ -80,6 +53,13 @@ export function MessageUsageCard({ messageCount, messageLimit, isRealTime = fals
                 ? "Uso moderado do seu plano."
                 : "Uso dentro do esperado para seu plano."}
           </div>
+        </div>
+        
+        <div className="p-4 bg-secondary/20 rounded-lg">
+          <h4 className="font-medium mb-2">Dica de Uso</h4>
+          <p className="text-sm text-muted-foreground">
+            Otimize suas mensagens configurando respostas automáticas para perguntas frequentes e utilize templates pré-definidos.
+          </p>
         </div>
       </CardContent>
     </Card>
