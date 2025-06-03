@@ -4,8 +4,30 @@
 .env.*.local
 .env.production
 .env.development
+.env.*
+!.env.example
+!.env.template
 
-# Logs
+# Security and sensitive files
+*.pem
+*.key
+*.cert
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.secret
+*secret*
+*password*
+*credential*
+*token*
+.npmrc
+.yarnrc
+config.json
+secrets.json
+auth.json
+
+# Logs and debugging
 logs
 *.log
 npm-debug.log*
@@ -13,8 +35,39 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+debug.log
+*-debug.log
+*-debug.tsx
+*-debug.ts
+*-debug.js
 
-# Editor directories and files
+# Test and diagnostic files
+test-results
+cypress/videos
+cypress/screenshots
+*.test.js
+*test-*.js
+*test-*.ts
+*test-*.tsx
+*spec.js
+*spec.ts
+coverage/
+.nyc_output/
+
+# Build and dependencies
+dist
+dist-ssr
+*.local
+node_modules
+.pnp
+.pnp.js
+build
+.next
+out
+.nuxt
+.output
+
+# IDE and editor files
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -24,30 +77,64 @@ lerna-debug.log*
 *.njsproj
 *.sln
 *.sw?
+*.sublime-workspace
+*.sublime-project
 
-# Build output
-dist
-dist-ssr
-*.local
-
-# Dependencies
-node_modules
-.pnp
-.pnp.js
-
-# Testing
-coverage
-.nyc_output
-
-# Misc
-*.pem
+# Temporary and cache files
+*.tmp
+*.temp
+.cache
+.temp
+tmp/
+temp/
 .vercel
-.env*.local
-.env.production
-.env.development
+.netlify
+.serverless
+
+# Backup files
+*.backup
+*backup*/
+*.bak
+*.old
+*.orig
+
+# Security audit files
+npm-audit.json
+yarn-audit.json
+audit-results.json
+security-report.json
+
+# Local development files
+local.settings.json
+appsettings.*.json
+config.*.json
 
 # Supabase
 .supabase/
 .temp/
 *.db
 *.db-journal
+
+# API keys and tokens
+.env.api
+api-keys.json
+tokens.json
+credentials.json
+service-account.json
+
+# Session files
+*.session
+sessions/
+.sessions/
+
+# Webhook test files
+webhook-*.json
+webhook-*.js
+webhook-*.ts
+
+# Debug and diagnostic files
+*-diagnosis.*
+*-diagnostic.*
+*-check.*
+*-verify.*
+*-test.*

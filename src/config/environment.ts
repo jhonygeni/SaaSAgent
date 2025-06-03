@@ -74,11 +74,9 @@ function isViteContext(): boolean {
  * Obtém variável de ambiente de forma inteligente (Vite ou Node.js)
  */
 function getUniversalEnvVar(viteName: string, nodeName?: string): string | undefined {
-  if (isViteContext()) {
-    // Contexto frontend com Vite
+  if (typeof window !== 'undefined') {
     return (import.meta.env as any)[viteName];
   } else {
-    // Contexto backend com Node.js
     const envName = nodeName || viteName.replace('VITE_', '');
     return process.env[envName];
   }
@@ -92,36 +90,22 @@ function getUniversalEnvVar(viteName: string, nodeName?: string): string | undef
  * Carrega e valida todas as variáveis de ambiente
  */
 function loadEnvironmentConfig(): EnvironmentConfig {
-  console.log('🔧 Carregando configuração de ambiente...');
-  
-  // Detectar ambiente
   const nodeEnv = process.env.NODE_ENV || 'development';
   const isProduction = nodeEnv === 'production';
-  const isVite = isViteContext();
   
-  console.log(`📍 Contexto: ${isVite ? 'Vite (Frontend)' : 'Node.js (Backend)'}`);
-  console.log(`🌍 Ambiente: ${nodeEnv}`);
-
-  // Supabase - URLs obrigatórias
+  // Supabase
   const supabaseUrl = getUniversalEnvVar('VITE_SUPABASE_URL', 'SUPABASE_URL') || 
                       'https://hpovwcaskorzzrpphgkc.supabase.co';
   
-  console.log(`🔗 Supabase URL: ${supabaseUrl}`);
-  
   const supabaseAnonKey = getUniversalEnvVar('VITE_SUPABASE_ANON_KEY', 'SUPABASE_ANON_KEY') || '';
   
-  // DIAGNÓSTICO: Verificar se as chaves estão vazias
   if (!supabaseAnonKey || supabaseAnonKey.trim() === '') {
-    console.warn('⚠️  SUPABASE_ANON_KEY está vazia! Algumas funcionalidades podem não funcionar.');
-    console.warn('💡 Configure a variável VITE_SUPABASE_ANON_KEY no .env.local');
-  } else {
-    console.log(`✅ Supabase Anon Key configurada (${supabaseAnonKey.substring(0, 20)}...)`);
+    throw new Error('SUPABASE_ANON_KEY is required');
   }
   
   // Service Role Key apenas para backend
-  const supabaseServiceRoleKey = isViteContext() ? 
-    undefined : 
-    process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseServiceRoleKey = typeof window === 'undefined' ? 
+    process.env.SUPABASE_SERVICE_ROLE_KEY : undefined;
 
   // Evolution API
   const evolutionUrl = getUniversalEnvVar('VITE_EVOLUTION_API_URL', 'EVOLUTION_API_URL') || 
@@ -133,40 +117,33 @@ function loadEnvironmentConfig(): EnvironmentConfig {
   const siteUrl = getUniversalEnvVar('VITE_SITE_URL', 'SITE_URL') || 
                   (isProduction ? 'https://sua-aplicacao.vercel.app' : 'http://localhost:5173');
 
-  // Validações críticas apenas em produção
-  if (isProduction) {
-    if (!supabaseAnonKey) {
-      console.warn('⚠️  SUPABASE_ANON_KEY não definida em produção');
-    }
-    if (!evolutionKey) {
-      console.warn('⚠️  EVOLUTION_API_KEY não definida em produção');
-    }
-  }
+  // Feature Flags
+  const useMockData = Boolean(
+    getUniversalEnvVar('VITE_USE_MOCK_DATA', 'USE_MOCK_DATA')
+  );
+
+  const useBearerAuth = Boolean(
+    getUniversalEnvVar('VITE_USE_BEARER_AUTH', 'USE_BEARER_AUTH')
+  );
 
   return {
     supabase: {
       url: supabaseUrl,
       anonKey: supabaseAnonKey,
-      serviceRoleKey: supabaseServiceRoleKey,
+      serviceRoleKey: supabaseServiceRoleKey
     },
     evolution: {
       url: evolutionUrl,
-      key: evolutionKey,
+      key: evolutionKey
     },
     app: {
       env: nodeEnv as 'development' | 'production' | 'test',
-      siteUrl: siteUrl,
+      siteUrl
     },
     features: {
-      useMockData: !isProduction && getEnvVar(
-        getUniversalEnvVar('VITE_USE_MOCK_DATA', 'USE_MOCK_DATA'), 
-        'false'
-      ) === 'true',
-      useBearerAuth: getEnvVar(
-        getUniversalEnvVar('VITE_USE_BEARER_AUTH', 'USE_BEARER_AUTH'), 
-        'false'
-      ) === 'true',
-    },
+      useMockData,
+      useBearerAuth
+    }
   };
 }
 
@@ -214,15 +191,18 @@ export const getBaseUrl = () => ENV_CONFIG.app.siteUrl;
 export const debugEnvironment = () => {
   if (!isProduction()) {
     console.log('🔧 Environment Configuration:', {
-      app: ENV_CONFIG.app,
+      app: {
+        env: ENV_CONFIG.app.env,
+        siteUrl: ENV_CONFIG.app.siteUrl
+      },
       features: ENV_CONFIG.features,
       supabase: {
-        url: ENV_CONFIG.supabase.url,
+        hasUrl: !!ENV_CONFIG.supabase.url,
         hasAnonKey: !!ENV_CONFIG.supabase.anonKey,
         hasServiceRoleKey: !!ENV_CONFIG.supabase.serviceRoleKey,
       },
       evolution: {
-        url: ENV_CONFIG.evolution.url,
+        hasUrl: !!ENV_CONFIG.evolution.url,
         hasKey: !!ENV_CONFIG.evolution.key,
       },
     });

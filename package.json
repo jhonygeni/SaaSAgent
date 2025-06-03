@@ -34,7 +34,10 @@
     "webhook:server": "node webhook-simple.cjs",
     "webhook:local-test": "node test-webhook-local.mjs",
     "webhook:monitor": "node webhook-monitor.mjs",
-    "webhook:dev": "node webhook-dev.mjs all"
+    "webhook:dev": "node webhook-dev.mjs all",
+    "security-check": "node scripts/security-check.js",
+    "predeploy": "npm run security-check",
+    "deploy": "npm run build && npm run security-check && vercel --prod"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -67,7 +70,9 @@
     "@radix-ui/react-tooltip": "^1.1.4",
     "@supabase/supabase-js": "^2.49.8",
     "@tanstack/react-query": "^5.56.2",
+    "@types/axios": "^0.9.36",
     "@types/uuid": "^10.0.0",
+    "axios": "^1.9.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
@@ -78,7 +83,7 @@
     "express": "^5.1.0",
     "framer-motion": "^12.15.0",
     "input-otp": "^1.2.4",
-    "lucide-react": "^0.462.0",
+    "lucide-react": "^0.511.0",
     "nanoid": "^5.1.5",
     "next-themes": "^0.3.0",
     "qrcode.react": "^4.2.0",

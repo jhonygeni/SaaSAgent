@@ -4,6 +4,7 @@
  */
 
 import { recordWebhookMetric } from './webhook-monitor';
+import { throttleApiCall } from './api-throttle';
 
 /**
  * Sends a webhook with retry logic and monitoring

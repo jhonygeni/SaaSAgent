@@ -3,128 +3,86 @@
  * Impede chamadas excessivas aos endpoints públicos e privados
  */
 
-// Cache para armazenar os resultados e tempo da última chamada
-type CacheEntry<T> = {
+// Cache para armazenar resultados de chamadas anteriores
+interface CacheEntry<T> {
+  promise: Promise<T>;
   lastCallTime: number;
-  result: T | null;
-  promise: Promise<T> | null;
-};
+  data?: T;
+}
 
-// Cache global organizado por tipo de endpoint e contexto
-const apiCache: Record<string, Record<string, CacheEntry<any>>> = {};
+interface ThrottleOptions {
+  interval?: number;
+  logLabel?: string;
+  cacheKey?: string;
+}
 
-/**
- * Gera uma chave de cache única baseada no tipo de endpoint e parâmetros
- */
-const generateCacheKey = (endpoint: string, params: Record<string, any> = {}): string => {
-  const sortedParams = Object.keys(params)
-    .sort()
-    .map(key => `${key}:${JSON.stringify(params[key])}`)
-    .join('|');
-  
-  return `${endpoint}|${sortedParams}`;
-};
+const DEFAULT_INTERVAL = 5000; // 5 segundos
+const cache: { [key: string]: CacheEntry<any> } = {};
 
 /**
- * Wrapper de throttle para funções de API
- * @param apiCallFn Função que faz a chamada à API
- * @param endpoint Nome do endpoint para log e cache
+ * Função para throttle de chamadas de API com cache de resultados
+ * @param fn Função a ser throttled
+ * @param contextKey Chave de contexto para diferenciar chamadas
  * @param options Opções de configuração
- * @returns Função throttled que gerencia o cache e as chamadas
  */
 export function throttleApiCall<T>(
-  apiCallFn: (params: any) => Promise<T>,
-  endpoint: string,
-  options: {
-    interval?: number;       // Intervalo mínimo entre chamadas em ms (default: 30s)
-    contextKey?: string;     // Chave de contexto (ex: userId, instanceId)
-    logLabel?: string;       // Rótulo para logs
-  } = {}
+  fn: (...args: any[]) => Promise<T>,
+  contextKey: string,
+  options: ThrottleOptions = {}
 ) {
-  // Configurações padrão
-  const interval = options.interval || 30000; // 30 segundos padrão
-  const contextKey = options.contextKey || 'global';
-  const logLabel = options.logLabel || endpoint;
-  
-  // Inicializa a entrada de cache para este endpoint se não existir
-  if (!apiCache[endpoint]) {
-    apiCache[endpoint] = {};
-  }
-  
-  return async function throttledApiCall(params: any = {}): Promise<T> {
+  const {
+    interval = DEFAULT_INTERVAL,
+    cacheKey: customCacheKey
+  } = options;
+
+  return async (...args: any[]): Promise<T> => {
     const now = Date.now();
-    const cacheKey = generateCacheKey(endpoint, params);
-    
-    // Inicializa a entrada de cache para esta chamada específica
-    if (!apiCache[endpoint][cacheKey]) {
-      apiCache[endpoint][cacheKey] = {
-        lastCallTime: 0,
-        result: null,
-        promise: null
-      };
+    const endpoint = customCacheKey || contextKey;
+    const cacheKey = `${endpoint}-${JSON.stringify(args)}`;
+
+    // Se existe uma chamada em andamento, retorna a Promise existente
+    if (cache[cacheKey]?.promise) {
+      return cache[cacheKey].promise;
     }
-    
-    const cache = apiCache[endpoint][cacheKey];
-    
-    // Se uma chamada estiver em andamento, retorne a Promise existente
-    if (cache.promise !== null) {
-      console.log(`🔄 [${logLabel}] Chamada em andamento para: ${cacheKey}, retornando Promise existente`);
-      return cache.promise;
+
+    // Se existe cache válido dentro do intervalo, retorna o resultado cacheado
+    if (
+      cache[cacheKey]?.data &&
+      now - cache[cacheKey].lastCallTime < interval
+    ) {
+      return cache[cacheKey].data;
     }
-    
-    // Se temos um resultado recente em cache, retorne-o
-    if (cache.result !== null && now - cache.lastCallTime < interval) {
-      console.log(`📋 [${logLabel}] Usando cache (${Math.round((now - cache.lastCallTime)/1000)}s): ${cacheKey.substring(0, 50)}...`);
-      return Promise.resolve(cache.result);
-    }
-    
-    // Caso contrário, faça uma nova chamada
-    console.log(`🔍 [${logLabel}] Nova chamada: ${cacheKey.substring(0, 50)}...`);
-    
+
+    // Executa a chamada e armazena no cache
+    const promise = fn(...args).then(result => {
+      if (cache[cacheKey]) {
+        cache[cacheKey].data = result;
+        cache[cacheKey].lastCallTime = now;
+      }
+      return result;
+    });
+
+    cache[cacheKey] = {
+      promise,
+      lastCallTime: now
+    };
+
     try {
-      // Armazena a promise para evitar chamadas paralelas
-      cache.promise = apiCallFn(params);
-      
-      // Aguarda o resultado
-      const result = await cache.promise;
-      
-      // Atualiza o cache
-      cache.lastCallTime = now;
-      cache.result = result;
-      
+      const result = await promise;
       return result;
     } finally {
-      // Limpa a promise em andamento
-      cache.promise = null;
+      // Limpa a referência da Promise após conclusão
+      if (cache[cacheKey]) {
+        delete cache[cacheKey].promise;
+      }
     }
   };
 }
 
 /**
- * Limpa o cache para um endpoint específico ou para todos
+ * Limpa o cache para um endpoint específico
  */
-export function clearApiCache(endpoint?: string, contextKey?: string): void {
-  if (endpoint && contextKey) {
-    // Limpa cache específico para um endpoint e contexto
-    if (apiCache[endpoint] && apiCache[endpoint][contextKey]) {
-      console.log(`🧹 Limpando cache para: ${endpoint} - ${contextKey}`);
-      apiCache[endpoint][contextKey] = {
-        lastCallTime: 0,
-        result: null,
-        promise: null
-      };
-    }
-  } else if (endpoint) {
-    // Limpa todo cache para um endpoint
-    if (apiCache[endpoint]) {
-      console.log(`🧹 Limpando todo cache para: ${endpoint}`);
-      apiCache[endpoint] = {};
-    }
-  } else {
-    // Limpa todo o cache
-    console.log('🧹 Limpando todo cache de APIs');
-    Object.keys(apiCache).forEach(key => {
-      apiCache[key] = {};
-    });
-  }
+export function clearCache(endpoint: string, contextKey?: string) {
+  const cacheKey = `${endpoint}-${contextKey || ''}`;
+  delete cache[cacheKey];
 }

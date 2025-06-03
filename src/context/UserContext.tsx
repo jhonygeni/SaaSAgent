@@ -1,191 +1,254 @@
-import { createContext, useContext, useState, ReactNode, useEffect, useCallback, useRef } from 'react';
-import { User, SubscriptionPlan } from '../types';
-import { getMessageLimitByPlan } from '../lib/utils';
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { User as SupabaseUser } from '@supabase/supabase-js';
+import { SubscriptionPlan } from '../types';
+import { getMessageLimitByPlan } from '../lib/utils';
 import { resetSubscriptionCache } from "@/lib/subscription-throttle";
 
 interface UserContextType {
-  user: User | null;
-  updateUser: (updatedUser: Partial<User>) => void;
-  setPlan: (plan: SubscriptionPlan) => void;
-  logout: () => Promise<void>;
-  login: (email: string, name: string) => void;
+  user: SupabaseUser | null;
   isLoading: boolean;
+  error: string | null;
+  logout: () => Promise<void>;
   checkSubscriptionStatus: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
-export function UserProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+const storageKey = `sb-${import.meta.env.VITE_SUPABASE_URL.split('//')[1].split('.')[0]}-auth-token`;
+
+export function UserProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<SupabaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Refs para controle
+  const initializationAttempted = useRef(false);
+  const lastCheckTime = useRef(0);
   const checkInProgress = useRef(false);
+  const subscriptionRef = useRef<any>(null);
 
-  // Função para criar usuário com plano padrão
-  const createUserWithDefaultPlan = useCallback(async (supabaseUser: any) => {
-    const defaultUser = {
-      id: supabaseUser.id,
-      email: supabaseUser.email,
-      name: supabaseUser.user_metadata?.name || supabaseUser.email?.split('@')[0] || 'Usuário',
-      plan: 'free' as SubscriptionPlan,
-      messageLimit: getMessageLimitByPlan('free'),
-      subscriptionEnd: null,
-      messageCount: 0,
-      agents: []
-    };
-    setUser(defaultUser);
-    return defaultUser;
-  }, []);
+  // Função para verificar sessão com throttling
+  const checkSession = useCallback(async (force = false) => {
+    // Prevenir múltiplas chamadas simultâneas
+    if (checkInProgress.current && !force) {
+      console.log("Verificação de sessão já em andamento");
+      return;
+    }
 
-  // Check subscription status com proteção contra chamadas simultâneas
-  const checkSubscriptionStatus = useCallback(async () => {
-    if (checkInProgress.current) {
+    // Throttling: permitir apenas uma chamada a cada 2 segundos
+    const now = Date.now();
+    if (!force && now - lastCheckTime.current < 2000) {
+      console.log("Throttling: muito cedo para nova verificação");
       return;
     }
 
     try {
+      console.log("Iniciando verificação de sessão");
       checkInProgress.current = true;
-      
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        return;
-      }
-      
-      const supabaseUser = session.user;
-      if (!supabaseUser) {
+      lastCheckTime.current = now;
+
+      // Verificar token armazenado
+      const storedSession = localStorage.getItem(storageKey);
+      if (!storedSession) {
+        console.log("Nenhuma sessão armazenada encontrada");
+        setUser(null);
+        setError(null);
         return;
       }
 
-      const { data, error } = await supabase.functions.invoke('check-subscription', {
-        body: { userId: supabaseUser.id }
-      });
+      // Tentar recuperar a sessão
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (error) {
-        if (!user && supabaseUser) {
-          await createUserWithDefaultPlan(supabaseUser);
+      if (sessionError) {
+        console.error("Erro ao obter sessão:", sessionError);
+        throw sessionError;
+      }
+
+      if (session?.user) {
+        console.log("Sessão encontrada, atualizando usuário");
+        setUser(session.user);
+        setError(null);
+        
+        // Tentar atualizar o token de acesso
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError) {
+          console.warn("Erro ao atualizar token:", refreshError);
+        } else if (refreshData.session) {
+          console.log("Token atualizado com sucesso");
+          // O cliente Supabase cuidará do armazenamento do token
         }
-        return;
+      } else {
+        console.log("Nenhuma sessão ativa encontrada");
+        setUser(null);
+        // Limpar tokens antigos
+        localStorage.removeItem(storageKey);
+        localStorage.removeItem('auth_token');
       }
-      
-      if (data) {
-        const updatedUser = {
-          id: supabaseUser.id,
-          email: supabaseUser.email,
-          name: supabaseUser.user_metadata?.name || supabaseUser.email?.split('@')[0] || 'Usuário',
-          plan: data.plan as SubscriptionPlan,
-          messageLimit: getMessageLimitByPlan(data.plan),
-          subscriptionEnd: data.subscription_end,
-          messageCount: data.message_count || 0,
-          agents: user?.agents || []
-        };
-        setUser(updatedUser);
-      } else if (!user) {
-        await createUserWithDefaultPlan(supabaseUser);
-      }
-    } catch (error) {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user && !user) {
-        await createUserWithDefaultPlan(session.user);
-      }
+    } catch (err) {
+      console.error('Erro ao verificar sessão:', err);
+      setError('Erro ao verificar sessão');
+      setUser(null);
+      // Limpar tokens em caso de erro
+      localStorage.removeItem(storageKey);
+      localStorage.removeItem('auth_token');
     } finally {
       checkInProgress.current = false;
-    }
-  }, [user, createUserWithDefaultPlan]);
-
-  const updateUser = useCallback((updatedUser: Partial<User>) => {
-    setUser(prev => prev ? { ...prev, ...updatedUser } : null);
-  }, []);
-
-  const setPlan = useCallback((plan: SubscriptionPlan) => {
-    updateUser({ plan, messageLimit: getMessageLimitByPlan(plan) });
-  }, [updateUser]);
-
-  const logout = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      // Primeiro limpa o cache e o estado local
-      resetSubscriptionCache();
-      setUser(null);
-      
-      // Depois faz o signOut do Supabase
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        throw error;
-      }
-      
-      // Por fim redireciona
-      window.location.href = '/entrar';
-    } catch (error) {
-      console.error('Erro ao fazer logout:', error);
-      // Mesmo com erro, tenta redirecionar
-      window.location.href = '/entrar';
-    } finally {
       setIsLoading(false);
     }
   }, []);
 
-  const login = useCallback(async (email: string, name: string) => {
-    try {
-      setIsLoading(true);
-      const { data: { user: supabaseUser } } = await supabase.auth.getUser();
-      if (supabaseUser) {
-        await createUserWithDefaultPlan(supabaseUser);
-        await checkSubscriptionStatus();
-      }
-    } catch (error) {
-      console.error('Erro ao fazer login:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [createUserWithDefaultPlan, checkSubscriptionStatus]);
-
+  // Verificar sessão inicial - apenas uma vez
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN') {
-        if (session?.user) {
-          await createUserWithDefaultPlan(session.user);
-          await checkSubscriptionStatus();
-        }
-      } else if (event === 'SIGNED_OUT') {
-        setUser(null);
-        resetSubscriptionCache();
-        window.location.href = '/entrar';
+    const initializeAuth = async () => {
+      if (initializationAttempted.current) {
+        console.log("Inicialização já tentada, ignorando");
+        return;
       }
-    });
 
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [createUserWithDefaultPlan, checkSubscriptionStatus]);
+      console.log("Iniciando verificação inicial de sessão");
+      initializationAttempted.current = true;
 
-  useEffect(() => {
-    const initializeUser = async () => {
       try {
-        setIsLoading(true);
-        const { data: { session } } = await supabase.auth.getSession();
+        // Tentar recuperar sessão existente
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
-        if (session?.user) {
-          await createUserWithDefaultPlan(session.user);
-          await checkSubscriptionStatus();
+        if (sessionError) {
+          throw sessionError;
         }
-      } catch (error) {
-        console.error('Erro ao inicializar usuário:', error);
+
+        if (session?.user) {
+          console.log("Sessão inicial encontrada:", session.user.email);
+          setUser(session.user);
+          setError(null);
+        } else {
+          console.log("Nenhuma sessão inicial encontrada");
+          setUser(null);
+        }
+      } catch (err) {
+        console.error("Erro na inicialização:", err);
+        setError("Erro ao inicializar autenticação");
       } finally {
         setIsLoading(false);
       }
     };
 
-    initializeUser();
-  }, [createUserWithDefaultPlan, checkSubscriptionStatus]);
+    initializeAuth();
+
+    // Escutar mudanças de autenticação
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Evento de autenticação:", event, session ? "com sessão" : "sem sessão");
+      
+      // Limpar estado anterior
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe();
+      }
+
+      if (event === 'SIGNED_IN' && session?.user) {
+        console.log("Usuário logado, atualizando estado");
+        setUser(session.user);
+        setError(null);
+        setIsLoading(false);
+      } else if (event === 'SIGNED_OUT') {
+        console.log("Usuário deslogado");
+        setUser(null);
+        setError(null);
+        setIsLoading(false);
+        // Limpar tokens
+        localStorage.removeItem(storageKey);
+        localStorage.removeItem('auth_token');
+      } else if (event === 'TOKEN_REFRESHED' && session) {
+        console.log("Token atualizado, atualizando estado");
+        setUser(session.user);
+      }
+    });
+
+    subscriptionRef.current = subscription;
+
+    // Cleanup
+    return () => {
+      console.log("Limpando listener de autenticação");
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe();
+      }
+    };
+  }, []);
+
+  // Função de logout com limpeza de estado
+  const logout = async () => {
+    try {
+      console.log("Iniciando processo de logout");
+      setIsLoading(true);
+      
+      // Limpar subscription antes do logout
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe();
+      }
+
+      // Limpar tokens
+      localStorage.removeItem(storageKey);
+      localStorage.removeItem('auth_token');
+      
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) throw signOutError;
+      
+      // Limpar estado
+      setUser(null);
+      setError(null);
+      initializationAttempted.current = false;
+      lastCheckTime.current = 0;
+      
+      console.log("Logout concluído com sucesso");
+    } catch (err) {
+      console.error('Erro ao fazer logout:', err);
+      setError('Erro ao fazer logout');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Função para verificar status da assinatura com throttling
+  const checkSubscriptionStatus = async () => {
+    if (!user) {
+      console.log("Sem usuário, ignorando verificação de assinatura");
+      return;
+    }
+
+    if (checkInProgress.current) {
+      console.log("Verificação de assinatura já em andamento");
+      return;
+    }
+
+    try {
+      console.log("Iniciando verificação de assinatura");
+      checkInProgress.current = true;
+      setIsLoading(true);
+
+      const { data: subscription, error: subError } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (subError) throw subError;
+
+      setUser(prev => prev ? { ...prev, subscription } : null);
+      setError(null);
+    } catch (err) {
+      console.error('Erro ao verificar assinatura:', err);
+      setError('Erro ao verificar status da assinatura');
+    } finally {
+      checkInProgress.current = false;
+      setIsLoading(false);
+    }
+  };
 
   return (
-    <UserContext.Provider value={{
-      user,
-      updateUser,
-      setPlan,
+    <UserContext.Provider value={{ 
+      user, 
+      isLoading, 
+      error,
       logout,
-      login,
-      isLoading,
       checkSubscriptionStatus
     }}>
       {children}

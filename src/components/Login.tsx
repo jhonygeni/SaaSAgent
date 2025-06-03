@@ -38,7 +38,12 @@ export function Login() {
     
     try {
       console.log("Tentando fazer login com:", { email });
-      // First, let's get a session
+      
+      // Limpar tokens antigos antes de tentar novo login
+      localStorage.removeItem('supabase.auth.token');
+      localStorage.removeItem('auth_token');
+      
+      // Tentar login com Supabase
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -70,30 +75,36 @@ export function Login() {
         throw error;
       }
       
+      if (!data.session) {
+        throw new Error("Sessão não criada após login");
+      }
+      
       console.log("Login bem-sucedido:", data);
+      
+      // Salvar token de acesso
+      localStorage.setItem('auth_token', data.session.access_token);
+      
+      // Verificar se a sessão está realmente ativa
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("Sessão não estabelecida após login");
+      }
+      
+      // Check subscription status after login
+      await checkSubscriptionStatus();
+      
       toast({
         title: "Login realizado com sucesso",
         description: "Bem-vindo de volta!",
       });
       
-      // Check subscription status after login
-      await checkSubscriptionStatus();
-      
       // Redirect to dashboard on successful login
-      navigate("/dashboard");
-    } catch (error: any) {
-      console.error("Erro completo:", error);
-      
-      // Mensagens de erro mais específicas
-      let errorMessage = "E-mail ou senha inválidos. Tente novamente.";
-      
-      if (error.message && error.message.includes("Invalid login credentials")) {
-        errorMessage = "Credenciais de login inválidas. Verifique seu e-mail e senha.";
-      }
-      
+      navigate("/dashboard", { replace: true });
+    } catch (err: any) {
+      console.error("Erro no login:", err);
       toast({
-        title: "Erro ao fazer login",
-        description: errorMessage,
+        title: "Erro no login",
+        description: err.message || "Verifique suas credenciais e tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -102,52 +113,55 @@ export function Login() {
   };
 
   return (
-    <div className="container mx-auto py-12 flex justify-center">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-3xl font-bold">Entrar</CardTitle>
-          <CardDescription>
-            Entre com sua conta para continuar na plataforma.
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">E-mail</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="Digite seu e-mail"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Digite sua senha"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-          </CardContent>
-          <CardFooter className="flex flex-col">
-            <Button className="w-full" type="submit" disabled={loading}>
-              {loading ? "Processando..." : "Entrar"}
-            </Button>
-            <div className="mt-4 text-center text-sm">
-              Não possui uma conta?{" "}
-              <Button variant="link" className="p-0 h-auto" onClick={() => navigate("/registrar")}>
-                Crie agora
-              </Button>
-            </div>
-          </CardFooter>
-        </form>
-      </Card>
-    </div>
+    <Card className="w-full max-w-md mx-auto">
+      <CardHeader>
+        <CardTitle>Entrar</CardTitle>
+        <CardDescription>
+          Entre com sua conta para continuar na plataforma.
+        </CardDescription>
+      </CardHeader>
+      <form onSubmit={handleSubmit}>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">E-mail</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="seu@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="password">Senha</Label>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+        </CardContent>
+        <CardFooter className="flex flex-col space-y-4">
+          <Button 
+            type="submit" 
+            className="w-full"
+            disabled={loading}
+          >
+            {loading ? "Entrando..." : "Entrar"}
+          </Button>
+          <Button
+            type="button"
+            variant="link"
+            className="text-sm"
+            onClick={() => navigate("/registrar")}
+          >
+            Não tem uma conta? Registre-se
+          </Button>
+        </CardFooter>
+      </form>
+    </Card>
   );
 }

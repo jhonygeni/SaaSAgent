@@ -17,7 +17,7 @@ import {
 
 export function AuthDiagnosticButton() {
   const [isOpen, setIsOpen] = useState(false);
-  const { getDiagnosticInfo } = useUser();
+  const { user } = useUser();
   const [diagnosticData, setDiagnosticData] = useState<any>(null);
 
   // Retorna null em produção
@@ -26,13 +26,23 @@ export function AuthDiagnosticButton() {
   }
 
   const handleShowDiagnostics = () => {
-    setDiagnosticData(getDiagnosticInfo());
+    const data = {
+      contextState: {
+        user: user,
+        authStats: window.__AUTH_DEBUG__.getAuthStats(),
+        throttleStats: window.__AUTH_DEBUG__.getThrottleStats(),
+        localStorage: window.__AUTH_DEBUG__.checkLocalStorage(),
+        browserStorage: window.__AUTH_DEBUG__.checkBrowserStorage()
+      }
+    };
+    setDiagnosticData(data);
     setIsOpen(true);
   };
 
   const handleResetCache = () => {
-    resetSubscriptionCache(undefined, undefined, true);
-    setDiagnosticData(getDiagnosticInfo());
+    window.__AUTH_DEBUG__.resetThrottleCache();
+    window.__AUTH_DEBUG__.resetAuthStats();
+    handleShowDiagnostics();
   };
 
   return (
@@ -61,23 +71,37 @@ export function AuthDiagnosticButton() {
 
           <div className="space-y-4">
             <div className="bg-slate-50 p-3 rounded-md border">
-              <h3 className="text-sm font-medium mb-2">Estado do Contexto:</h3>
+              <h3 className="text-sm font-medium mb-2">Estado do Usuário:</h3>
               <pre className="text-xs bg-slate-100 p-2 rounded overflow-auto max-h-32">
-                {JSON.stringify(diagnosticData?.contextState, null, 2)}
+                {JSON.stringify(diagnosticData?.contextState?.user, null, 2)}
+              </pre>
+            </div>
+
+            <div className="bg-slate-50 p-3 rounded-md border">
+              <h3 className="text-sm font-medium mb-2">Estatísticas de Auth:</h3>
+              <pre className="text-xs bg-slate-100 p-2 rounded overflow-auto max-h-32">
+                {JSON.stringify(diagnosticData?.contextState?.authStats, null, 2)}
               </pre>
             </div>
 
             <div className="bg-slate-50 p-3 rounded-md border">
               <h3 className="text-sm font-medium mb-2">Estatísticas de Throttle:</h3>
               <pre className="text-xs bg-slate-100 p-2 rounded overflow-auto max-h-32">
-                {JSON.stringify(diagnosticData?.throttleStats, null, 2)}
+                {JSON.stringify(diagnosticData?.contextState?.throttleStats, null, 2)}
               </pre>
             </div>
 
             <div className="bg-slate-50 p-3 rounded-md border">
-              <h3 className="text-sm font-medium mb-2">Eventos Recentes:</h3>
-              <pre className="text-xs bg-slate-100 p-2 rounded overflow-auto max-h-60">
-                {JSON.stringify(diagnosticData?.authEvents?.recentEvents, null, 2)}
+              <h3 className="text-sm font-medium mb-2">Local Storage:</h3>
+              <pre className="text-xs bg-slate-100 p-2 rounded overflow-auto max-h-32">
+                {JSON.stringify(diagnosticData?.contextState?.localStorage, null, 2)}
+              </pre>
+            </div>
+
+            <div className="bg-slate-50 p-3 rounded-md border">
+              <h3 className="text-sm font-medium mb-2">Browser Storage:</h3>
+              <pre className="text-xs bg-slate-100 p-2 rounded overflow-auto max-h-32">
+                {JSON.stringify(diagnosticData?.contextState?.browserStorage, null, 2)}
               </pre>
             </div>
           </div>

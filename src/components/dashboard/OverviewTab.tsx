@@ -6,6 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertCircle, RefreshCw, Database } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRealTimeUsageStats } from "@/hooks/useRealTimeUsageStats";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useCallback, useState } from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface OverviewTabProps {
   totalClients: number;
@@ -25,134 +28,127 @@ export function OverviewTab({
   error = null
 }: OverviewTabProps) {
   const { user } = useUser();
-  const { data: realTimeData, totalMessages: realTimeTotal, isConnected } = useRealTimeUsageStats();
+  const [isManualRefresh, setIsManualRefresh] = useState(false);
+  
+  const { 
+    data: realTimeData, 
+    totalMessages: realTimeTotal, 
+    isConnected,
+    error: realTimeError,
+    isLoading: realTimeLoading,
+    lastUpdate
+  } = useRealTimeUsageStats();
+
+  // Determinar estado atual dos dados
+  const isLoadingData = isLoading || realTimeLoading || isManualRefresh;
+  const hasError = error || realTimeError;
+  const currentData = realTimeData.length > 0 ? realTimeData : messagesData;
+  const currentTotal = realTimeTotal || totalMessages;
+
+  // Função para forçar atualização
+  const handleRefresh = useCallback(() => {
+    setIsManualRefresh(true);
+    window.location.reload();
+  }, []);
   
   return (
     <>
       <StatsOverview 
         totalClients={totalClients}
-        totalMessages={totalMessages}
+        totalMessages={currentTotal}
       />
 
       <div className="grid grid-cols-1 gap-6">
-        {/* Indicador de dados reais e estado de carregamento */}
         <Card className="bg-card dark:bg-card border-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base font-medium flex items-center gap-2">
-              <Database className="h-4 w-4 text-blue-500" />
-              Mensagens Enviadas vs. Recebidas
-              <span className={`text-xs px-2 py-1 rounded-full ${
-                error && error.includes('demonstração') 
-                  ? 'bg-orange-100 text-orange-800' 
-                  : error
-                  ? 'bg-red-100 text-red-800'
-                  : 'bg-green-100 text-green-800'
-              }`}>
-                {error && error.includes('demonstração') 
-                  ? '🎭 Demo' 
-                  : error
-                  ? '⚠️ Erro'
-                  : '✅ Real'
-                }
-              </span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <RefreshCw className="h-6 w-6 animate-spin text-blue-500" />
-                <span className="ml-2 text-sm text-muted-foreground">
-                  Carregando dados do Supabase...
-                </span>
-              </div>
-            ) : error ? (
-              <div className="space-y-4">
-                <div className={`flex items-center gap-2 py-4 px-4 border rounded-lg ${
-                  error.includes('demonstração') 
-                    ? 'bg-orange-50 border-orange-200' 
-                    : 'bg-red-50 border-red-200'
-                }`}>
-                  <AlertCircle className={`h-5 w-5 ${
-                    error.includes('demonstração') 
-                      ? 'text-orange-500' 
-                      : 'text-red-500'
-                  }`} />
-                  <div className="flex-1">
-                    <p className={`text-sm font-medium ${
-                      error.includes('demonstração') 
-                        ? 'text-orange-800' 
-                        : 'text-red-800'
-                    }`}>
-                      {error.includes('demonstração') 
-                        ? 'Exibindo dados de demonstração' 
-                        : 'Erro ao carregar dados'
-                      }
-                    </p>
-                    <p className={`text-xs ${
-                      error.includes('demonstração') 
-                        ? 'text-orange-600' 
-                        : 'text-red-600'
-                    }`}>
-                      {error.includes('demonstração') 
-                        ? 'Configurações de segurança (RLS) impedem acesso aos dados reais. Use o painel de debug abaixo para resolver.' 
-                        : error
-                      }
-                    </p>
-                  </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => window.location.reload()}
-                    className={`${
-                      error.includes('demonstração') 
-                        ? 'text-orange-700 border-orange-300 hover:bg-orange-50' 
-                        : 'text-red-700 border-red-300 hover:bg-red-50'
-                    }`}
-                  >
-                    Tentar novamente
-                  </Button>
-                </div>
-                <LineChart 
-                  data={messagesData}
-                  title=""
-                  lines={[
-                    {
-                      dataKey: "enviadas",
-                      name: "Enviadas",
-                      color: chartConfig.enviadas.color
-                    },
-                    {
-                      dataKey: "recebidas",
-                      name: "Recebidas",
-                      color: chartConfig.recebidas.color
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-medium flex items-center gap-2">
+                <Database className="h-4 w-4 text-blue-500" />
+                Mensagens Enviadas vs. Recebidas
+                {isLoadingData ? (
+                  <Skeleton className="h-6 w-20" />
+                ) : (
+                  <span className={`text-xs px-2 py-1 rounded-full ${
+                    hasError && hasError.includes('demonstração') 
+                      ? 'bg-orange-100 text-orange-800' 
+                      : hasError
+                      ? 'bg-red-100 text-red-800'
+                      : 'bg-green-100 text-green-800'
+                  }`}>
+                    {hasError && hasError.includes('demonstração') 
+                      ? '🎭 Demo' 
+                      : hasError
+                      ? '⚠️ Erro'
+                      : '✅ Real'
                     }
-                  ]}
-                  chartConfig={chartConfig}
-                />
+                  </span>
+                )}
+              </CardTitle>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={isLoadingData}
+                className={`${isLoadingData ? 'opacity-50' : ''}`}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isLoadingData ? 'animate-spin' : ''}`} />
+                Atualizar
+              </Button>
+            </div>
+
+            {hasError && (
+              <Alert variant="destructive" className="mt-2">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  {hasError}
+                  {!isConnected && (
+                    <Button
+                      variant="link"
+                      size="sm"
+                      onClick={handleRefresh}
+                      className="ml-2 text-red-600 hover:text-red-700"
+                    >
+                      Tentar novamente
+                    </Button>
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {lastUpdate && !hasError && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Última atualização: {new Date(lastUpdate).toLocaleTimeString()}
+              </p>
+            )}
+          </CardHeader>
+          
+          <CardContent>
+            {isLoadingData ? (
+              <div className="space-y-3">
+                <Skeleton className="h-[200px] w-full" />
+                <div className="flex justify-center">
+                  <Skeleton className="h-4 w-32" />
+                </div>
               </div>
             ) : (
-              <div className="space-y-4">
-                <LineChart 
-                  data={messagesData}
-                  title=""
-                  lines={[
-                    {
-                      dataKey: "enviadas",
-                      name: "Enviadas",
-                      color: chartConfig.enviadas.color
-                    },
-                    {
-                      dataKey: "recebidas",
-                      name: "Recebidas",
-                      color: chartConfig.recebidas.color
-                    }
-                  ]}
-                  chartConfig={chartConfig}
-                />
-                <div className="text-xs text-muted-foreground text-center">
-                  📊 Dados sincronizados com a tabela usage_stats do Supabase (últimos 7 dias)
-                </div>
-              </div>
+              <LineChart 
+                data={currentData}
+                title=""
+                lines={[
+                  {
+                    dataKey: "enviadas",
+                    name: "Enviadas",
+                    color: chartConfig.enviadas.color
+                  },
+                  {
+                    dataKey: "recebidas",
+                    name: "Recebidas",
+                    color: chartConfig.recebidas.color
+                  }
+                ]}
+                chartConfig={chartConfig}
+              />
             )}
           </CardContent>
         </Card>
@@ -161,7 +157,7 @@ export function OverviewTab({
       <div className="grid grid-cols-1 gap-6">
         {user && (
           <MessageUsageCard 
-            messageCount={realTimeTotal || user.messageCount}
+            messageCount={currentTotal}
             messageLimit={user.messageLimit}
             isRealTime={isConnected}
           />

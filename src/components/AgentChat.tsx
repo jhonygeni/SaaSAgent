@@ -118,7 +118,6 @@ export function AgentChat() {
     const lastAttempt = lastWebhookAttempt.current[messageId] || 0;
     
     if (now - lastAttempt < MIN_WEBHOOK_INTERVAL) {
-      console.log('Webhook throttled:', messageId);
       return false;
     }
     
@@ -128,50 +127,35 @@ export function AgentChat() {
 
   const saveErrorMessage = async (errorMessageId: string, messageMetadata: any, errorMessage: string) => {
     try {
-      console.log("Salvando mensagem de erro no banco de dados...");
-      
-      try {
-        const { error: saveErrorError } = await supabase
-          .from('messages')
-          .insert({
-            id: errorMessageId,
-            content: errorMessage,
-            direction: "outbound",
-            instance_id: agent?.id || "unknown",
-            message_type: "chat",
-            user_id: user?.id || "unknown",
-            sender_phone: "5511999999999",
-            recipient_phone: "5511999999999",
-            status: "error",
-            created_at: new Date().toISOString(),
-            parent_message_id: messageMetadata.originalMessageId,
-            metadata: {
-              ...messageMetadata,
-              error: true,
-              errorMessage,
-              errorTime: new Date().toISOString()
-            }
-          });
-  
-        if (saveErrorError) {
-          console.error("Erro ao salvar mensagem de erro no banco:", saveErrorError);
-          // Log adicional para diagnóstico
-          console.log("Detalhes da tentativa:", {
-            errorMessageId,
-            direction: "outbound",
-            instance_id: agent?.id || "unknown", 
-            user_id: user?.id || "unknown",
-            status: "error"
-          });
-        } else {
-          console.log("Mensagem de erro salva com sucesso");
-        }
-      } catch (supabaseError) {
-        console.error("Exceção ao salvar mensagem de erro:", supabaseError);
+      const { error: saveErrorError } = await supabase
+        .from('messages')
+        .insert({
+          id: errorMessageId,
+          content: errorMessage,
+          direction: "outbound",
+          instance_id: agent?.id || "unknown",
+          message_type: "chat",
+          user_id: user?.id || "unknown",
+          sender_phone: "5511999999999",
+          recipient_phone: "5511999999999",
+          status: "error",
+          created_at: new Date().toISOString(),
+          parent_message_id: messageMetadata.originalMessageId,
+          metadata: {
+            ...messageMetadata,
+            error: true,
+            errorMessage,
+            errorTime: new Date().toISOString()
+          }
+        });
+
+      if (saveErrorError) {
+        // Silently fail - just log error occurred without details
+        console.error("Error saving error message");
       }
     } catch (err) {
-      console.error("Error in saveErrorMessage:", err);
-      // Falha silenciosa - apenas log, não impede o fluxo
+      // Silently fail - just log error occurred without details
+      console.error("Error in error handling");
     }
   };
 
@@ -200,8 +184,6 @@ export function AgentChat() {
   useEffect(() => {
     const loadChatHistory = async () => {
       if (!agent || !user) return;
-      
-      console.log("Carregando histórico de chat para instância:", agent.id);
 
       try {
         // Usa a função throttled para evitar chamadas repetidas desnecessárias
@@ -218,7 +200,8 @@ export function AgentChat() {
           setMessages(formattedMessages);
         }
       } catch (error) {
-        console.error("Error in loadChatHistory:", error);
+        // Silently fail - just log error occurred without details
+        console.error("Error loading chat history");
       }
     };
 
@@ -251,8 +234,6 @@ export function AgentChat() {
   // Real-time message subscription with improved reconnection logic
   useEffect(() => {
     if (!agent || !user) return;
-
-    console.log("Configurando subscription para mensagens tempo real - ID agente:", agent.id);
     
     // Criamos uma cópia local do conjunto de mensagens processadas
     // para evitar dependência circular com processedMessages do state
@@ -264,12 +245,10 @@ export function AgentChat() {
     const setupSubscription = () => {
       // Limitar tentativas de reconexão
       if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
-        console.log(`Máximo de ${MAX_RECONNECT_ATTEMPTS} tentativas de reconexão atingido. Desistindo.`);
         setIsConnected(false);
         return null;
       }
       
-      console.log(`Iniciando subscription (tentativa #${reconnectAttemptsRef.current + 1}):`, channelId);
       reconnectAttemptsRef.current++;
       
       const subscription = supabase
@@ -284,11 +263,8 @@ export function AgentChat() {
           if (payload.eventType === 'INSERT') {
             // Verificar se a mensagem já foi processada localmente
             if (localProcessedMessages.has(payload.new.id)) {
-              console.log("Ignorando mensagem já processada:", payload.new.id);
               return;
             }
-
-            console.log("Nova mensagem recebida:", payload.new.id);
             
             const newMessage: Message = {
               id: payload.new.id,
@@ -305,7 +281,6 @@ export function AgentChat() {
               // Verificar se a mensagem já existe na lista
               const exists = prev.some(m => m.id === payload.new.id);
               if (exists) {
-                console.log("Mensagem já existe no state, ignorando");
                 return prev;
               }
               return [...prev, newMessage];
@@ -324,7 +299,6 @@ export function AgentChat() {
         })
         .subscribe((status: string) => {
           if (status === 'SUBSCRIBED') {
-            console.log("Subscription ativa:", channelId);
             setIsConnected(true);
             // Reseta o contador quando uma conexão é bem sucedida
             reconnectAttemptsRef.current = 0;
@@ -334,13 +308,11 @@ export function AgentChat() {
               reconnectTimeoutRef.current = undefined;
             }
           } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-            console.log(`Subscription com problema (${status}):`, channelId);
             setIsConnected(false);
             
             // Exponential backoff para tentativas de reconexão
             if (!reconnectTimeoutRef.current && reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
               const backoffTime = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
-              console.log(`Tentando reconexão em ${backoffTime/1000}s (tentativa #${reconnectAttemptsRef.current + 1})`);
               
               reconnectTimeoutRef.current = setTimeout(() => {
                 reconnectTimeoutRef.current = undefined;
@@ -352,16 +324,11 @@ export function AgentChat() {
                     supabase.removeChannel(channel);
                   }
                 } catch (channelError) {
-                  console.log("Erro ao remover canal:", channelError);
+                  // Silently fail
                 }
                 
                 const newSubscription = setupSubscription();
-                if (!newSubscription) {
-                  console.log("Falha ao criar nova subscription após problema");
-                }
               }, backoffTime);
-            } else if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
-              console.log("Máximo de tentativas de reconexão atingido. Não tentaremos novamente.");
             }
           }
         });
@@ -371,18 +338,7 @@ export function AgentChat() {
 
     const subscription = setupSubscription();
     
-    // Se ultrapassamos o limite de tentativas, não temos subscrição
-    if (!subscription) {
-      console.log("Não foi possível estabelecer subscription após tentativas máximas.");
-      return () => {
-        if (reconnectTimeoutRef.current) {
-          clearTimeout(reconnectTimeoutRef.current);
-        }
-      };
-    }
-
     return () => {
-      console.log("Limpando subscription:", channelId);
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = undefined;
@@ -392,7 +348,7 @@ export function AgentChat() {
       reconnectAttemptsRef.current = 0;
       
       // Remover subscription
-      subscription.unsubscribe();
+      subscription?.unsubscribe();
     };
   }, [agent, user]); // Removemos processedMessages das dependências
 
@@ -465,7 +421,6 @@ export function AgentChat() {
     const messageMetadata = createMessageMetadata();
     
     if (isMessageDuplicate(messageMetadata.originalMessageId)) {
-      console.log('Mensagem duplicada detectada:', messageMetadata.originalMessageId);
       return;
     }
 
@@ -484,12 +439,11 @@ export function AgentChat() {
     setLoading(true);
 
     try {
-      console.log("Salvando mensagem do usuário no banco de dados...");
       try {
         const { error: saveError } = await supabase
           .from('messages')
           .insert({
-            id: messageMetadata.originalMessageId, // Garantir ID único explícito
+            id: messageMetadata.originalMessageId,
             content: messageContent,
             direction: "inbound",
             instance_id: agent.id,
@@ -503,14 +457,10 @@ export function AgentChat() {
           });
   
         if (saveError) {
-          console.error("Erro ao salvar mensagem no Supabase:", saveError);
-          // Continua o fluxo mesmo com erro no banco
-        } else {
-          console.log("Mensagem salva com sucesso no banco de dados");
+          // Silently fail - continue flow even with DB error
         }
       } catch (dbError) {
-        console.error("Exceção ao salvar mensagem:", dbError);
-        // Não interrompe o fluxo devido a erros de banco
+        // Silently fail - continue flow even with DB error
       }
 
       if (!shouldSendWebhook(messageMetadata.originalMessageId)) {
@@ -518,9 +468,6 @@ export function AgentChat() {
       }
 
       // Montagem automática do payload do webhook
-      // Buscar dados adicionais do usuário, plano, empresa, agente, FAQs, etc.
-      // Aqui, supondo que user, agent e outros já estão carregados no contexto
-      // Declarar todas as variáveis no início para evitar problemas de escopo
       let responseContent: string;
       let webhookResponse: any = null;
       let webhookError: any = null;
@@ -529,7 +476,6 @@ export function AgentChat() {
       // Verificar se há webhook configurado e processá-lo
       if (agent.status === 'ativo') {
         try {
-          // Criar constantes para valores default em caso de valores undefined
           const webhookUrl = "https://webhooksaas.geni.chat/webhook/principal";
           const webhookSecret = process.env.WEBHOOK_SECRET || "conversa-ai-n8n-token-2024";
           
@@ -547,23 +493,10 @@ export function AgentChat() {
             }
           );
           
-          // Log da resposta para diagnóstico
-          if (webhookResponse.success) {
-            console.log("[WEBHOOK] Sucesso na resposta do n8n:", 
-              webhookResponse.data ? JSON.stringify(webhookResponse.data).substring(0, 100) + '...' : 'Sem dados');
-          } else {
-            console.error("[WEBHOOK] Erro na resposta:", webhookResponse.error);
+          if (!webhookResponse.success) {
             webhookError = webhookResponse.error;
-            
-            // Verificar erros específicos para diagnósticos mais precisos
-            if (webhookResponse.error?.status === 403) {
-              console.error("[WEBHOOK] Erro de autenticação (403 Forbidden). Verificar token de webhook.");
-            } else if (webhookResponse.error?.status === 400) {
-              console.error("[WEBHOOK] Formato de payload incorreto (400 Bad Request).");
-            }
           }
         } catch (error: any) {
-          console.error("[WEBHOOK] Exceção ao enviar para webhook:", error);
           webhookError = {
             message: error.message || "Erro desconhecido",
             status: 0
@@ -572,8 +505,6 @@ export function AgentChat() {
       }
 
       try {
-        console.log("[WEBHOOK] Processando resposta do n8n...");
-        
         // Verificar se temos uma resposta do webhook
         if (webhookResponse?.success && webhookResponse?.data) {
           // Extrair conteúdo da resposta do webhook, caso esteja disponível
@@ -608,9 +539,6 @@ export function AgentChat() {
           }
         } else {
           // Sem resposta webhook bem sucedida, criar resposta local
-          console.log("[WEBHOOK] Sem resposta válida do webhook, usando resposta local");
-          
-          // Resposta de fallback mais contextual
           responseWebhook = {
             content: `Agradecemos seu contato sobre "${messageContent.substring(0, 30)}...". Como podemos ajudar?`,
             status: "local",
@@ -620,13 +548,7 @@ export function AgentChat() {
         
         responseContent = responseWebhook.content;
         
-        // Log para diagnóstico
-        console.log(`[WEBHOOK] Resposta definida (${responseWebhook.fromWebhook ? 'do webhook' : 'local'}):`, 
-          responseContent.substring(0, 50) + (responseContent.length > 50 ? '...' : ''));
-        
       } catch (processingError) {
-        console.error("[WEBHOOK] Erro ao processar resposta:", processingError);
-        
         // Fallback extremo em caso de erro no processamento da resposta
         responseContent = `Recebemos sua mensagem e estamos processando. Como posso ajudar você hoje?`;
         responseWebhook = {
@@ -663,41 +585,26 @@ export function AgentChat() {
           }
         };
         
-        console.log("[DATABASE] Salvando resposta do agente com ID:", agentMessageId);
-        
         // Tentativa 1 - Usar o método padrão do Supabase
         const { error: saveResponseError } = await supabase
           .from('messages')
           .insert(messageInsertData);
   
-        if (saveResponseError) {
-          console.error("[DATABASE] Erro ao salvar resposta (tentativa 1):", saveResponseError);
-          // Continua o fluxo mesmo com erro - mensagem aparecerá na UI
-        } else {
-          console.log("[DATABASE] Resposta salva com sucesso no banco");
-          
+        if (!saveResponseError) {
           // Atualizar estatísticas de uso após sucesso do salvamento
           try {
-            console.log("[USAGE-STATS] Atualizando estatísticas para mensagem enviada");
             const statsResult = await recordOutboundMessage(user.id, {
               instanceId: agent.id,
               phoneNumber: "5511999999999", // Número do destinatário
               messageId: agentMessageId,
               timestamp: new Date()
             });
-            
-            if (statsResult.success) {
-              console.log("[USAGE-STATS] Estatísticas atualizadas com sucesso");
-            } else {
-              console.warn("[USAGE-STATS] Falha ao atualizar estatísticas:", statsResult.error);
-            }
           } catch (statsError) {
-            console.error("[USAGE-STATS] Exceção ao atualizar estatísticas:", statsError);
-            // Não interrompe o fluxo principal
+            // Silently fail - stats are not critical
           }
         }
       } catch (dbError) {
-        console.error("[DATABASE] Exceção ao salvar resposta:", dbError);
+        // Silently fail - continue flow even with DB error
       }
 
       const agentResponse: Message = {
@@ -709,7 +616,6 @@ export function AgentChat() {
       
       setMessages((prev) => [...prev, agentResponse]);
     } catch (err) {
-      console.error("Error in handleSend:", err);
       const errorMessageId = `error-${Date.now()}`;
       const errorMessage = "Erro ao processar a mensagem de teste do agente.";
       

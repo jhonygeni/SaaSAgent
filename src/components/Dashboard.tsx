@@ -1,6 +1,6 @@
 import { useUser } from "@/context/UserContext";
 import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button-extensions";
+import { Button } from "@/components/ui/button";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import {
   Card,
@@ -14,157 +14,175 @@ import { AgentList } from "@/components/AgentList";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { DashboardAnalytics } from "@/components/DashboardAnalytics";
 import { InterestedClients } from "@/components/InterestedClients";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { useEffect, useState, useRef } from "react";
-import { useConnection } from "@/context/ConnectionContext";
 import { useToast } from "@/hooks/use-toast";
 import { useSearchParams } from "react-router-dom";
-import { useAgent } from "@/context/AgentContext";
 import { ErrorState } from "@/components/ErrorState";
-import { resetSubscriptionCache } from "@/lib/subscription-throttle";
+import { supabase } from "@/integrations/supabase/client";
 
 export function Dashboard() {
   const { user, checkSubscriptionStatus, isLoading: isUserLoading } = useUser();
-  const { loadAgentsFromSupabase, isLoading: isLoadingAgents, agents } = useAgent();
   const navigate = useNavigate();
-  const isMobile = useIsMobile();
-  const { connectionStatus } = useConnection();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
-  const [loadAttempts, setLoadAttempts] = useState(0);
-  const [forceShowContent, setForceShowContent] = useState(false);
-  const dashboardLoadedRef = useRef(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  
+  const isMounted = useRef(true);
+  const loadTimeoutRef = useRef<NodeJS.Timeout>();
+  const authChecked = useRef(false);
+  const retryCount = useRef(0);
+  const maxRetries = 3;
+
+  // Cleanup on unmount
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Verificar autenticação com retry
+  useEffect(() => {
+    const checkAuth = async () => {
+      if (!isMounted.current || authChecked.current || retryCount.current >= maxRetries) return;
+      
+      try {
+        console.log(`Tentativa ${retryCount.current + 1} de verificar autenticação`);
+        
+        // Primeiro, verificar se temos um token válido
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+          throw new Error("Token não encontrado");
+        }
+
+        // Tentar obter a sessão
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          throw sessionError;
+        }
+        
+        if (!session) {
+          if (retryCount.current < maxRetries - 1) {
+            console.log("Sem sessão, tentando novamente em 1 segundo");
+            retryCount.current++;
+            setTimeout(checkAuth, 1000);
+            return;
+          }
+          throw new Error("Sem sessão após todas as tentativas");
+        }
+        
+        // Tentar atualizar o token
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError) {
+          console.warn("Erro ao atualizar token:", refreshError);
+        } else if (refreshData.session) {
+          localStorage.setItem('auth_token', refreshData.session.access_token);
+        }
+        
+        console.log("Sessão encontrada:", session.user.email);
+        authChecked.current = true;
+        
+        if (isMounted.current) {
+          setIsLoading(false);
+          await checkSubscriptionStatus();
+        }
+      } catch (error: any) {
+        console.error("Erro ao verificar autenticação:", error);
+        if (retryCount.current < maxRetries - 1) {
+          console.log("Erro na verificação, tentando novamente em 1 segundo");
+          retryCount.current++;
+          setTimeout(checkAuth, 1000);
+        } else {
+          if (isMounted.current) {
+            setLoadError("Erro ao verificar autenticação");
+            // Limpar tokens e redirecionar para login
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('supabase.auth.token');
+            navigate("/entrar", { replace: true });
+          }
+        }
+      }
+    };
+
+    checkAuth();
+  }, [navigate, checkSubscriptionStatus]);
+
   // Check if redirected from successful checkout
   useEffect(() => {
+    if (!isMounted.current) return;
+
     const checkoutSuccess = searchParams.get('checkout_success');
-    
     if (checkoutSuccess && user) {
-      // Limpar cache antes de recarregar status da assinatura
-      resetSubscriptionCache();
-      
-      // Refresh subscription status after successful checkout
       checkSubscriptionStatus();
-      
       toast({
         title: "Assinatura ativada",
         description: "Sua assinatura foi ativada com sucesso. Aproveite seu novo plano!",
       });
     }
   }, [searchParams, user, checkSubscriptionStatus, toast]);
-  
-  // Force complete loading after a timeout to prevent infinite spinner
+
+  // Load dashboard data
   useEffect(() => {
-    const loadingTimeout = setTimeout(() => {
-      if (isLoading) {
-        setIsLoading(false);
-        if (loadAttempts > 2) {
-          setForceShowContent(true);
-        }
-      }
-    }, 5000);
-    
-    return () => clearTimeout(loadingTimeout);
-  }, [isLoading, loadAttempts]);
-  
-  // Load data when component mounts or when user changes
-  useEffect(() => {
-    if (dashboardLoadedRef.current && agents.length > 0) {
-      setIsLoading(false);
-      return;
-    }
-    
+    if (!isMounted.current || isUserLoading || !authChecked.current) return;
+
     const loadDashboard = async () => {
       try {
-        if (isUserLoading) {
+        if (!user) {
+          navigate("/entrar", { replace: true });
           return;
         }
-        
+
         setIsLoading(true);
         setLoadError(null);
-        setLoadAttempts(prev => prev + 1);
+
+        // Simular carregamento para evitar loop infinito
+        await new Promise(resolve => setTimeout(resolve, 1500));
         
-        if (!user && loadAttempts >= 2) {
-          navigate("/entrar");
-          return;
+        if (isMounted.current) {
+          setIsLoading(false);
         }
-        
-        if (user && loadAttempts < 3) {
-          try {
-            const timeoutPromise = new Promise((_, reject) => 
-              setTimeout(() => reject(new Error("Tempo limite excedido")), 5000)
-            );
-            
-            await Promise.race([
-              loadAgentsFromSupabase(),
-              timeoutPromise
-            ]);
-            
-            dashboardLoadedRef.current = true;
-          } catch (loadError) {
-            console.error("Erro ao carregar agentes:", loadError);
-          }
-        }
-        
-        setIsLoading(false);
       } catch (error) {
-        setLoadError("Não foi possível carregar os dados do dashboard. Tente novamente mais tarde.");
-        setIsLoading(false);
-        
-        if (loadAttempts <= 2) {
-          toast({
-            title: "Erro ao carregar dashboard",
-            description: "Tentando mostrar o conteúdo disponível.",
-            variant: "destructive",
-          });
+        console.error("Erro ao carregar dashboard:", error);
+        if (isMounted.current) {
+          setLoadError("Não foi possível carregar os dados do dashboard");
+          setIsLoading(false);
         }
       }
     };
-    
+
     loadDashboard();
-    
-    const backupTimeout = setTimeout(() => {
-      if (isLoading) {
+
+    // Força completar carregamento após timeout
+    loadTimeoutRef.current = setTimeout(() => {
+      if (isMounted.current && isLoading) {
         setIsLoading(false);
-        setForceShowContent(true);
       }
-    }, 10000);
-    
-    return () => clearTimeout(backupTimeout);
-  }, [user, toast, loadAgentsFromSupabase, isUserLoading, navigate, loadAttempts, agents.length]);
+    }, 5000);
 
-  const handleRetryLoading = () => {
-    setLoadAttempts(0);
-    setLoadError(null);
-    setIsLoading(true);
-    setForceShowContent(false);
-    dashboardLoadedRef.current = false;
-    resetSubscriptionCache();
-  };
+    return () => {
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+      }
+    };
+  }, [user, isUserLoading, navigate]);
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      await checkSubscriptionStatus();
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
-  if (isUserLoading) {
+  // Loading state
+  if (isUserLoading || (isLoading && !authChecked.current)) {
     return (
       <div className="container mx-auto p-4 md:py-8 flex justify-center items-center">
         <div className="flex flex-col items-center gap-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-          <p>Verificando sessão...</p>
+          <p>Verificando sessão{retryCount.current > 0 ? ` (Tentativa ${retryCount.current}/${maxRetries})` : ""}...</p>
         </div>
       </div>
     );
   }
 
+  // Not authenticated
   if (!user) {
     return (
       <div className="container mx-auto p-4 md:py-8">
@@ -179,7 +197,7 @@ export function Dashboard() {
             </CardDescription>
           </CardHeader>
           <CardFooter>
-            <Button onClick={() => navigate("/entrar")}>
+            <Button onClick={() => navigate("/entrar", { replace: true })}>
               Fazer Login
             </Button>
           </CardFooter>
@@ -188,6 +206,7 @@ export function Dashboard() {
     );
   }
 
+  // Dashboard content
   return (
     <div className="container mx-auto py-6 space-y-8">
       <DashboardHeader />
@@ -196,33 +215,20 @@ export function Dashboard() {
           <div className="flex items-center justify-center py-8">
             <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
-        ) : loadError && !forceShowContent ? (
+        ) : loadError ? (
           <ErrorState
-            errorMessage="Não foi possível carregar os dados do dashboard. Por favor, tente novamente."
-            onRetry={handleRetryLoading}
+            errorMessage={loadError}
+            onRetry={() => {
+              if (isMounted.current) {
+                setLoadError(null);
+                setIsLoading(true);
+                retryCount.current = 0;
+                authChecked.current = false;
+              }
+            }}
           />
         ) : (
           <>
-            {loadError && forceShowContent && (
-              <div className="rounded-md bg-amber-50 p-4 text-amber-800 mb-4 border border-amber-200">
-                <div className="flex items-start">
-                  <AlertCircle className="h-5 w-5 mr-2 mt-0.5" />
-                  <div>
-                    <h3 className="font-medium text-sm">Atenção: Alguns dados podem não estar disponíveis</h3>
-                    <p className="text-xs mt-1">Ocorreu um erro ao carregar dados completos do dashboard. Mostrando conteúdo disponível.</p>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="mt-2 bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200 px-2 py-1 h-auto text-xs"
-                      onClick={handleRetryLoading}
-                    >
-                      Tentar recarregar
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-            
             <div className="grid grid-cols-1 gap-6">
               <div className="w-full">
                 <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Visão Geral</h2>
