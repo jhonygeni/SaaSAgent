@@ -1,14 +1,27 @@
 const API_URL = import.meta.env.VITE_API_URL || '/api';
+const storageKey = `sb-${import.meta.env.VITE_SUPABASE_URL.split('//')[1].split('.')[0]}-auth-token`;
 
 async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
-  const token = localStorage.getItem('auth_token');
-  const headers = {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...options.headers,
-  };
-
   try {
+    // Tentar obter a sessão do Supabase
+    const storedSession = localStorage.getItem(storageKey);
+    if (!storedSession) {
+      throw new Error('Sessão não encontrada');
+    }
+
+    const session = JSON.parse(storedSession);
+    const token = session.access_token;
+
+    if (!token) {
+      throw new Error('Token não encontrado na sessão');
+    }
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      ...options.headers,
+    };
+
     const response = await fetch(`${API_URL}${endpoint}`, {
       ...options,
       headers,

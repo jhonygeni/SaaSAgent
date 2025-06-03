@@ -20,6 +20,8 @@ import { useSearchParams } from "react-router-dom";
 import { ErrorState } from "@/components/ErrorState";
 import { supabase } from "@/integrations/supabase/client";
 
+const storageKey = `sb-${import.meta.env.VITE_SUPABASE_URL.split('//')[1].split('.')[0]}-auth-token`;
+
 export function Dashboard() {
   const { user, checkSubscriptionStatus, isLoading: isUserLoading } = useUser();
   const navigate = useNavigate();
@@ -52,13 +54,13 @@ export function Dashboard() {
       try {
         console.log(`Tentativa ${retryCount.current + 1} de verificar autenticação`);
         
-        // Primeiro, verificar se temos um token válido
-        const token = localStorage.getItem('auth_token');
-        if (!token) {
-          throw new Error("Token não encontrado");
+        // Verificar se temos uma sessão armazenada
+        const storedSession = localStorage.getItem(storageKey);
+        if (!storedSession) {
+          throw new Error("Sessão não encontrada");
         }
 
-        // Tentar obter a sessão
+        // Tentar obter a sessão atual
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
@@ -80,7 +82,7 @@ export function Dashboard() {
         if (refreshError) {
           console.warn("Erro ao atualizar token:", refreshError);
         } else if (refreshData.session) {
-          localStorage.setItem('auth_token', refreshData.session.access_token);
+          console.log("Token atualizado com sucesso");
         }
         
         console.log("Sessão encontrada:", session.user.email);
@@ -100,8 +102,8 @@ export function Dashboard() {
           if (isMounted.current) {
             setLoadError("Erro ao verificar autenticação");
             // Limpar tokens e redirecionar para login
+            localStorage.removeItem(storageKey);
             localStorage.removeItem('auth_token');
-            localStorage.removeItem('supabase.auth.token');
             navigate("/entrar", { replace: true });
           }
         }

@@ -121,13 +121,27 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           console.log("Sessão inicial encontrada:", session.user.email);
           setUser(session.user);
           setError(null);
+          
+          // Atualizar token
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+          if (refreshError) {
+            console.warn("Erro ao atualizar token:", refreshError);
+          } else if (refreshData.session) {
+            console.log("Token atualizado com sucesso");
+          }
         } else {
           console.log("Nenhuma sessão inicial encontrada");
           setUser(null);
+          // Limpar tokens antigos
+          localStorage.removeItem(storageKey);
+          localStorage.removeItem('auth_token');
         }
       } catch (err) {
         console.error("Erro na inicialização:", err);
         setError("Erro ao inicializar autenticação");
+        // Limpar tokens em caso de erro
+        localStorage.removeItem(storageKey);
+        localStorage.removeItem('auth_token');
       } finally {
         setIsLoading(false);
       }
