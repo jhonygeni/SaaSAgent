@@ -21,7 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useSearchParams } from "react-router-dom";
 import { useAgent } from "@/context/AgentContext";
 import { ErrorState } from "@/components/ErrorState";
-import { throttledSubscriptionCheck, resetSubscriptionCache } from "@/lib/subscription-throttle";
+import { resetSubscriptionCache } from "@/lib/subscription-throttle";
 
 export function Dashboard() {
   const { user, checkSubscriptionStatus, isLoading: isUserLoading } = useUser();
@@ -60,79 +60,60 @@ export function Dashboard() {
   useEffect(() => {
     const loadingTimeout = setTimeout(() => {
       if (isLoading) {
-        console.log("Dashboard loading timed out - forcing completion");
         setIsLoading(false);
         if (loadAttempts > 2) {
-          setForceShowContent(true); // Force show content even with errors
+          setForceShowContent(true);
         }
       }
-    }, 5000); // Optimized from 8 seconds to 5 seconds max loading time
+    }, 5000);
     
     return () => clearTimeout(loadingTimeout);
-  }, [isLoading]);
+  }, [isLoading, loadAttempts]);
   
   // Load data when component mounts or when user changes
   useEffect(() => {
-    // Evitar recarregar se já carregamos com sucesso anteriormente
     if (dashboardLoadedRef.current && agents.length > 0) {
-      console.log("Dashboard já carregado anteriormente, ignorando nova carga");
       setIsLoading(false);
       return;
     }
     
     const loadDashboard = async () => {
       try {
-        // Não iniciar carregamento caso o usuário esteja sendo carregado
         if (isUserLoading) {
-          console.log("Usuário ainda está carregando, aguardando...");
           return;
         }
         
         setIsLoading(true);
         setLoadError(null);
         setLoadAttempts(prev => prev + 1);
-        console.log(`Dashboard loading attempt ${loadAttempts + 1}`);
         
-        // Se não temos usuário após várias tentativas, redirecione para login
         if (!user && loadAttempts >= 2) {
-          console.warn("Usuário não encontrado após múltiplas tentativas, redirecionando para login");
           navigate("/entrar");
           return;
         }
         
-        // Only try to load agents if we have a user and we haven't exceeded max attempts
         if (user && loadAttempts < 3) {
           try {
-            // Set a timeout promise to race against the agent loading
             const timeoutPromise = new Promise((_, reject) => 
-              setTimeout(() => reject(new Error("Dashboard loading timed out")), 5000)
+              setTimeout(() => reject(new Error("Tempo limite excedido")), 5000)
             );
             
-            // Race between actual loading and timeout - if timeout wins, we catch the error below
             await Promise.race([
               loadAgentsFromSupabase(),
               timeoutPromise
             ]);
             
-            // Marcar como carregado para evitar recargas desnecessárias
             dashboardLoadedRef.current = true;
           } catch (loadError) {
-            console.error("Failed to load agents:", loadError);
-            // Don't set error state yet - we'll still show the dashboard
-            // Just log it and continue
+            console.error("Erro ao carregar agentes:", loadError);
           }
         }
         
-        // Always complete loading, regardless of errors
         setIsLoading(false);
       } catch (error) {
-        console.error("Error loading dashboard:", error);
         setLoadError("Não foi possível carregar os dados do dashboard. Tente novamente mais tarde.");
-        
-        // Critical: Still set loading to false even when there's an error
         setIsLoading(false);
         
-        // Only show toast for first few attempts to avoid spamming the user
         if (loadAttempts <= 2) {
           toast({
             title: "Erro ao carregar dashboard",
@@ -145,27 +126,22 @@ export function Dashboard() {
     
     loadDashboard();
     
-    // Set a backup to ensure loading state is turned off even if something fails
     const backupTimeout = setTimeout(() => {
       if (isLoading) {
-        console.warn("Forcing dashboard loading state to complete");
         setIsLoading(false);
         setForceShowContent(true);
       }
-    }, 10000); // 10 seconds absolute maximum
+    }, 10000);
     
     return () => clearTimeout(backupTimeout);
-  }, [user, toast, loadAgentsFromSupabase, isUserLoading, navigate]);
+  }, [user, toast, loadAgentsFromSupabase, isUserLoading, navigate, loadAttempts, agents.length]);
 
-  // Handler to retry loading if it fails
   const handleRetryLoading = () => {
     setLoadAttempts(0);
     setLoadError(null);
     setIsLoading(true);
     setForceShowContent(false);
-    dashboardLoadedRef.current = false; // Reset the loaded state
-    
-    // Limpar cache antes de recarregar
+    dashboardLoadedRef.current = false;
     resetSubscriptionCache();
   };
 
@@ -178,7 +154,6 @@ export function Dashboard() {
     }
   };
 
-  // Se o usuário ainda está carregando, mostre um indicador de carregamento
   if (isUserLoading) {
     return (
       <div className="container mx-auto p-4 md:py-8 flex justify-center items-center">
@@ -228,7 +203,6 @@ export function Dashboard() {
           />
         ) : (
           <>
-            {/* Show warning if there were errors but we're forcing content */}
             {loadError && forceShowContent && (
               <div className="rounded-md bg-amber-50 p-4 text-amber-800 mb-4 border border-amber-200">
                 <div className="flex items-start">
@@ -249,7 +223,6 @@ export function Dashboard() {
               </div>
             )}
             
-            {/* Dashboard Analytics - even if there are errors, try to show what we can */}
             <div className="grid grid-cols-1 gap-6">
               <div className="w-full">
                 <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Visão Geral</h2>
@@ -257,12 +230,10 @@ export function Dashboard() {
               </div>
             </div>
             
-            {/* Interested Clients Section */}
             <div className="pt-2 md:pt-4">
               <InterestedClients />
             </div>
             
-            {/* Agent List Section */}
             <div className="pt-2 md:pt-4">
               <AgentList />
             </div>

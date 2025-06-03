@@ -1,3 +1,10 @@
+# Environment files
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+
 # Logs
 logs
 *.log
@@ -6,11 +13,6 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-
-node_modules
-dist
-dist-ssr
-*.local
 
 # Editor directories and files
 .vscode/*
@@ -23,9 +25,29 @@ dist-ssr
 *.sln
 *.sw?
 
-# Environment files
-.env
-.env.local
-.env.development
+# Build output
+dist
+dist-ssr
+*.local
+
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Testing
+coverage
+.nyc_output
+
+# Misc
+*.pem
+.vercel
+.env*.local
 .env.production
-.env.test
+.env.development
+
+# Supabase
+.supabase/
+.temp/
+*.db
+*.db-journal

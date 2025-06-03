@@ -1,7 +1,15 @@
 // SECURITY-ENHANCED: Production-ready Supabase client configuration
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
-import { SUPABASE_URL, SUPABASE_ANON_KEY, IS_PRODUCTION } from '../../lib/env';
+
+// Use environment variables
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+// Validate environment variables
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  throw new Error('Missing Supabase environment variables. Check .env file.');
+}
 
 // 🔍 Security validation - ensure we're not using demo/mock credentials
 if (SUPABASE_URL.includes('demo.supabase.co') || SUPABASE_URL.includes('mock')) {
@@ -21,7 +29,7 @@ if (SUPABASE_URL.includes('demo.supabase.co') || SUPABASE_URL.includes('mock')) 
 // 📊 Log configuration (safe - no sensitive data)
 const urlDomain = new URL(SUPABASE_URL).hostname;
 console.log(`🔧 Supabase Client Initialized:`);
-console.log(`   Mode: ${IS_PRODUCTION ? 'PRODUCTION' : 'DEVELOPMENT'}`);
+console.log(`   Mode: ${import.meta.env.PROD ? 'PRODUCTION' : 'DEVELOPMENT'}`);
 console.log(`   Domain: ${urlDomain}`);
 console.log(`   Key: ${SUPABASE_ANON_KEY.substring(0, 20)}...`);
 
@@ -34,7 +42,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
   },
   global: {
     headers: {
-      'X-Client-Info': 'conversa-ai-brasil@1.0.0',
+      'X-Client-Info': 'geni-chat@1.0.0',
     },
   },
 });

@@ -1,6 +1,30 @@
 // Environment Variables Configuration
 // This file centralizes all environment variables and ensures they are properly typed and validated
 
+// Validate required environment variables
+function validateEnvVar(name: string, value: string | undefined): string {
+  if (!value) {
+    throw new Error(`Environment variable ${name} is required`);
+  }
+  return value;
+}
+
+// Site Configuration
+export const SITE_URL = validateEnvVar('VITE_SITE_URL', import.meta.env.VITE_SITE_URL);
+export const IS_PRODUCTION = import.meta.env.PROD;
+
+// API Configuration
+export const API_URL = validateEnvVar('VITE_EVOLUTION_API_URL', import.meta.env.VITE_EVOLUTION_API_URL);
+export const API_TOKEN = validateEnvVar('VITE_EVOLUTION_API_TOKEN', import.meta.env.VITE_EVOLUTION_API_TOKEN);
+
+// SMTP Configuration (optional)
+export const SMTP_CONFIG = {
+  host: import.meta.env.VITE_SMTP_HOST,
+  port: Number(import.meta.env.VITE_SMTP_PORT || 587),
+  username: import.meta.env.VITE_SMTP_USERNAME,
+  password: import.meta.env.VITE_SMTP_PASSWORD,
+};
+
 // Supabase Configuration
 export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 if (!SUPABASE_URL) throw new Error('VITE_SUPABASE_URL is required')
@@ -8,27 +32,10 @@ if (!SUPABASE_URL) throw new Error('VITE_SUPABASE_URL is required')
 export const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
 if (!SUPABASE_ANON_KEY) throw new Error('VITE_SUPABASE_ANON_KEY is required')
 
-// SMTP Configuration
-export const SMTP_CONFIG = {
-  host: import.meta.env.VITE_SMTP_HOST,
-  port: Number(import.meta.env.VITE_SMTP_PORT),
-  username: import.meta.env.VITE_SMTP_USERNAME,
-  password: import.meta.env.VITE_SMTP_PASSWORD,
-}
-
-// Validate SMTP configuration
-Object.entries(SMTP_CONFIG).forEach(([key, value]) => {
-  if (!value) throw new Error(`VITE_SMTP_${key.toUpperCase()} is required`)
-})
-
-// Site Configuration
-export const SITE_URL = import.meta.env.VITE_SITE_URL
-if (!SITE_URL) throw new Error('VITE_SITE_URL is required')
-
 // Evolution API Configuration
 export const EVOLUTION_API = {
-  url: import.meta.env.VITE_EVOLUTION_API_URL,
-  key: import.meta.env.VITE_EVOLUTION_API_KEY,
+  url: API_URL,
+  key: API_TOKEN,
 }
 
 // Validate Evolution API configuration
@@ -43,5 +50,4 @@ export const STRIPE_CONFIG = {
 }
 
 // Export environment mode
-export const IS_PRODUCTION = import.meta.env.PROD
 export const IS_DEVELOPMENT = import.meta.env.DEV 
