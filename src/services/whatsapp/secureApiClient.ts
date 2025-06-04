@@ -68,10 +68,10 @@ export const retryOperation = async <T>(
  */
 export const secureApiClient = {
   /**
-   * Call Evolution API through secure Edge Function
+   * Call Evolution API through secure Edge Function with direct endpoint support
    */
-  async callEvolutionAPI<T>(action: string, instanceName?: string, data?: any): Promise<T> {
-    console.log(`Making secure API call - Action: ${action}, Instance: ${instanceName}`);
+  async callEvolutionAPI<T>(endpoint: string, method: string = 'GET', data?: any): Promise<T> {
+    console.log(`Making secure API call - Endpoint: ${endpoint}, Method: ${method}`);
     
     return retryOperation(async () => {
       try {
@@ -82,12 +82,12 @@ export const secureApiClient = {
           throw new Error('User not authenticated. Please login to continue.');
         }
 
-        // Call the Edge Function
+        // Call the Edge Function with endpoint and method information
         const { data: result, error } = await supabase.functions.invoke('evolution-api', {
           body: {
-            action,
-            instanceName,
-            data
+            endpoint,
+            method,
+            data: data || {}
           },
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
@@ -114,10 +114,10 @@ export const secureApiClient = {
           throw new Error(`API Error: ${error.message}`);
         }
 
-        console.log(`Secure API call successful - Action: ${action}`);
+        console.log(`Secure API call successful - Endpoint: ${endpoint}`);
         return result;
       } catch (error) {
-        console.error(`Secure API call failed - Action: ${action}:`, error);
+        console.error(`Secure API call failed - Endpoint: ${endpoint}:`, error);
         throw error;
       }
     }, undefined, undefined, (error) => {
@@ -135,84 +135,84 @@ export const secureApiClient = {
    * Create a WhatsApp instance
    */
   async createInstance(instanceData: any): Promise<any> {
-    return this.callEvolutionAPI('create', undefined, instanceData);
+    return this.callEvolutionAPI('/instance/create', 'POST', instanceData);
   },
 
   /**
    * Connect to WhatsApp instance and get QR code
    */
   async connectInstance(instanceName: string): Promise<any> {
-    return this.callEvolutionAPI('connect', instanceName);
+    return this.callEvolutionAPI(`/instance/connect/${encodeURIComponent(instanceName)}`, 'POST');
   },
 
   /**
    * Get QR code for instance
    */
   async getQRCode(instanceName: string): Promise<any> {
-    return this.callEvolutionAPI('qrcode', instanceName);
+    return this.callEvolutionAPI(`/instance/qrcode/${encodeURIComponent(instanceName)}`);
   },
 
   /**
    * Get instance information
    */
   async getInstanceInfo(instanceName: string): Promise<any> {
-    return this.callEvolutionAPI('info', instanceName);
+    return this.callEvolutionAPI(`/instance/info/${encodeURIComponent(instanceName)}`);
   },
 
   /**
    * Fetch all instances
    */
   async fetchInstances(): Promise<any> {
-    return this.callEvolutionAPI('fetchInstances');
+    return this.callEvolutionAPI('/instance/fetchInstances');
   },
 
   /**
    * Get connection state
    */
   async getConnectionState(instanceName: string): Promise<any> {
-    return this.callEvolutionAPI('connectionState', instanceName);
+    return this.callEvolutionAPI(`/instance/connectionState/${encodeURIComponent(instanceName)}`);
   },
 
   /**
    * Delete WhatsApp instance
    */
   async deleteInstance(instanceName: string): Promise<any> {
-    return this.callEvolutionAPI('delete', instanceName);
+    return this.callEvolutionAPI(`/instance/delete/${encodeURIComponent(instanceName)}`, 'DELETE');
   },
 
   /**
    * Set webhook for instance
    */
   async setWebhook(instanceName: string, webhookData: any): Promise<any> {
-    return this.callEvolutionAPI('webhook', instanceName, webhookData);
+    return this.callEvolutionAPI(`/webhook/set/${encodeURIComponent(instanceName)}`, 'POST', webhookData);
   },
 
   /**
    * Find webhook for instance
    */
   async findWebhook(instanceName: string): Promise<any> {
-    return this.callEvolutionAPI('webhookFind', instanceName);
+    return this.callEvolutionAPI(`/webhook/find/${encodeURIComponent(instanceName)}`);
   },
 
   /**
    * Update instance settings
    */
   async updateSettings(instanceName: string, settings: any): Promise<any> {
-    return this.callEvolutionAPI('settings', instanceName, settings);
+    return this.callEvolutionAPI(`/settings/set/${encodeURIComponent(instanceName)}`, 'POST', settings);
   },
 
   /**
    * Send text message
    */
   async sendText(instanceName: string, messageData: any): Promise<any> {
-    return this.callEvolutionAPI('sendText', instanceName, messageData);
+    return this.callEvolutionAPI(`/message/sendText/${encodeURIComponent(instanceName)}`, 'POST', messageData);
   },
 
   /**
    * Send media message
    */
   async sendMedia(instanceName: string, mediaData: any): Promise<any> {
-    return this.callEvolutionAPI('sendMedia', instanceName, mediaData);
+    return this.callEvolutionAPI(`/message/sendMedia/${encodeURIComponent(instanceName)}`, 'POST', mediaData);
   }
 };
 

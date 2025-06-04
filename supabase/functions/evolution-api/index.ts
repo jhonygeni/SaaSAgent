@@ -1,13 +1,13 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { corsHeaders } from '../_shared/cors.ts'
 
-// 🔧 CORREÇÃO CRÍTICA: Configuração otimizada para Evolution API V2
+// 🔧 CORREÇÃO FINAL: Edge Function que aceita JSON direto da Evolution API V2
 const EVOLUTION_API_URL = Deno.env.get('EVOLUTION_API_URL')
 const EVOLUTION_API_KEY = Deno.env.get('EVOLUTION_API_KEY')
 
 // Helper function for detailed logging
 const logDebug = (message: string, data?: any) => {
-  console.log(`[EVOLUTION-API] ${message}`, data ? JSON.stringify(data, null, 2) : '');
+  console.log(`[EVOLUTION-API-V2] ${message}`, data ? JSON.stringify(data, null, 2) : '');
 };
 
 serve(async (req) => {
@@ -23,7 +23,7 @@ serve(async (req) => {
       headers: Object.fromEntries(req.headers.entries())
     });
 
-    // 🔧 CORREÇÃO: Validação aprimorada de variáveis de ambiente
+    // 🔧 CORREÇÃO: Validação de variáveis de ambiente
     if (!EVOLUTION_API_URL) {
       const error = 'Missing EVOLUTION_API_URL. Configure: supabase secrets set EVOLUTION_API_URL=https://your-evolution-api.com';
       logDebug('❌ Missing URL', { error });
@@ -40,111 +40,52 @@ serve(async (req) => {
       apiKeyPresent: !!EVOLUTION_API_KEY 
     });
 
-    // 🔧 CORREÇÃO: Parsing seguro do body
-    let requestBody: any = {};
+    // 🔧 CORREÇÃO CRÍTICA: Parse request body para extrair endpoint e method
+    let requestData: any = {};
+    let endpoint = '';
+    let method = 'GET';
+    
     try {
       const bodyText = await req.text();
-      requestBody = bodyText ? JSON.parse(bodyText) : {};
-      logDebug('📝 Request body parsed', requestBody);
+      requestData = bodyText ? JSON.parse(bodyText) : {};
+      
+      // Extrair endpoint e method do body da requisição
+      endpoint = requestData.endpoint || '/instance/fetchInstances';
+      method = requestData.method || req.method || 'GET';
+      
+      // Se há data no body, usar ela como payload
+      const payload = requestData.data || {};
+      
+      logDebug('📝 Request data parsed', { 
+        endpoint,
+        method,
+        hasData: Object.keys(payload).length > 0
+      });
+      
+      requestData = payload; // Usar apenas os dados como payload
     } catch (parseError) {
       logDebug('❌ JSON parsing failed', { error: parseError.message });
       throw new Error(`Invalid JSON body: ${parseError.message}`);
     }
 
-    const { action, instanceName, data } = requestBody;
-
-    // Validate required parameters
-    if (!action) {
-      logDebug('❌ Missing action parameter');
-      throw new Error('Missing required parameter: action');
-    }
-
-    // 🔧 CORREÇÃO: URLs padronizadas para Evolution API V2
-    let url = EVOLUTION_API_URL.replace(/\/$/, ''); // Remove trailing slash
-    let method = 'GET';
-    let body: string | undefined = undefined;
-
-    logDebug('🔗 Building request', { action, instanceName, hasData: !!data });
-
-    switch (action) {
-      case 'create':
-        url += '/instance/create';
-        method = 'POST';
-        body = JSON.stringify(data || {});
-        break;
-      case 'connect':
-        if (!instanceName) throw new Error('Missing required parameter: instanceName for connect');
-        url += `/instance/connect/${encodeURIComponent(instanceName)}`;
-        method = 'POST';
-        break;
-      case 'qrcode':
-        if (!instanceName) throw new Error('Missing required parameter: instanceName for qrcode');
-        url += `/instance/qrcode/${encodeURIComponent(instanceName)}`;
-        break;
-      case 'info':
-        if (!instanceName) throw new Error('Missing required parameter: instanceName for info');
-        url += `/instance/info/${encodeURIComponent(instanceName)}`;
-        break;
-      case 'fetchInstances':
-        url += '/instance/fetchInstances';
-        break;
-      case 'connectionState':
-        if (!instanceName) throw new Error('Missing required parameter: instanceName for connectionState');
-        url += `/instance/connectionState/${encodeURIComponent(instanceName)}`;
-        break;
-      case 'delete':
-        if (!instanceName) throw new Error('Missing required parameter: instanceName for delete');
-        url += `/instance/delete/${encodeURIComponent(instanceName)}`;
-        method = 'DELETE';
-        break;
-      case 'webhook':
-        if (!instanceName) throw new Error('Missing required parameter: instanceName for webhook');
-        url += `/webhook/set/${encodeURIComponent(instanceName)}`;
-        method = 'POST';
-        body = JSON.stringify(data || {});
-        break;
-      case 'webhookFind':
-        if (!instanceName) throw new Error('Missing required parameter: instanceName for webhookFind');
-        url += `/webhook/find/${encodeURIComponent(instanceName)}`;
-        break;
-      case 'settings':
-        if (!instanceName) throw new Error('Missing required parameter: instanceName for settings');
-        url += `/settings/set/${encodeURIComponent(instanceName)}`;
-        method = 'POST';
-        body = JSON.stringify(data || {});
-        break;
-      case 'sendText':
-        if (!instanceName) throw new Error('Missing required parameter: instanceName for sendText');
-        url += `/message/sendText/${encodeURIComponent(instanceName)}`;
-        method = 'POST';
-        body = JSON.stringify(data || {});
-        break;
-      case 'sendMedia':
-        if (!instanceName) throw new Error('Missing required parameter: instanceName for sendMedia');
-        url += `/message/sendMedia/${encodeURIComponent(instanceName)}`;
-        method = 'POST';
-        body = JSON.stringify(data || {});
-        break;
-      default:
-        logDebug('❌ Invalid action', { action, availableActions: ['create', 'connect', 'qrcode', 'info', 'fetchInstances', 'connectionState', 'delete', 'webhook', 'webhookFind', 'settings', 'sendText', 'sendMedia'] });
-        throw new Error(`Invalid action: ${action}`);
-    }
-
-    logDebug('🌐 Making request to Evolution API', { 
-      url, 
-      method, 
-      bodyLength: body ? body.length : 0,
-      hasApiKey: !!EVOLUTION_API_KEY
+    // Construir URL completa para Evolution API
+    const evolutionApiUrl = EVOLUTION_API_URL.replace(/\/$/, '') + endpoint;
+    
+    logDebug('🔗 Building Evolution API request', { 
+      endpoint,
+      method,
+      finalUrl: evolutionApiUrl,
+      hasData: Object.keys(requestData).length > 0
     });
 
-    // 🔧 CORREÇÃO CRÍTICA: Headers padronizados para Evolution API V2
+    // 🔧 CORREÇÃO: Headers padronizados para Evolution API V2
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
       'User-Agent': 'SaaSAgent-Supabase-Function'
     };
 
-    // 🔧 CORREÇÃO: Evolution API V2 usa 'apikey' header (não Authorization)
+    // 🔧 CORREÇÃO: Evolution API V2 usa 'apikey' header
     headers['apikey'] = EVOLUTION_API_KEY;
 
     logDebug('📡 Request headers prepared', { 
@@ -153,8 +94,21 @@ serve(async (req) => {
       headerCount: Object.keys(headers).length
     });
 
+    // Preparar body se necessário
+    let body: string | undefined = undefined;
+    if (method !== 'GET' && Object.keys(requestData).length > 0) {
+      body = JSON.stringify(requestData);
+    }
+
+    logDebug('🌐 Making request to Evolution API', { 
+      url: evolutionApiUrl, 
+      method, 
+      bodyLength: body ? body.length : 0,
+      hasApiKey: !!EVOLUTION_API_KEY
+    });
+
     // Make the request to Evolution API
-    const response = await fetch(url, {
+    const response = await fetch(evolutionApiUrl, {
       method,
       headers,
       body
@@ -198,7 +152,7 @@ serve(async (req) => {
       logDebug('❌ Evolution API error', { 
         status: response.status, 
         result,
-        url,
+        url: evolutionApiUrl,
         method
       });
       
@@ -206,7 +160,7 @@ serve(async (req) => {
       if (response.status === 401 || response.status === 403) {
         throw new Error(`Authentication failed with Evolution API (${response.status}). Verify EVOLUTION_API_KEY is correct.`);
       } else if (response.status === 404) {
-        throw new Error(`Evolution API endpoint not found (${response.status}). Check EVOLUTION_API_URL: ${url}`);
+        throw new Error(`Evolution API endpoint not found (${response.status}). Check endpoint: ${endpoint}`);
       } else if (response.status >= 500) {
         throw new Error(`Evolution API server error (${response.status}). Server may be down or misconfigured.`);
       }
