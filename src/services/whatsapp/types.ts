@@ -1,15 +1,16 @@
-
 import { ConnectionStatus } from '@/hooks/whatsapp/types';
 
 // WhatsApp instance request
 export interface WhatsAppInstanceRequest {
   instanceName: string;
-  integration: "WHATSAPP-BAILEYS" | "WHATSAPP-BUSINESS"; // Deve ser exatamente um destes dois valores
+  integration: "baileys";
   token?: string;
   qrcode?: boolean;
   webhook: {
     enabled: boolean;
     url: string;
+    webhook_by_events: boolean;
+    webhook_base64: boolean;
     events: string[];
   };
   websocket?: any;
@@ -28,7 +29,13 @@ export interface WhatsAppInstanceResponse {
     status: string;
   };
   hash: string;
-  webhook: any;
+  webhook: {
+    enabled: boolean;
+    url: string;
+    webhook_by_events: boolean;
+    webhook_base64: boolean;
+    events: string[];
+  };
   websocket: any;
   rabbitmq: any;
   sqs: any;
@@ -136,3 +143,5 @@ export type InstancesListResponse = Array<{
   connectionStatus: string;
   // Other properties exist but are optional for our validation use case
 }>;
+
+export type WhatsAppIntegrationType = "WHATSAPP-BAILEYS" | "WHATSAPP-BUSINESS" | "baileys";

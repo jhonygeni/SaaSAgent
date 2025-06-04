@@ -40,18 +40,35 @@ const whatsappService = {
           }
         };
       }
-      const endpoint = formatEndpoint(ENDPOINTS.webhookConfig, { instanceName });
-      console.log("Webhook configuration URL:", `${apiClient.baseUrl}${endpoint}`);
-      // Padronizar payload para Evolution API v2 (sem campos legados)
-      const webhookConfig = {
-        webhook: {
+      
+      // Use the correct webhook configuration endpoint for Evolution API v2
+      const response = await fetch(`${EVOLUTION_API_URL}/webhook/instance/${instanceName}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': EVOLUTION_API_KEY,
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
           url: "https://webhooksaas.geni.chat/webhook/principal",
-          byEvents: true,
-          base64: false,
-          events: ["MESSAGES_UPSERT", "MESSAGE_UPDATE"]
-        }
-      };
-      const data = await apiClient.post<WebhookConfigResponse>(endpoint, webhookConfig);
+          webhook_by_events: false,
+          webhook_base64: false,
+          events: [
+            "QRCODE_UPDATED",
+            "MESSAGES_UPSERT",
+            "MESSAGES_UPDATE",
+            "MESSAGES_DELETE",
+            "SEND_MESSAGE",
+            "CONNECTION_UPDATE"
+          ]
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to configure webhook: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
       console.log("Webhook configuration successful:", data);
       return data;
     } catch (error) {
@@ -140,7 +157,12 @@ const whatsappService = {
               updated_at: new Date().toISOString()
             })
             .eq('name', instanceName)
-            .eq('user_id', user.id);
+            .eq('user_id', user.id)
+            .headers({
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'Prefer': 'return=representation'
+            });
             
           if (supabaseError) {
             console.error("Error saving settings to Supabase:", supabaseError);
@@ -213,7 +235,12 @@ const whatsappService = {
                   updated_at: new Date().toISOString()
                 })
                 .eq('name', instanceName)
-                .eq('user_id', user.id);
+                .eq('user_id', user.id)
+                .headers({
+                  'Accept': 'application/json',
+                  'Content-Type': 'application/json',
+                  'Prefer': 'return=representation'
+                });
             }
           } else {
             console.warn(`[NON-BLOCKING] Settings configuration failed with status: ${response.status}`);
@@ -557,16 +584,24 @@ const whatsappService = {
     try {
       console.log(`Attempting to create WhatsApp instance: ${instanceName}`);
       
-      const endpoint = ENDPOINTS.instanceCreate;
       const instanceData: WhatsAppInstanceRequest = {
         instanceName,
-        integration: "WHATSAPP-BAILEYS", 
+        integration: "baileys",
         token: userId || "default_user",
         qrcode: true,
         webhook: {
           enabled: true,
           url: "https://webhooksaas.geni.chat/webhook/principal",
-          events: ["MESSAGES_UPSERT"]
+          webhook_by_events: false,
+          webhook_base64: false,
+          events: [
+            "QRCODE_UPDATED",
+            "MESSAGES_UPSERT",
+            "MESSAGES_UPDATE",
+            "MESSAGES_DELETE",
+            "SEND_MESSAGE",
+            "CONNECTION_UPDATE"
+          ]
         }
       };
       
@@ -575,8 +610,7 @@ const whatsappService = {
       let response: WhatsAppInstanceResponse;
       
       try {
-        // Criar instância usando fetch direto
-        const createResponse = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
+        const createResponse = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -599,20 +633,19 @@ const whatsappService = {
         response = await createResponse.json();
         console.log("Instance created successfully:", response);
 
-        // Aplicar configurações imediatamente após a criação
+        // Apply instance settings
         console.log("Applying instance settings...");
-        const settingsUrl = `${EVOLUTION_API_URL}/settings/set/${instanceName}`;
         const instanceSettings = {
-          rejectCall: false, // Não rejeitar chamadas
-          msgCall: "", // Sem mensagem de rejeição
+          rejectCall: false,
+          msgCall: "",
           groupsIgnore: true,
           alwaysOnline: true,
           readMessages: true,
           readStatus: true,
-          syncFullHistory: false // Não sincronizar histórico
+          syncFullHistory: false
         };
 
-        const settingsResponse = await fetch(settingsUrl, {
+        const settingsResponse = await fetch(`${EVOLUTION_API_URL}/instance/set/${instanceName}/settings`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -628,18 +661,15 @@ const whatsappService = {
           console.log("Settings applied successfully");
         }
 
-        // Configurar webhook
+        // Configure webhook
         console.log("Configuring webhook...");
-        const webhookUrl = `${EVOLUTION_API_URL}/webhook/set/${instanceName}`;
         const webhookConfig = {
-          webhook: {
-            url: "https://webhooksaas.geni.chat/webhook/principal",
-            enabled: true,
-            events: ["MESSAGES_UPSERT"]
-          }
+          enabled: true,
+          url: "https://webhooksaas.geni.chat/webhook/principal",
+          events: ["MESSAGES_UPSERT", "QRCODE_UPDATED", "CONNECTION_UPDATE"]
         };
 
-        const webhookResponse = await fetch(webhookUrl, {
+        const webhookResponse = await fetch(`${EVOLUTION_API_URL}/instance/set/${instanceName}/webhook`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -687,6 +717,8 @@ const whatsappService = {
               settings: sessionData.settings,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
+            }, {
+              onConflict: 'name,user_id'
             });
             
           if (error) {
@@ -704,79 +736,46 @@ const whatsappService = {
     }
   },
 
-  // Get the QR code for an instance using the correct connect endpoint
+  // Get the QR code for an instance
   getQrCode: async (instanceName: string): Promise<QrCodeResponse> => {
     try {
-      const endpoint = formatEndpoint(ENDPOINTS.instanceConnectQR, { instanceName });
-      console.log(`Getting QR code using connect endpoint: ${endpoint}`);
-      let response;
-      const authHeaders = {
-        'apikey': EVOLUTION_API_KEY,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      };
+      console.log(`Getting QR code for instance: ${instanceName}`);
+      
+      // First check if instance exists and is ready
+      const stateResponse = await fetch(`${EVOLUTION_API_URL}/instance/connectionState/${instanceName}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': EVOLUTION_API_KEY,
+          'Accept': 'application/json'
+        }
+      });
 
-      // Try direct fetch first with proper endpoint
-      try {
-        const fullUrl = `${EVOLUTION_API_URL}/instance/connect/${instanceName}`;
-        console.log(`Trying direct QR code fetch from: ${fullUrl}`);
-        
-        const directResponse = await fetch(fullUrl, {
-          method: 'GET',
-          headers: authHeaders
-        });
-        
-        if (!directResponse.ok) {
-          if (directResponse.status === 401 || directResponse.status === 403) {
-            throw new Error(
-              `Falha na autenticação com Evolution API (${directResponse.status}). ` +
-              `Verifique seu token no painel Evolution API e atualize a variável de ambiente EVOLUTION_API_KEY.`
-            );
-          }
-          throw new Error(`Direct fetch failed: ${directResponse.status}`);
-        }
-        
-        response = await directResponse.json();
-        console.log(`QR code fetched successfully from ${fullUrl}`);
-      } catch (directError) {
-        console.warn(`Direct fetch failed, trying fallback method:`, directError);
-        
-        // Fallback to alternative endpoint
-        try {
-          const fallbackUrl = `${EVOLUTION_API_URL}/instance/qrcode/${instanceName}`;
-          console.log(`Trying fallback QR code fetch from: ${fallbackUrl}`);
-          
-          const fallbackResponse = await fetch(fallbackUrl, {
-            method: 'GET',
-            headers: authHeaders
-          });
-          
-          if (!fallbackResponse.ok) {
-            throw new Error(`Fallback fetch failed: ${fallbackResponse.status}`);
-          }
-          
-          response = await fallbackResponse.json();
-          console.log(`QR code fetched successfully from fallback URL`);
-        } catch (fallbackError) {
-          console.error(`All QR code fetch attempts failed:`, fallbackError);
-          throw new Error(`Failed to get QR code: ${fallbackError.message}`);
-        }
+      if (!stateResponse.ok) {
+        throw new Error(`Failed to get instance state: ${stateResponse.status} ${stateResponse.statusText}`);
       }
-      
-      // Normalizar resposta do QR code
-      response = whatsappService.normalizeQrCodeResponse(response);
-      
-      // Ensure we have a valid QR code in the response
-      if (!response.qrcode && !response.base64 && !response.code) {
-        console.warn(`No QR code found in response for ${instanceName}. Response keys:`, Object.keys(response));
-        throw new Error('QR code data not found in response');
+
+      // Use the correct QR code endpoint for Evolution API v2.2.3
+      const response = await fetch(`${EVOLUTION_API_URL}/instance/qrcode/${instanceName}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': EVOLUTION_API_KEY,
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to get QR code: ${response.status} ${response.statusText}`);
       }
+
+      const data = await response.json();
       
       // Save QR code to Supabase if possible
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        if (user?.id && (response.code || response.qrcode || response.base64)) {
-          const qrCode = response.code || response.qrcode || response.base64;
+        if (user?.id && (data.code || data.qrcode || data.base64)) {
+          const qrCode = data.code || data.qrcode || data.base64;
           
           const { error } = await supabase
             .from('whatsapp_instances')
@@ -795,232 +794,104 @@ const whatsappService = {
         console.error("Failed to save QR code to Supabase:", saveError);
       }
       
-      return response;
+      return data;
     } catch (error) {
       console.error(`Error getting QR code for ${instanceName}:`, error);
       throw error;
     }
   },
 
-  // Get the QR code for an instance (OPTIMIZED VERSION with faster timeouts)
-  getQrCodeOptimized: async (instanceName: string): Promise<QrCodeResponse> => {
+  // Get information about an instance
+  getInstanceInfo: async (instanceName: string): Promise<InstanceInfo> => {
     try {
-      console.log(`[OPTIMIZED] Getting QR code for instance: ${instanceName}`);
+      console.log(`Getting instance info for ${instanceName}`);
       
-      const authHeaders = {
-        'apikey': EVOLUTION_API_KEY,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      };
+      const response = await fetch(`${EVOLUTION_API_URL}/instance/info/${instanceName}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': EVOLUTION_API_KEY,
+          'Accept': 'application/json'
+        }
+      });
 
-      let response;
-      
-      // Try primary endpoint first with short timeout
-      try {
-        const primaryUrl = `${EVOLUTION_API_URL}/instance/connect/${instanceName}`;
-        console.log(`[OPTIMIZED] Trying primary QR fetch from: ${primaryUrl}`);
-        
-        const primaryResponse = await fetch(primaryUrl, {
-          method: 'GET',
-          headers: authHeaders,
-          signal: AbortSignal.timeout(5000) // 5s timeout
-        });
-        
-        if (!primaryResponse.ok) {
-          throw new Error(`Primary fetch failed: ${primaryResponse.status}`);
-        }
-        
-        response = await primaryResponse.json();
-        console.log(`[OPTIMIZED] QR code fetched successfully from primary URL`);
-      } catch (primaryError) {
-        console.warn(`[OPTIMIZED] Primary fetch failed, trying fallback:`, primaryError);
-        
-        // Try fallback endpoint with shorter timeout
-        try {
-          const fallbackUrl = `${EVOLUTION_API_URL}/instance/qrcode/${instanceName}`;
-          console.log(`[OPTIMIZED] Trying fallback QR fetch from: ${fallbackUrl}`);
-          
-          const fallbackResponse = await fetch(fallbackUrl, {
-            method: 'GET',
-            headers: authHeaders,
-            signal: AbortSignal.timeout(3000) // 3s timeout for fallback
-          });
-          
-          if (!fallbackResponse.ok) {
-            throw new Error(`Fallback fetch failed: ${fallbackResponse.status}`);
-          }
-          
-          response = await fallbackResponse.json();
-          console.log(`[OPTIMIZED] QR code fetched successfully from fallback URL`);
-        } catch (fallbackError) {
-          console.error(`[OPTIMIZED] All QR code fetch attempts failed:`, fallbackError);
-          throw new Error(`Failed to get QR code: ${fallbackError.message}`);
-        }
+      if (!response.ok) {
+        throw new Error(`Failed to get instance info: ${response.status} ${response.statusText}`);
       }
+
+      const data = await response.json();
       
-      // Normalize and validate response
-      response = whatsappService.normalizeQrCodeResponse(response);
-      
-      if (!response.qrcode && !response.base64 && !response.code) {
-        throw new Error('QR code data not found in response');
-      }
-      
-      // Save to Supabase in background (non-blocking)
-      setTimeout(async () => {
+      // Update Supabase if we have a phone number
+      if (data?.instance?.user?.id) {
         try {
+          const phoneNumber = data.instance.user.id.split('@')[0];
           const { data: { user } } = await supabase.auth.getUser();
-          if (user?.id && (response.code || response.qrcode || response.base64)) {
-            const qrCode = response.code || response.qrcode || response.base64;
-            
+          if (user?.id && phoneNumber) {
             await supabase
               .from('whatsapp_instances')
               .update({ 
-                qr_code: qrCode,
+                phone_number: phoneNumber,
+                status: 'connected',
                 updated_at: new Date().toISOString()
               })
               .eq('name', instanceName)
               .eq('user_id', user.id);
           }
-        } catch (saveError) {
-          console.error("[OPTIMIZED] Failed to save QR code to Supabase:", saveError);
+        } catch (error) {
+          console.error("Failed to update phone number in Supabase:", error);
         }
-      }, 0);
+      }
       
-      return response;
+      return data;
     } catch (error) {
-      console.error(`[OPTIMIZED] Error getting QR code for ${instanceName}:`, error);
+      console.error(`Error getting instance info for ${instanceName}:`, error);
       throw error;
     }
   },
 
-  // Get information about an instance with anti-loop protection
-  getInstanceInfo: async (instanceName: string, attempt = 1, maxAttempts = 3): Promise<InstanceInfo> => {
+  // Delete an instance
+  deleteInstance: async (instanceName: string): Promise<boolean> => {
     try {
-      console.log(`Getting instance info for ${instanceName} (attempt ${attempt}/${maxAttempts})`);
+      console.log(`Attempting to delete WhatsApp instance: ${instanceName}`);
       
-      // Check Supabase first for deleted instances
+      // Update Supabase first
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user?.id) {
-          const { data: instanceData } = await supabase
+          await supabase
             .from('whatsapp_instances')
-            .select('status')
+            .update({ 
+              status: 'deleted',
+              updated_at: new Date().toISOString()
+            })
             .eq('name', instanceName)
-            .eq('user_id', user.id)
-            .single();
+            .eq('user_id', user.id);
+        }
+      } catch (error) {
+        console.error("Failed to update instance status in Supabase:", error);
+      }
 
-          // If instance is marked as deleted, return immediately
-          if (instanceData?.status === 'deleted') {
-            console.log(`Instance ${instanceName} is marked as deleted in Supabase, skipping API calls`);
-            return {
-              instance: {
-                name: instanceName,
-                status: "deleted",
-                isConnected: false,
-                state: "deleted"
-              }
-            } as InstanceInfo;
-          }
+      const response = await fetch(`${EVOLUTION_API_URL}/instance/delete/${instanceName}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': EVOLUTION_API_KEY,
+          'Accept': 'application/json'
         }
-      } catch (supabaseError) {
-        console.warn(`Could not verify instance status in Supabase: ${supabaseError}`);
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          console.log(`Instance ${instanceName} not found (404), considering it already deleted`);
+          return true;
+        }
+        throw new Error(`Failed to delete instance: ${response.status} ${response.statusText}`);
       }
-      
-      // Anti-loop: verificar se já excedeu tentativas máximas
-      if (attempt > maxAttempts) {
-        console.warn(`Máximo de tentativas (${maxAttempts}) excedido para ${instanceName}. Retornando dados parciais.`);
-        // Retorna objeto vazio mas com estrutura válida para não quebrar UI
-        return {
-          instance: {
-            name: instanceName,
-            status: "disconnected",
-            isConnected: false
-          }
-        } as InstanceInfo;
-      }
-      
-      const endpoint = formatEndpoint(ENDPOINTS.instanceInfo, { instanceName });
-      
-      try {
-        const response = await apiClient.get<InstanceInfo>(endpoint);
-        
-        // Verificar se temos dados reais ou resposta vazia
-        if (!response || !response.instance) {
-          throw new Error("Resposta sem dados válidos da instância");
-        }
-        
-        // If we have a phone number, update Supabase
-        if (response?.instance?.user?.id) {
-          try {
-            // Extract phone number from user.id (format: "number@s.whatsapp.net")
-            const phoneNumber = response.instance.user.id.split('@')[0];
-            
-            // Check if user is logged in
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user?.id && phoneNumber) {
-              // Non-blocking Supabase update
-              supabase
-                .from('whatsapp_instances')
-                .update({ 
-                  phone_number: phoneNumber,
-                  status: 'connected',
-                  updated_at: new Date().toISOString()
-                })
-                .eq('name', instanceName)
-                .eq('user_id', user.id as string)
-                .then(({error}) => {
-                  if (error) {
-                    console.error("Error saving phone number to Supabase:", error);
-                  }
-                })
-                .catch(saveError => {
-                  console.error("Failed to save phone number to Supabase:", saveError);
-                });
-            }
-          } catch (saveError) {
-            console.error("Failed to save phone number to Supabase:", saveError);
-            // Continue anyway, this shouldn't block the response
-          }
-        }
-        
-        return response;
-      } catch (apiError) {
-        // Se for erro 404 para instância nova (404s frequentes são esperados)
-        if (apiError.status === 404 || 
-            (apiError instanceof Error && apiError.message.includes("404"))) {
-          
-          // Diferente do comportamento anterior, não vamos mais fazer log para cada 404
-          // Para evitar spam de console e relatórios de erro, só logamos na primeira e última tentativa
-          if (attempt === 1 || attempt === maxAttempts) {
-            console.warn(`Instância ${instanceName} não encontrada (404). ${attempt === maxAttempts ? 'Última tentativa.' : 'Tentando novamente silenciosamente.'}`);
-          }
-          
-          // Retornamos um objeto válido imediatamente em vez de tentar novamente
-          // Isso impede o loop de erros 404 no console
-          return {
-            instance: {
-              name: instanceName,
-              status: "connecting", // Status positivo para evitar erros na UI
-              isConnected: false
-            }
-          } as InstanceInfo;
-        }
-        
-        // Outros erros, repassar
-        throw apiError;
-      }
+
+      return true;
     } catch (error) {
-      console.error(`Error getting instance info for ${instanceName}:`, error);
-      
-      // Retornar objeto mínimo para não quebrar UI
-      return {
-        instance: {
-          name: instanceName,
-          status: "error",
-          isConnected: false,
-          errorMessage: error instanceof Error ? error.message : "Erro desconhecido"
-        }
-      } as InstanceInfo;
+      console.error(`Error deleting instance ${instanceName}:`, error);
+      throw error;
     }
   },
 
@@ -1127,109 +998,6 @@ const whatsappService = {
       return response;
     } catch (error) {
       console.error(`Error logging out instance ${instanceName}:`, error);
-      throw error;
-    }
-  },
-
-  /**
-   * Delete a WhatsApp instance from Evolution API
-   * This will permanently remove the instance from the Evolution API server
-   */
-  deleteInstance: async (instanceName: string): Promise<boolean> => {
-    try {
-      console.log(`Attempting to delete WhatsApp instance: ${instanceName}`);
-      
-      if (USE_MOCK_DATA) {
-        console.warn("MOCK MODE IS ACTIVE - This should never be used in production!");
-        console.log(`Mock: Instance ${instanceName} would be deleted`);
-        return true;
-      }
-
-      // Update Supabase first to mark instance as deleted
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user?.id) {
-          const { error: updateError } = await supabase
-            .from('whatsapp_instances')
-            .update({ 
-              status: 'deleted',
-              updated_at: new Date().toISOString()
-            })
-            .eq('name', instanceName)
-            .eq('user_id', user.id);
-            
-          if (updateError) {
-            console.error("Error marking instance as deleted in Supabase:", updateError);
-          } else {
-            console.log(`Successfully marked instance ${instanceName} as deleted in Supabase`);
-          }
-        }
-      } catch (supabaseError) {
-        console.error("Failed to update instance status in Supabase:", supabaseError);
-      }
-
-      const endpoint = formatEndpoint(ENDPOINTS.instanceDelete, { instanceName });
-      console.log("Delete instance URL:", `${apiClient.baseUrl}${endpoint}`);
-
-      try {
-        // Primary attempt with apiClient
-        await apiClient.delete(endpoint);
-        console.log(`Instance ${instanceName} deleted successfully via apiClient`);
-        return true;
-      } catch (apiError) {
-        console.warn("API client delete failed, trying direct fetch:", apiError);
-        
-        // Check if this was an authentication error (401/403)
-        if (apiError.name === 'AuthenticationError' || 
-            (apiError instanceof Error && 
-             (apiError.message.includes('401') || apiError.message.includes('403')))) {
-          throw new Error(
-            `Falha na autenticação com Evolution API. Verifique se seu token está correto e ativo no painel Evolution API. ` +
-            `Status: ${apiError.status || 401}. ` +
-            `Detalhes: Por favor, verifique a variável de ambiente EVOLUTION_API_KEY.`
-          );
-        }
-        
-        // Fallback: Direct fetch with 'apikey' header (Evolution API v2 standard)
-        const directResponse = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': EVOLUTION_API_KEY,
-            'Accept': 'application/json'
-          }
-        });
-        
-        if (!directResponse.ok) {
-          // Special handling for 401/403 errors
-          if (directResponse.status === 401 || directResponse.status === 403) {
-            throw new Error(
-              `Falha na autenticação com Evolution API (${directResponse.status}). ` +
-              `Verifique seu token no painel Evolution API e atualize a variável de ambiente EVOLUTION_API_KEY.`
-            );
-          }
-          
-          // If instance not found (404), consider it already deleted
-          if (directResponse.status === 404) {
-            console.log(`Instance ${instanceName} not found (404), considering it already deleted`);
-            return true;
-          }
-          
-          throw new Error(`API error: ${directResponse.status} ${directResponse.statusText}`);
-        }
-        
-        console.log(`Instance ${instanceName} deleted successfully via direct fetch`);
-        return true;
-      }
-    } catch (error) {
-      console.error(`Error deleting instance ${instanceName}:`, error);
-      
-      // If the error is that the instance doesn't exist, we can consider it successful
-      if (error instanceof Error && error.message.includes('404')) {
-        console.log(`Instance ${instanceName} was already deleted or never existed`);
-        return true;
-      }
-      
       throw error;
     }
   },

@@ -1,4 +1,3 @@
-
 import { useCallback } from 'react';
 import whatsappService from '@/services/whatsappService';
 import { QrCodeResponse } from '@/services/whatsapp/types';
@@ -16,8 +15,8 @@ export function useQrCode() {
       const formattedName = instanceName.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/__+/g, '_');
       console.log(`Using formatted instance name: ${formattedName}`);
       
-      // Use the optimized method for faster QR code retrieval
-      const qrResponse: QrCodeResponse = await whatsappService.getQrCodeOptimized(formattedName);
+      // Use the standard getQrCode method
+      const qrResponse: QrCodeResponse = await whatsappService.getQrCode(formattedName);
       console.log("QR code response:", qrResponse);
       
       // Check if we got an error from normalization
@@ -82,8 +81,8 @@ export function useQrCode() {
       // Formato consistente para nome da instância
       const formattedName = instanceName.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/__+/g, '_');
       
-      // Get QR response which may contain pairing code (optimized)
-      const qrResponse: QrCodeResponse = await whatsappService.getQrCodeOptimized(formattedName);
+      // Get QR response which may contain pairing code
+      const qrResponse: QrCodeResponse = await whatsappService.getQrCode(formattedName);
       
       if (qrResponse?.pairingCode) {
         console.log(`Pairing code retrieved: ${qrResponse.pairingCode}`);
