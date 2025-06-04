@@ -53,42 +53,18 @@ export function PricingPlans() {
     }
   };
 
-  // DEBUG: Temporary interceptor for checkout requests
-  const debugCheckout = async (checkoutData: any, token: string) => {
-    console.group("🔍 DEBUG: Checkout Request");
-    console.log("📦 Payload:", checkoutData);
-    console.log("🔑 Token:", token.substring(0, 10) + "...");
-    
-    try {
-      const response = await fetch("https://hpovwcaskorzzrpphgkc.supabase.co/functions/v1/create-checkout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify(checkoutData)
-      });
-      
-      console.log("📡 Response Status:", response.status);
-      console.log("📡 Response Headers:", Object.fromEntries(response.headers.entries()));
-      
-      const text = await response.text();
-      console.log("📡 Raw Response:", text);
-      
-      try {
-        const json = JSON.parse(text);
-        console.log("📡 Parsed Response:", json);
-        return json;
-      } catch (e) {
-        console.error("❌ Failed to parse response as JSON:", e);
-        throw new Error("Invalid JSON response from server");
-      }
-    } catch (error) {
-      console.error("❌ Network Error:", error);
-      throw error;
-    } finally {
-      console.groupEnd();
-    }
+  // Função para chamar o backend seguro
+  const secureCheckout = async (checkoutData: any, token: string) => {
+    const response = await fetch("/api/evolution/create-checkout", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify(checkoutData)
+    });
+    const data = await response.json();
+    return data;
   };
 
   const handleSelectPlan = async (plan: "free" | "starter" | "growth") => {
@@ -113,8 +89,8 @@ export function PricingPlans() {
         billingCycle: billingCycle
       };
 
-      // DEBUG: Use the interceptor
-      const data = await debugCheckout(checkoutData, sessionData.session.access_token);
+      // Chama o backend seguro
+      const data = await secureCheckout(checkoutData, sessionData.session.access_token);
 
       if (!data?.url) {
         console.error("Resposta sem URL do Stripe:", data);
