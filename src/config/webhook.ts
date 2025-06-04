@@ -20,7 +20,7 @@ export const WEBHOOK_CONFIG = {
     maxRetries: 3,
     retryDelay: 1000,
     exponentialBackoff: true,
-    timeout: 10000
+    timeout: 8000 // Optimized timeout for better performance
   },
   
   // URLs dos webhooks das instâncias (exemplo)

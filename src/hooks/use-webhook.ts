@@ -286,7 +286,7 @@ export function useWebhook(url: string, options: UseWebhookOptions = {}) {
   // Hooks predefinidos para diferentes endpoints
 export const useAgentWebhook = (options?: UseWebhookOptions) => {
   return useWebhook("https://webhooksaas.geni.chat/webhook/principal", {
-    timeout: 15000, // Increased timeout to prevent network timeouts
+    timeout: 8000, // Optimized timeout to improve performance
     showToasts: true,
     ...options
   });
@@ -296,7 +296,7 @@ export const usePromptWebhook = (options?: UseWebhookOptions) => {
   return useWebhook("https://webhooksaas.geni.chat/webhook/4d77007b-a6c3-450f-93de-ec97a8db140f", {
     maxRetries: 2, // Reduzido para acelerar
     retryDelay: 500,
-    timeout: 15000, // Increased timeout to prevent network timeouts
+    timeout: 8000, // Optimized timeout to improve performance
     showToasts: true,
     ...options
   });
@@ -307,7 +307,7 @@ export const useWhatsAppMessageWebhook = (options?: UseWebhookOptions) => {
   return useWebhook("https://webhooksaas.geni.chat/webhook/principal", {
     maxRetries: 2, // Reduzido de 5 para 2 tentativas
     retryDelay: 300, // Reduzido de 500ms para 300ms 
-    timeout: 15000, // Increased timeout to prevent network timeouts
+    timeout: 8000, // Optimized timeout to improve performance
     showToasts: false, // Não mostrar toasts para cada mensagem
     ...options
   });
@@ -318,7 +318,7 @@ export const useWebhookTest = (customUrl?: string, options?: UseWebhookOptions) 
   const defaultUrl = "https://httpbin.org/post"; // Endpoint de teste
   return useWebhook(customUrl || defaultUrl, {
     maxRetries: 1,
-    timeout: 15000, // Increased timeout to prevent network timeouts
+    timeout: 8000, // Optimized timeout to improve performance
     showToasts: true,
     ...options
   });

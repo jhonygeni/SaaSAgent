@@ -211,7 +211,7 @@ const agentService = {
   deleteAgent: async (id: string): Promise<boolean> => {
     try {
       const timeoutPromise = new Promise<boolean>((_, reject) => {
-        setTimeout(() => reject(new Error("Request timeout - deleteAgent")), 15000); // Increased timeout for API cleanup
+        setTimeout(() => reject(new Error("Request timeout - deleteAgent")), 8000); // Optimized timeout for better performance
       });
       
       const deletePromise = (async () => {

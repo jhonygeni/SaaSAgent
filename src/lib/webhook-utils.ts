@@ -25,7 +25,7 @@ export async function sendWithRetries(
   const {
     maxRetries = 3,
     retryDelay = 1000,
-    timeout = 10000,
+    timeout = 8000, // Optimized timeout for better performance
     idempotencyKey,
     instanceName,
     phoneNumber,

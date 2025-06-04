@@ -4,21 +4,21 @@ import { EVOLUTION_CONFIG, FEATURE_FLAGS } from '../config/environment';
 // ===============================
 // EVOLUTION API CONFIGURATION  
 // ===============================
-export const EVOLUTION_API_URL = EVOLUTION_CONFIG.url;
-export const EVOLUTION_API_KEY = EVOLUTION_CONFIG.key;
+export const EVOLUTION_API_URL = EVOLUTION_CONFIG.url; // API URL from environment config
+export const EVOLUTION_API_KEY = EVOLUTION_CONFIG.key; // API Key from environment config
 
 // Authentication configuration - Based on Evolution API v2 requirements
-export const USE_BEARER_AUTH = false;
-export const USE_MOCK_DATA = false; // Disable in production for real API calls
+export const USE_BEARER_AUTH = false; // Evolution API v2 uses 'apikey' header, not Bearer token
+export const USE_MOCK_DATA = FEATURE_FLAGS.useMockData; // Disable in production for real API calls
 
 // ===============================
 // CONNECTION CONFIGURATION
 // ===============================
-export const MAX_CONNECTION_RETRIES = 3;
-export const RETRY_DELAY_MS = 1000;
-export const CONNECTION_TIMEOUT_MS = 30000; // Request timeout in milliseconds
+export const MAX_CONNECTION_RETRIES = 3; // Maximum number of retry attempts
+export const RETRY_DELAY_MS = 1000; // Delay between retries in milliseconds
+export const CONNECTION_TIMEOUT_MS = 12000; // Optimized request timeout in milliseconds
 export const STATUS_POLLING_INTERVAL_MS = 2000; // Status polling interval in milliseconds
-export const MAX_POLLING_ATTEMPTS = 30;
+export const MAX_POLLING_ATTEMPTS = 20; // Maximum number of polling attempts
 export const CONSECUTIVE_SUCCESS_THRESHOLD = 2; // Success threshold for polling
 
 // Auto-close dialog parameters
@@ -28,37 +28,36 @@ export const AUTO_CLOSE_DELAY_MS = 2000;
 // ===============================
 // FEATURE FLAGS
 // ===============================
-export const PREVENT_CREDIT_CONSUMPTION_ON_FAILURE = true;
+export const PREVENT_CREDIT_CONSUMPTION_ON_FAILURE = true; // Prevent API credit waste on repeated failures
 
 // ===============================
-// API ENDPOINTS
+// API ENDPOINTS - Evolution API v2
 // ===============================
 export const ENDPOINTS = {
   // Instance management endpoints
-  instanceCreate: "/instance/create",
-  instanceConnectQR: "/instance/connect/{instanceName}",
-  instanceInfo: "/instance/info/{instanceName}",
-  connectionState: "/instance/connectionState/{instanceName}",
-  instanceDelete: "/instance/delete/{instanceName}",
-  instanceLogout: "/instance/logout/{instanceName}",
-  fetchInstances: "/instance/fetchInstances",
+  instanceCreate: "/instance/create", // Create new instance (POST)
+  instanceConnectQR: "/instance/connect/{instanceName}", // Connect and get QR code (GET)
+  instanceInfo: "/instance/info/{instanceName}", // Get instance info (GET)
+  instanceFetch: "/instance/fetchInstances", // Fetch all instances (GET)
+  connectionState: "/instance/connectionState/{instanceName}", // Check connection status (GET)
+  instanceDelete: "/instance/delete/{instanceName}", // Delete instance (DELETE)
   
-  // Webhook configuration endpoints
-  webhookConfig: "/instance/webhook/{instanceName}",
-  webhookSet: "/instance/webhook/set/{instanceName}",
-  webhookFind: "/instance/webhook/find/{instanceName}",
-  
-  // Settings configuration endpoints
-  settingsConfig: "/settings/set/{instanceName}",
-  settingsFind: "/settings/find/{instanceName}",
+  // Webhook configuration
+  webhookSet: "/webhook/set/{instanceName}", // Set webhook URL (POST)
+  webhookFind: "/webhook/find/{instanceName}", // Get webhook info (GET)
   
   // Message endpoints
-  sendMessage: "/message/sendText/{instanceName}",
-  sendImage: "/message/sendImage/{instanceName}",
-  sendDocument: "/message/sendDocument/{instanceName}",
+  sendText: "/message/sendText/{instanceName}", // Send text message (POST)
+  sendMedia: "/message/sendMedia/{instanceName}", // Send media message (POST)
   
-  // Manager endpoints
-  manager: "/manager"
+  // QR Code and connection
+  qrcode: "/instance/qrcode/{instanceName}", // Get QR code (GET)
+  restart: "/instance/restart/{instanceName}", // Restart instance (PUT)
+  logout: "/instance/logout/{instanceName}", // Logout instance (DELETE)
+  
+  // Status and health
+  status: "/", // API status and version (GET)
+  manager: "/manager", // Manager endpoints (GET)
 };
 
 // ===============================

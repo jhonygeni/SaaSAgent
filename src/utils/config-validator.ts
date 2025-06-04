@@ -44,7 +44,7 @@ const runtimeConfigSchema = z.object({
     }),
   }),
   api: z.object({
-    timeout: z.number().min(1000).default(30000),
+    timeout: z.number().min(1000).default(12000), // Optimized default timeout
     retries: z.number().min(0).default(3),
     backoff: z.object({
       initial: z.number().min(100).default(1000),
@@ -114,7 +114,7 @@ const defaultRuntimeConfig: RuntimeConfig = {
     },
   },
   api: {
-    timeout: 30000,
+    timeout: 12000, // Optimized timeout for better performance
     retries: 3,
     backoff: {
       initial: 1000,
