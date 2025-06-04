@@ -155,39 +155,51 @@ export function useRealTimeUsageStats(): RealTimeUsageStats {
     }
   }, [user?.id, data, fetchInitialData]);
 
-  // Configurar subscription em tempo real
+  // Importar o gerenciador de subscriptions centralizado
+  import { subscriptionManager } from '@/lib/subscription-manager';
+
+  // Configurar subscription em tempo real COM THROTTLE usando o gerenciador centralizado
   useEffect(() => {
     if (!user?.id) return;
 
     console.log('🔗 [REALTIME] Configurando subscription para usuário:', user.id);
+    
+    // Carregar dados iniciais apenas uma vez com timeout para evitar loops
+    setTimeout(() => {
+      if (fetchInitialData) fetchInitialData();
+    }, 200);
 
-    // Carregar dados iniciais
-    fetchInitialData();
+    // ID único para esta subscription
+    const subscriptionId = `usage_stats_rt_${user.id}`;
+    
+    // Configurar com gerenciador centralizado
+    const unsubscribe = subscriptionManager.subscribe(subscriptionId, {
+      table: 'usage_stats',
+      event: '*',
+      filter: `user_id=eq.${user.id}`,
+      callback: (payload) => {
+        // Rate limiting para evitar overload
+        const now = Date.now();
+        const lastUpdateKey = `realtime_update_${user.id}`;
+        const lastUpdate = sessionStorage.getItem(lastUpdateKey);
+        
+        if (lastUpdate && (now - parseInt(lastUpdate)) < 2000) {
+          console.log('🔗 [REALTIME] Update throttled');
+          return;
+        }
+        
+        sessionStorage.setItem(lastUpdateKey, now.toString());
+        handleRealtimeUpdate(payload);
+      }
+    });
 
-    // Configurar subscription para mudanças na tabela usage_stats
-    const subscription = supabase
-      .channel('usage_stats_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // Escutar todos os eventos (INSERT, UPDATE, DELETE)
-          schema: 'public',
-          table: 'usage_stats',
-          filter: `user_id=eq.${user.id}` // Filtrar apenas para o usuário atual
-        },
-        handleRealtimeUpdate
-      )
-      .subscribe((status) => {
-        console.log('🔗 [REALTIME] Status da subscription:', status);
-        setIsConnected(status === 'SUBSCRIBED');
-      });
-
+    // Quando o componente é desmontado, cancelar a subscription usando o gerenciador centralizado
     return () => {
       console.log('🔌 [REALTIME] Desconectando subscription...');
-      subscription.unsubscribe();
+      unsubscribe();
       setIsConnected(false);
     };
-  }, [user?.id, handleRealtimeUpdate, fetchInitialData]);
+  }, [user?.id]); // Remover dependências circulares
 
   return {
     data,

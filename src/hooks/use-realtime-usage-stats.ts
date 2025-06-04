@@ -127,7 +127,10 @@ export function useRealTimeUsageStats() {
     }
   };
 
-  // Set up real-time subscription and initial fetch
+  // Importar o gerenciador de subscriptions centralizado
+  import { subscriptionManager } from '@/lib/subscription-manager';
+  
+  // Set up real-time subscription and initial fetch usando o gerenciador centralizado
   useEffect(() => {
     if (!user?.id) {
       setStats(INITIAL_STATS);
@@ -135,55 +138,46 @@ export function useRealTimeUsageStats() {
       return;
     }
 
-    // Initial fetch
-    fetchStats();
-
-    // Set up real-time subscription with rate limiting
-    const setupSubscription = async () => {
-      // Clean up existing subscription
-      if (subscription.current) {
-        subscription.current.unsubscribe();
+    // Initial fetch with timeout para evitar loops
+    const fetchTimeout = setTimeout(() => {
+      if (isMounted.current) {
+        fetchStats();
       }
+    }, 100);
 
-      subscription.current = supabase
-        .channel('usage_stats_changes')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'usage_stats',
-            filter: `user_id=eq.${user.id}`,
-          },
-          (payload) => {
-            if (isMounted.current && payload.new) {
-              const now = Date.now();
-              const rateLimitKey = `usage_stats_rt_${user.id}`;
-              
-              if (!usageStatsRateLimiter.isRateLimited(rateLimitKey) && 
-                  now - lastUpdateTime.current >= THROTTLE_INTERVAL) {
-                const statsData = payload.new as UsageStats;
-                setStats(statsData);
-                lastUpdateTime.current = now;
+    // ID único para esta subscription
+    const subscriptionId = `usage_stats_central_${user.id}`;
 
-                // Update cache
-                const cacheKey = `usage_stats_${user.id}_${statsData.date}`;
-                usageStatsCache.set(cacheKey, statsData);
-              }
-            }
-          }
-        )
-        .subscribe();
-    };
+    // Configurar com gerenciador centralizado
+    const unsubscribe = subscriptionManager.subscribe(subscriptionId, {
+      table: 'usage_stats',
+      event: '*',
+      filter: `user_id=eq.${user.id}`,
+      callback: (payload) => {
+        if (!isMounted.current || !payload.new) return;
+        
+        const now = Date.now();
+        const rateLimitKey = `usage_stats_rt_${user.id}`;
+        
+        // Rate limiting with proper throttle
+        if (!usageStatsRateLimiter.isRateLimited(rateLimitKey) && 
+            now - lastUpdateTime.current >= THROTTLE_INTERVAL) {
+          const statsData = payload.new as UsageStats;
+          setStats(statsData);
+          lastUpdateTime.current = now;
 
-    setupSubscription();
+          // Update cache
+          const cacheKey = `usage_stats_${user.id}_${statsData.date}`;
+          usageStatsCache.set(cacheKey, statsData);
+        }
+      }
+    });
 
     return () => {
-      if (subscription.current) {
-        subscription.current.unsubscribe();
-      }
+      clearTimeout(fetchTimeout);
+      unsubscribe();
     };
-  }, [user?.id]);
+  }, [user?.id]); // Remove circular dependencies
 
   const refreshStats = () => {
     if (isMounted.current) {

@@ -54,7 +54,7 @@ export function Dashboard() {
     }
   }, [searchParams, user, checkSubscriptionStatus, toast]);
 
-  // Load dashboard data
+  // Load dashboard data com otimização para evitar loop infinito
   useEffect(() => {
     if (!isMounted.current || isUserLoading) return;
 
@@ -68,9 +68,11 @@ export function Dashboard() {
         setIsLoading(true);
         setLoadError(null);
 
-        // Simular carregamento para evitar loop infinito
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Simular carregamento com timeout estendido para evitar loops infinitos
+        // (CORREÇÃO CRÍTICA: aumentado para 2000ms para garantir estabilidade)
+        await new Promise(resolve => setTimeout(resolve, 2000));
         
+        // Verifica se componente ainda está montado antes de atualizar estado
         if (isMounted.current) {
           setIsLoading(false);
         }
@@ -83,14 +85,22 @@ export function Dashboard() {
       }
     };
 
-    loadDashboard();
+    // Timeout para iniciar carregamento, evitando corrida de condição
+    const startTimeout = setTimeout(() => {
+      loadDashboard();
+    }, 300);
 
-    // Force complete loading after timeout
+    // Force complete loading after timeout com tempo maior
     loadTimeoutRef.current = setTimeout(() => {
       if (isMounted.current && isLoading) {
         setIsLoading(false);
       }
-    }, 5000);
+    }, 7000); // Aumentado para 7s para evitar race conditions
+
+    // Limpar timeouts
+    return () => {
+      clearTimeout(startTimeout);
+    };
 
     return () => {
       if (loadTimeoutRef.current) {

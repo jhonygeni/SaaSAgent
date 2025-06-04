@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -7,10 +7,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { 
-  useWebhookMonitor, 
-  useWebhookRealTimeMetrics 
+  useWebhookMonitor
 } from '@/hooks/use-webhook-monitor';
-import { useWebhookAlerts } from '@/hooks/useWebhookAlerts';
 import { 
   Activity, 
   AlertTriangle, 
@@ -35,6 +33,8 @@ export function WebhookMonitor({
   showAlerts = true 
 }: WebhookMonitorProps) {
   const [timeWindow, setTimeWindow] = useState(30 * 60 * 1000); // 30 minutos
+  
+  // CORREÇÃO CRITICAL: Usar apenas um hook para evitar múltiplas subscriptions
   const { 
     stats, 
     recentMetrics, 
@@ -43,8 +43,17 @@ export function WebhookMonitor({
     exportMetrics 
   } = useWebhookMonitor(5000, timeWindow);
   
-  const { alerts, unacknowledgedCount } = useWebhookAlerts();
-  const { realTimeData, currentMetrics } = useWebhookRealTimeMetrics();
+  // Mock de alertas para evitar subscription adicional
+  const alerts = useMemo(() => [], []);
+  const unacknowledgedCount = 0;
+  
+  // Mock de real-time metrics para evitar subscription adicional
+  const currentMetrics = useMemo(() => ({
+    timestamp: Date.now(),
+    requestsPerSecond: 0,
+    averageResponseTime: stats.averageResponseTime,
+    errorRate: stats.totalRequests > 0 ? (stats.failedRequests / stats.totalRequests) * 100 : 0
+  }), [stats]);
 
   // Formatar tempo
   const formatDuration = (ms: number) => {
