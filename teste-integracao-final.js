@@ -26,7 +26,9 @@ async function testEvolutionAPI() {
   console.log('1. 🔌 Testando Evolution API Edge Function...');
   
   const data = JSON.stringify({
-    action: 'fetchInstances'
+    endpoint: '/instance/fetchInstances',
+    method: 'GET',
+    data: {}
   });
 
   const options = {
@@ -136,8 +138,8 @@ function checkCriticalFixes() {
     },
     {
       file: 'supabase/functions/evolution-api/index.ts',
-      pattern: 'Evolution API V2 usa \'apikey\' header',
-      description: 'Edge Function com headers corretos'
+      pattern: 'requestData.endpoint ||',
+      description: 'Edge Function com endpoints diretos V2'
     }
   ];
   

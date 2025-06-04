@@ -46,8 +46,17 @@ serve(async (req) => {
     let method = 'GET';
     
     try {
+      // Verificar se há body na requisição
       const bodyText = await req.text();
-      requestData = bodyText ? JSON.parse(bodyText) : {};
+      logDebug('📥 Raw body received', { bodyLength: bodyText.length, bodyStart: bodyText.substring(0, 100) });
+      
+      if (bodyText) {
+        requestData = JSON.parse(bodyText);
+        logDebug('✅ JSON parsed successfully', { keys: Object.keys(requestData) });
+      } else {
+        logDebug('⚠️ Empty body received, using defaults');
+        requestData = {};
+      }
       
       // Extrair endpoint e method do body da requisição
       endpoint = requestData.endpoint || '/instance/fetchInstances';
@@ -59,12 +68,16 @@ serve(async (req) => {
       logDebug('📝 Request data parsed', { 
         endpoint,
         method,
-        hasData: Object.keys(payload).length > 0
+        hasData: Object.keys(payload).length > 0,
+        originalKeys: Object.keys(requestData)
       });
       
       requestData = payload; // Usar apenas os dados como payload
     } catch (parseError) {
-      logDebug('❌ JSON parsing failed', { error: parseError.message });
+      logDebug('❌ JSON parsing failed', { 
+        error: parseError.message, 
+        bodyPreview: (await req.text()).substring(0, 200) 
+      });
       throw new Error(`Invalid JSON body: ${parseError.message}`);
     }
 
@@ -75,7 +88,9 @@ serve(async (req) => {
       endpoint,
       method,
       finalUrl: evolutionApiUrl,
-      hasData: Object.keys(requestData).length > 0
+      hasData: Object.keys(requestData).length > 0,
+      EVOLUTION_API_URL_clean: EVOLUTION_API_URL.replace(/\/$/, ''),
+      endpoint_clean: endpoint
     });
 
     // 🔧 CORREÇÃO: Headers padronizados para Evolution API V2
@@ -180,18 +195,39 @@ serve(async (req) => {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logDebug('💥 Fatal error', { 
       error: errorMessage, 
-      stack: error instanceof Error ? error.stack : undefined
+      stack: error instanceof Error ? error.stack : undefined,
+      url: req.url,
+      method: req.method,
+      headers: Object.fromEntries(req.headers.entries())
     });
+    
+    // Determinar status code baseado no tipo de erro
+    let statusCode = 500;
+    if (errorMessage.includes('Authentication failed') || errorMessage.includes('401') || errorMessage.includes('403')) {
+      statusCode = 401;
+    } else if (errorMessage.includes('not found') || errorMessage.includes('404')) {
+      statusCode = 404;
+    } else if (errorMessage.includes('Invalid JSON body')) {
+      statusCode = 400;
+    } else if (errorMessage.includes('Missing EVOLUTION_API')) {
+      statusCode = 500; // Server configuration error
+    }
     
     return new Response(JSON.stringify({ 
       error: errorMessage,
       timestamp: new Date().toISOString(),
       path: req.url,
-      details: 'Check Supabase logs for more information'
+      method: req.method,
+      details: 'Check Supabase logs for more information',
+      requestId: `edge-${Date.now()}`,
+      debug: {
+        hasEvolutionUrl: !!EVOLUTION_API_URL,
+        hasEvolutionKey: !!EVOLUTION_API_KEY,
+        userAgent: req.headers.get('user-agent') || 'unknown'
+      }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: errorMessage.includes('Authentication failed') ? 401 : 
-              errorMessage.includes('not found') ? 404 : 500
+      status: statusCode
     });
   }
 }) 

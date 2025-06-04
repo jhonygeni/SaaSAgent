@@ -71,7 +71,7 @@ export const secureApiClient = {
    * Call Evolution API through secure Edge Function with direct endpoint support
    */
   async callEvolutionAPI<T>(endpoint: string, method: string = 'GET', data?: any): Promise<T> {
-    console.log(`Making secure API call - Endpoint: ${endpoint}, Method: ${method}`);
+    console.log(`🔄 Making secure API call - Endpoint: ${endpoint}, Method: ${method}`);
     
     return retryOperation(async () => {
       try {
@@ -82,21 +82,37 @@ export const secureApiClient = {
           throw new Error('User not authenticated. Please login to continue.');
         }
 
+        // Prepare request body with endpoint and method information
+        const requestBody = {
+          endpoint,
+          method,
+          data: data || {}
+        };
+
+        console.log('📤 Request body:', { 
+          endpoint, 
+          method, 
+          hasData: Object.keys(data || {}).length > 0,
+          dataKeys: Object.keys(data || {})
+        });
+
         // Call the Edge Function with endpoint and method information
         const { data: result, error } = await supabase.functions.invoke('evolution-api', {
-          body: {
-            endpoint,
-            method,
-            data: data || {}
-          },
+          body: requestBody,
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
             'Content-Type': 'application/json'
           }
         });
 
+        console.log('📥 Edge Function response:', { 
+          hasError: !!error, 
+          hasResult: !!result,
+          errorMessage: error?.message 
+        });
+
         if (error) {
-          console.error('Edge Function error:', error);
+          console.error('❌ Edge Function error:', error);
           
           // Special handling for authentication errors
           if (error.message?.includes('401') || error.message?.includes('403')) {
@@ -105,19 +121,28 @@ export const secureApiClient = {
             authError.status = 401;
             
             if (PREVENT_CREDIT_CONSUMPTION_ON_FAILURE) {
-              console.error("Canceling operation to prevent credit consumption");
+              console.error("🛑 Canceling operation to prevent credit consumption");
             }
             
             throw authError;
           }
           
+          // Handle specific error types
+          if (error.message?.includes('404')) {
+            throw new Error(`Evolution API endpoint not found: ${endpoint}. Error: ${error.message}`);
+          }
+          
+          if (error.message?.includes('500')) {
+            throw new Error(`Evolution API server error: ${error.message}. Check server configuration.`);
+          }
+          
           throw new Error(`API Error: ${error.message}`);
         }
 
-        console.log(`Secure API call successful - Endpoint: ${endpoint}`);
+        console.log(`✅ Secure API call successful - Endpoint: ${endpoint}`);
         return result;
       } catch (error) {
-        console.error(`Secure API call failed - Endpoint: ${endpoint}:`, error);
+        console.error(`❌ Secure API call failed - Endpoint: ${endpoint}:`, error);
         throw error;
       }
     }, undefined, undefined, (error) => {
