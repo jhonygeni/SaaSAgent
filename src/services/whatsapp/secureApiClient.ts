@@ -66,58 +66,71 @@ export const retryOperation = async <T>(
 };
 
 /**
- * Secure WhatsApp API client using Supabase Edge Function as Backend Proxy
- * SECURITY: All Evolution API calls go through backend to protect EVOLUTION_API_KEY
- * Frontend NEVER directly calls Evolution API to prevent key exposure
+ * Secure WhatsApp API client using Vercel API Routes as Backend Proxy
+ * SECURITY: All Evolution API calls go through /api/evolution/* backend to protect EVOLUTION_API_KEY
+ * Frontend NEVER directly calls Evolution API or Supabase Edge Functions
  */
 export const secureApiClient = {
   /**
-   * Call Evolution API via Supabase Edge Function (SECURE BACKEND PROXY)
+   * Call Evolution API via Vercel API Route (SECURE BACKEND PROXY)
    * This ensures EVOLUTION_API_KEY stays on server-side only
    */
   async callEvolutionAPI<T>(endpoint: string, method: string = 'GET', data?: any): Promise<T> {
-    console.log(`🔒 Making SECURE Evolution API call via backend proxy - Endpoint: ${endpoint}, Method: ${method}`);
-    
-    return retryOperation(async () => {
-      try {
-        // Get current user session for authentication (Supabase auth)
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session) {
-          throw new Error('User not authenticated. Please login to continue.');
-        }
+    console.log(`🔒 Making SECURE Evolution API call via /api/evolution/* proxy - Endpoint: ${endpoint}, Method: ${method}`);
 
-        // SECURITY: Call Evolution API through Supabase Edge Function (backend proxy)
-        // This keeps EVOLUTION_API_KEY secure on server-side
-        const { data: result, error } = await supabase.functions.invoke('evolution-api', {
-          body: {
-            endpoint,
-            method,
-            data: data || {}
-          }
-        });
+    // Map endpoint/method to the correct Vercel API Route
+    let url = '';
+    let fetchOptions: RequestInit = { method, headers: { 'Content-Type': 'application/json' } };
+    let bodyAllowed = ['POST', 'PUT', 'PATCH'].includes(method);
 
-        if (error) {
-          console.error('❌ Backend proxy error:', error);
-          throw new Error(`Backend proxy error: ${error.message}`);
-        }
+    // Routing logic for Evolution API endpoints
+    if (endpoint.startsWith('/instance/create')) {
+      url = '/api/evolution/create-instance';
+      fetchOptions.method = 'POST';
+      fetchOptions.body = JSON.stringify(data);
+    } else if (endpoint.startsWith('/instance/connect')) {
+      url = '/api/evolution/connect';
+      fetchOptions.method = 'POST';
+      fetchOptions.body = JSON.stringify(data || { instanceName: endpoint.split('/').pop() });
+    } else if (endpoint.startsWith('/instance/qrcode')) {
+      url = '/api/evolution/qrcode?instanceId=' + encodeURIComponent(endpoint.split('/').pop()!);
+      fetchOptions.method = 'GET';
+      delete fetchOptions.body;
+    } else if (endpoint.startsWith('/instance/info')) {
+      url = '/api/evolution/info?instanceId=' + encodeURIComponent(endpoint.split('/').pop()!);
+      fetchOptions.method = 'GET';
+      delete fetchOptions.body;
+    } else if (endpoint.startsWith('/instance/fetchInstances')) {
+      url = '/api/evolution/instances';
+      fetchOptions.method = 'GET';
+      delete fetchOptions.body;
+    } else if (endpoint.startsWith('/instance/connectionState')) {
+      url = '/api/evolution/status?instanceId=' + encodeURIComponent(endpoint.split('/').pop()!);
+      fetchOptions.method = 'GET';
+      delete fetchOptions.body;
+    } else if (endpoint.startsWith('/instance/delete')) {
+      url = '/api/evolution/delete?instanceId=' + encodeURIComponent(endpoint.split('/').pop()!);
+      fetchOptions.method = 'DELETE';
+      delete fetchOptions.body;
+    } else if (endpoint.startsWith('/instance/settings')) {
+      url = '/api/evolution/settings?instanceId=' + encodeURIComponent(endpoint.split('/').pop()!);
+      fetchOptions.method = 'GET';
+      delete fetchOptions.body;
+    } else if (endpoint.startsWith('/instance/webhook')) {
+      url = '/api/evolution/webhook';
+      fetchOptions.method = 'POST';
+      fetchOptions.body = JSON.stringify(data);
+    } else {
+      throw new Error('Endpoint não suportado pelo proxy seguro: ' + endpoint);
+    }
 
-        console.log(`✅ Secure Evolution API call successful via backend - Endpoint: ${endpoint}`);
-        return result;
-        
-      } catch (error) {
-        console.error(`❌ Secure Evolution API call failed - Endpoint: ${endpoint}:`, error);
-        throw error;
-      }
-    }, undefined, undefined, (error) => {
-      // Don't retry on authentication errors
-      return !(error instanceof Error && (
-        error.message.includes("403") || 
-        error.message.includes("401") ||
-        error.message.includes("Authentication failed") ||
-        error.name === 'AuthenticationError'
-      ));
-    });
+    // Chamada segura para o backend
+    const response = await fetch(url, fetchOptions);
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result?.error || 'Erro desconhecido na Evolution API');
+    }
+    return result;
   },
 
   /**
