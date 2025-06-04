@@ -149,7 +149,7 @@ function checkEnvironmentConfig() {
             'VITE_SUPABASE_ANON_KEY',
             'VITE_WEBHOOK_URL',
             'VITE_EVOLUTION_API_URL',
-            'VITE_EVOLUTION_API_TOKEN'
+            'VITE_EVOLUTION_API_KEY'
         ];
         
         requiredVars.forEach(varName => {

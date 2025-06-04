@@ -11,7 +11,7 @@ const envSchema = z.object({
   
   // Evolution API Configuration
   EVOLUTION_API_URL: z.string().url(),
-  EVOLUTION_API_KEY: z.string().min(1),
+  // EVOLUTION_API_KEY removed - now handled securely via Edge Functions
   
   // Application Configuration
   SITE_URL: z.string().url(),
@@ -66,7 +66,7 @@ export function validateEnv(): EnvConfig {
       SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY,
       SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
       EVOLUTION_API_URL: process.env.VITE_EVOLUTION_API_URL,
-      EVOLUTION_API_KEY: process.env.VITE_EVOLUTION_API_KEY,
+      // EVOLUTION_API_KEY removed - now handled securely via Edge Functions
       SITE_URL: process.env.VITE_SITE_URL,
       WEBHOOK_SECRET: process.env.WEBHOOK_SECRET,
       JWT_SECRET: process.env.JWT_SECRET,

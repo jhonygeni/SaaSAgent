@@ -108,10 +108,13 @@ function loadEnvironmentConfig(): EnvironmentConfig {
     process.env.SUPABASE_SERVICE_ROLE_KEY : undefined;
 
   // Evolution API
+  // Evolution API Configuration
   const evolutionUrl = getUniversalEnvVar('VITE_EVOLUTION_API_URL', 'EVOLUTION_API_URL') || 
                        'https://cloudsaas.geni.chat';
   
-  const evolutionKey = getUniversalEnvVar('VITE_EVOLUTION_API_KEY', 'EVOLUTION_API_KEY') || '';
+  // Note: Evolution API key is now only available on server-side for security
+  // Frontend uses secure Edge Functions instead of direct API calls
+  const evolutionKey = '';
 
   // Site URL
   const siteUrl = getUniversalEnvVar('VITE_SITE_URL', 'SITE_URL') || 

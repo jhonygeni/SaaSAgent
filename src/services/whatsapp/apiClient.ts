@@ -1,6 +1,6 @@
 import { 
   EVOLUTION_API_URL, 
-  EVOLUTION_API_KEY, 
+  // EVOLUTION_API_KEY, // SECURITY: Removed - now handled securely via Edge Functions
   MAX_CONNECTION_RETRIES, 
   RETRY_DELAY_MS,
   PREVENT_CREDIT_CONSUMPTION_ON_FAILURE
@@ -29,8 +29,8 @@ export const createHeaders = (contentType: boolean = false): HeadersInit => {
   }
   
   // CORREÇÃO CRÍTICA: Evolution API v2 usa APENAS 'apikey' header
-  // Não usar 'Authorization: Bearer' pois causa erros 401
-  headers['apikey'] = EVOLUTION_API_KEY;
+  // Note: EVOLUTION_API_KEY now only available server-side for security
+  // headers['apikey'] = EVOLUTION_API_KEY;
   headers['Accept'] = 'application/json';
   
   return headers;
@@ -153,7 +153,7 @@ export const apiClient = {
           if (response.status === 401 || response.status === 403) {
             console.error("AUTHENTICATION ERROR: Your token is invalid or has insufficient permissions");
             console.error("Please verify your Evolution API token is correct in the environment variables");
-            console.error("Token being used (first 4 chars): " + (EVOLUTION_API_KEY ? EVOLUTION_API_KEY.substring(0, 4) + "..." : "MISSING"));
+            console.error("Token being used (first 4 chars): " + "SERVER-SIDE-ONLY");
             
             // Create a custom error for auth failures to prevent retries
             const authError = new Error(`Authentication failed: Invalid or expired token. Status: ${response.status}`) as any;

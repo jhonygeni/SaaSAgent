@@ -19,6 +19,15 @@ serve(async (req) => {
       throw new Error('Missing EVOLUTION_API_KEY. Please set this secret using: supabase secrets set EVOLUTION_API_KEY=your_key')
     }
 
+    // Basic API key validation for security (optional - remove in production if using Supabase auth)
+    const apiKey = req.headers.get('apikey') || req.headers.get('Authorization')?.replace('Bearer ', '')
+    if (!apiKey) {
+      return new Response(JSON.stringify({ error: 'API key required' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
     const { action, instanceName, data } = await req.json()
 
     // Validate required parameters
@@ -49,6 +58,13 @@ serve(async (req) => {
         if (!instanceName) throw new Error('Missing required parameter: instanceName')
         url += `/instance/info/${instanceName}`
         break
+      case 'fetchInstances':
+        url += '/instance/fetchInstances'
+        break
+      case 'connectionState':
+        if (!instanceName) throw new Error('Missing required parameter: instanceName')
+        url += `/instance/connectionState/${instanceName}`
+        break
       case 'delete':
         if (!instanceName) throw new Error('Missing required parameter: instanceName')
         url += `/instance/delete/${instanceName}`
@@ -60,9 +76,25 @@ serve(async (req) => {
         method = 'POST'
         body = JSON.stringify(data)
         break
+      case 'webhookFind':
+        if (!instanceName) throw new Error('Missing required parameter: instanceName')
+        url += `/webhook/find/${instanceName}`
+        break
       case 'settings':
         if (!instanceName) throw new Error('Missing required parameter: instanceName')
         url += `/settings/set/${instanceName}`
+        method = 'POST'
+        body = JSON.stringify(data)
+        break
+      case 'sendText':
+        if (!instanceName) throw new Error('Missing required parameter: instanceName')
+        url += `/message/sendText/${instanceName}`
+        method = 'POST'
+        body = JSON.stringify(data)
+        break
+      case 'sendMedia':
+        if (!instanceName) throw new Error('Missing required parameter: instanceName')
+        url += `/message/sendMedia/${instanceName}`
         method = 'POST'
         body = JSON.stringify(data)
         break

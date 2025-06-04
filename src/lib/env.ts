@@ -16,7 +16,8 @@ export const IS_DEVELOPMENT = import.meta.env.DEV;
 
 // API Configuration
 export const API_URL = validateEnvVar('VITE_EVOLUTION_API_URL', import.meta.env.VITE_EVOLUTION_API_URL);
-export const API_TOKEN = validateEnvVar('VITE_EVOLUTION_API_TOKEN', import.meta.env.VITE_EVOLUTION_API_TOKEN);
+// Note: EVOLUTION_API_KEY is now only available on server-side for security
+// All API calls are routed through secure Edge Functions
 
 // SMTP Configuration (optional)
 export const SMTP_CONFIG = {

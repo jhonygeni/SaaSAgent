@@ -1,11 +1,7 @@
-import { createContext, useContext, useState, ReactNode, useEffect, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { User, SubscriptionPlan } from '../types';
 import { getMessageLimitByPlan } from '../lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { diagnostic, logStep, logAsyncStep } from '@/utils/diagnostic';
-import { throttledSubscriptionCheck, resetSubscriptionCache, getThrottleStats } from "@/lib/subscription-throttle";
-import { logAuthEvent, getAuthDiagnostics } from '@/utils/auth-diagnostic';
-import { getMockSubscriptionData, isMockModeEnabled } from '@/lib/mock-subscription-data';
 
 interface UserContextType {
   user: User | null;
@@ -15,7 +11,6 @@ interface UserContextType {
   login: (email: string, name: string) => void;
   isLoading: boolean;
   checkSubscriptionStatus: () => Promise<void>;
-  getDiagnosticInfo: () => any;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -23,86 +18,45 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 export function UserProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
-  const lastMessageCount = useRef<number | null>(null);
-  
-  console.log('👤 UserProvider: Inicializando... (VERSÃO CORRIGIDA)');
   
   // Função auxiliar para criar um usuário com plano padrão
-  const createUserWithDefaultPlan = useCallback((supabaseUser: any, defaultPlan: SubscriptionPlan = 'free') => {
-    return logStep('Create User With Default Plan', () => {
-      // Verificar se já temos um usuário com este ID para evitar recriações
-      if (user && user.id === supabaseUser.id) {
-        console.log("✅ Usuário já existe no contexto, mantendo:", user);
-        logAuthEvent('user_exists', { 
-          userId: user.id, 
-          email: user.email 
-        });
-        return user;
-      }
-      
-      const newUser: User = {
-        id: supabaseUser.id,
-        email: supabaseUser.email || '',
-        name: supabaseUser.user_metadata?.name || supabaseUser.email || '',
-        plan: defaultPlan,
-        messageCount: 0,
-        messageLimit: getMessageLimitByPlan(defaultPlan),
-        agents: [],
-      };
-      
-      console.log("🆕 Criando novo usuário no contexto:", newUser);
-      
-      // Registrar evento de criação de usuário
-      logAuthEvent('create_user', { 
-        userId: newUser.id, 
-        email: newUser.email, 
-        plan: defaultPlan
-      });
-      
-      setUser(newUser);
-      return newUser;
-    });
-  }, [user]);
+  const createUserWithDefaultPlan = (supabaseUser: any, defaultPlan: SubscriptionPlan = 'free') => {
+    const newUser: User = {
+      id: supabaseUser.id,
+      email: supabaseUser.email || '',
+      name: supabaseUser.user_metadata?.name || supabaseUser.email || '',
+      plan: defaultPlan,
+      messageCount: 0,
+      messageLimit: getMessageLimitByPlan(defaultPlan),
+      agents: [],
+    };
+    console.log("Criando novo usuário no contexto com plano padrão:", newUser);
+    setUser(newUser);
+    return newUser;
+  };
   
-  // Check subscription status com throttle
+  // Check subscription status
   const checkSubscriptionStatus = useCallback(async () => {
     try {
-      console.log("🔍 Verificando status da assinatura...");
-      
-      // Registrar evento de verificação de assinatura
-      logAuthEvent('subscription_check_start', { 
-        userId: user?.id || 'unknown',
-        timestamp: Date.now()
-      });
-      
+      console.log("Verificando status da assinatura...");
       // Get current session
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         console.log("Sem sessão ativa, não é possível verificar assinatura");
-        logAuthEvent('check_session_failed', { reason: 'no_session' });
-        return null;
+        return;
       }
       
       const supabaseUser = session.user;
       if (!supabaseUser) {
         console.log("Sem usuário na sessão");
-        logAuthEvent('check_session_failed', { reason: 'no_user_in_session' });
-        return null;
+        return;
       }
-      
-      console.log("✅ Sessão válida encontrada para:", supabaseUser.email);
-      logAuthEvent('check_session_success', { 
-        userId: supabaseUser.id,
-        email: supabaseUser.email
-      });
       
       console.log("Chamando edge function check-subscription");
       
       try {
-        // Call check-subscription edge function with performance logging
-        console.time('check-subscription-call');
+        // Call check-subscription edge function
         const { data, error } = await supabase.functions.invoke('check-subscription');
-        console.timeEnd('check-subscription-call');
         
         if (error) {
           console.error('Error checking subscription:', error);
@@ -111,7 +65,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           if (!user && supabaseUser) {
             createUserWithDefaultPlan(supabaseUser);
           }
-          return null;
+          return;
         }
         
         console.log("Resposta de check-subscription:", data);
@@ -124,33 +78,19 @@ export function UserProvider({ children }: { children: ReactNode }) {
               email: supabaseUser.email || '',
               name: supabaseUser.user_metadata?.name || supabaseUser.email || '',
               plan: (data.plan || 'free') as SubscriptionPlan,
-              messageCount: data.message_count || 0,
+              messageCount: 0,
               messageLimit: getMessageLimitByPlan(data.plan || 'free'),
               agents: [],
             };
             console.log("Criando novo usuário no contexto:", newUser);
             setUser(newUser);
-            lastMessageCount.current = data.message_count;
-            return data;
           }
-          // If we already have user data, just update the plan if it changed
+          // If we already have user data, just update the plan
           else if (user && data.plan && data.plan !== user.plan) {
             console.log(`Atualizando plano de ${user.plan} para ${data.plan}`);
             setPlan(data.plan as SubscriptionPlan);
-            return data;
           }
-          // Se já temos usuário e o plano não mudou, atualizamos os contadores apenas se houver mudança
-          else if (user && data.message_count !== undefined && data.message_count !== lastMessageCount.current) {
-            console.log("[DIAGNOSTIC] Atualizando user.messageCount para:", data.message_count);
-            updateUser({
-              messageCount: data.message_count
-            });
-            lastMessageCount.current = data.message_count;
-            return data;
-          }
-          return data;
         }
-        return null;
       } catch (invokeError) {
         console.error('Failed to invoke check-subscription function:', invokeError);
         
@@ -158,7 +98,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
         if (!user && supabaseUser) {
           createUserWithDefaultPlan(supabaseUser);
         }
-        return null;
       }
     } catch (err) {
       console.error('Failed to check subscription status:', err);
@@ -172,47 +111,37 @@ export function UserProvider({ children }: { children: ReactNode }) {
       } catch (sessionErr) {
         console.error('Failed to get session after subscription error:', sessionErr);
       }
-      return null;
     }
-  }, [user, createUserWithDefaultPlan]);
+  }, [user]);
   
-  // Configurar listener de autenticação
+  // Listen for auth state changes
   useEffect(() => {
-    console.log("🚀 Configurando listener de autenticação");
     setIsLoading(true);
-    logAuthEvent('provider_init', { timestamp: Date.now() });
+    console.log("Configurando listener de autenticação");
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log(`🔔 Evento de autenticação: ${event}`, session ? "com sessão" : "sem sessão");
+        console.log("Evento de autenticação:", event, session ? "com sessão" : "sem sessão");
         
         if (event === 'SIGNED_IN' && session) {
+          // Get user data from session
           const supabaseUser = session.user;
-          if (!supabaseUser) {
-            console.log("❌ Evento SIGNED_IN mas sem usuário na sessão");
-            return;
-          }
+          if (!supabaseUser) return;
           
-          console.log("✅ Usuário logado detectado:", supabaseUser.email);
-          
-          // Limpar cache antes de criar usuário
-          resetSubscriptionCache();
+          console.log("Usuário logado:", supabaseUser);
           
           // Create new user object with default free plan
           createUserWithDefaultPlan(supabaseUser);
           
-          // Check subscription status immediately (sem delay)
-          console.log("🔍 Verificando subscription imediatamente após login...");
+          // Check subscription status after delay to ensure auth is complete
           setTimeout(() => {
             checkSubscriptionStatus();
-          }, 500); // Delay reduzido para 500ms
+          }, 1000);
         }
         
         if (event === 'SIGNED_OUT') {
-          console.log("👋 Usuário deslogado");
+          console.log("Usuário deslogado");
           setUser(null);
-          resetSubscriptionCache();
-          lastMessageCount.current = null;
         }
         
         setIsLoading(false);
@@ -221,35 +150,21 @@ export function UserProvider({ children }: { children: ReactNode }) {
     
     // Check initial session
     const checkSession = async () => {
-      console.log("🔍 Verificando sessão inicial...");
-      logAuthEvent('initial_session_check', { timestamp: Date.now() });
-      
+      console.log("Verificando sessão inicial");
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        console.log("✅ Sessão existente encontrada:", session.user.email);
-        logAuthEvent('session_found', { 
-          sessionId: session.user.id,
-          userId: session.user.id,
-          email: session.user.email
-        });
-        
+        console.log("Sessão existente encontrada");
         const supabaseUser = session.user;
         
-        // Create user immediately
+        // Create new user object with default free plan
         createUserWithDefaultPlan(supabaseUser);
         
-        // Check subscription status
+        // Check subscription status after delay
         setTimeout(() => {
-          console.log("🔍 Verificando subscription após encontrar sessão inicial...");
-          logAuthEvent('delayed_subscription_check', { 
-            userId: supabaseUser.id,
-            email: supabaseUser.email
-          });
           checkSubscriptionStatus();
-        }, 500);
+        }, 1000);
       } else {
-        console.log("❌ Nenhuma sessão existente encontrada");
-        logAuthEvent('no_session_found', {});
+        console.log("Nenhuma sessão existente encontrada");
       }
       
       setIsLoading(false);
@@ -258,18 +173,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
     checkSession();
     
     return () => {
-      console.log("🧹 Removendo listener de autenticação");
-      subscription?.unsubscribe?.();
+      console.log("Removendo listener de autenticação");
+      subscription.unsubscribe();
     };
-  }, [createUserWithDefaultPlan, checkSubscriptionStatus]);
+  }, [checkSubscriptionStatus]);
 
-  const updateUser = useCallback((updatedUser: Partial<User>) => {
-    if (!user) {
-      console.log("❌ Tentativa de atualizar usuário mas user é null");
-      return;
-    }
+  const updateUser = (updatedUser: Partial<User>) => {
+    if (!user) return;
     
-    console.log("🔄 Atualizando usuário:", updatedUser);
     setUser(prev => {
       if (!prev) return null;
       return {
@@ -277,7 +188,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         ...updatedUser
       };
     });
-  }, [user]);
+  };
 
   const login = async (email: string, name: string) => {
     const newUser: User = {
@@ -290,35 +201,22 @@ export function UserProvider({ children }: { children: ReactNode }) {
       agents: [],
     };
     
-    console.log("👤 Login manual:", newUser);
     setUser(newUser);
-    lastMessageCount.current = 0;
     
-    // Limpar cache antes de verificar assinatura
-    resetSubscriptionCache();
-    
-    // Check subscription status after login
+    // Check subscription status after login with delay
     setTimeout(() => {
       checkSubscriptionStatus();
-    }, 500);
+    }, 1000);
   };
 
   const logout = async () => {
-    console.log("👋 Logout iniciado");
-    resetSubscriptionCache();
-    logAuthEvent('logout', { userId: user?.id, email: user?.email });
     await supabase.auth.signOut();
     setUser(null);
-    lastMessageCount.current = null;
   };
 
-  const setPlan = useCallback((plan: SubscriptionPlan) => {
-    if (!user) {
-      console.log("❌ Tentativa de definir plano mas user é null");
-      return;
-    }
+  const setPlan = (plan: SubscriptionPlan) => {
+    if (!user) return;
     
-    console.log(`📋 Definindo plano: ${plan}`);
     setUser(prev => {
       if (!prev) return null;
       return {
@@ -327,33 +225,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         messageLimit: getMessageLimitByPlan(plan)
       };
     });
-  }, [user]);
-
-  // Função para obter informações de diagnóstico
-  const getDiagnosticInfo = useCallback(() => {
-    return {
-      authEvents: getAuthDiagnostics(),
-      throttleStats: getThrottleStats(),
-      contextState: {
-        isLoading,
-        hasUser: !!user,
-        userId: user?.id,
-        userEmail: user?.email,
-        plan: user?.plan,
-        messageCount: user?.messageCount,
-        lastMessageCount: lastMessageCount.current,
-        timestamp: Date.now(),
-      }
-    };
-  }, [user, isLoading]);
-
-  // Log do estado atual para debug
-  console.log("📊 Estado atual do UserContext:", {
-    isLoading,
-    hasUser: !!user,
-    userId: user?.id,
-    userEmail: user?.email,
-  });
+  };
 
   return (
     <UserContext.Provider 
@@ -364,8 +236,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         logout, 
         login,
         isLoading,
-        checkSubscriptionStatus,
-        getDiagnosticInfo
+        checkSubscriptionStatus 
       }}
     >
       {children}

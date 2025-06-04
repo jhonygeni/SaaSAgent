@@ -5,7 +5,8 @@ import { EVOLUTION_CONFIG, FEATURE_FLAGS } from '../config/environment';
 // EVOLUTION API CONFIGURATION  
 // ===============================
 export const EVOLUTION_API_URL = EVOLUTION_CONFIG.url; // API URL from environment config
-export const EVOLUTION_API_KEY = EVOLUTION_CONFIG.key; // API Key from environment config
+// Note: EVOLUTION_API_KEY is now only available on server-side for security
+// Frontend uses secure Edge Functions instead of direct API calls
 
 // Authentication configuration - Based on Evolution API v2 requirements
 export const USE_BEARER_AUTH = false; // Evolution API v2 uses 'apikey' header, not Bearer token
@@ -124,7 +125,7 @@ export const SUCCESS_MESSAGES = {
 // ===============================
 export default {
   EVOLUTION_API_URL,
-  EVOLUTION_API_KEY,
+  // EVOLUTION_API_KEY, // SECURITY: Removed - now handled securely via Edge Functions
   USE_BEARER_AUTH,
   USE_MOCK_DATA,
   MAX_CONNECTION_RETRIES,

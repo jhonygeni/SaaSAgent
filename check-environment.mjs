@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 
 /**
- * SCRIPT DE VERIFICAÇÃO DE AMBIENTE
+ * SCRIPT DE VERIFICA    'VITE_SUPABASE_URL',
+    'VITE_SUPABASE_ANON_KEY', 
+    'VITE_EVOLUTION_API_URL',
+    'VITE_EVOLUTION_API_KEY'
+  ];E AMBIENTE
  * Verifica todas as configurações necessárias para evitar tela branca
  */
 
