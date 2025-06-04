@@ -11,7 +11,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Get Evolution API configuration from environment
 const EVOLUTION_API_URL = import.meta.env.VITE_EVOLUTION_API_URL;
-const EVOLUTION_API_KEY = import.meta.env.EVOLUTION_API_KEY;
+// SECURITY: EVOLUTION_API_KEY is NOT exposed to frontend - only backend has access
 
 // Initialize Supabase client
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -66,16 +66,17 @@ export const retryOperation = async <T>(
 };
 
 /**
- * Secure WhatsApp API client using Supabase Edge Function
- * This client routes all requests through our secure Edge Function,
- * keeping the Evolution API key on the server-side only
+ * Secure WhatsApp API client using Supabase Edge Function as Backend Proxy
+ * SECURITY: All Evolution API calls go through backend to protect EVOLUTION_API_KEY
+ * Frontend NEVER directly calls Evolution API to prevent key exposure
  */
 export const secureApiClient = {
   /**
-   * Call Evolution API directly (external API) - NO MORE EDGE FUNCTIONS
+   * Call Evolution API via Supabase Edge Function (SECURE BACKEND PROXY)
+   * This ensures EVOLUTION_API_KEY stays on server-side only
    */
   async callEvolutionAPI<T>(endpoint: string, method: string = 'GET', data?: any): Promise<T> {
-    console.log(`🔄 Making DIRECT Evolution API call - Endpoint: ${endpoint}, Method: ${method}`);
+    console.log(`🔒 Making SECURE Evolution API call via backend proxy - Endpoint: ${endpoint}, Method: ${method}`);
     
     return retryOperation(async () => {
       try {
@@ -86,103 +87,26 @@ export const secureApiClient = {
           throw new Error('User not authenticated. Please login to continue.');
         }
 
-        // Validate Evolution API configuration
-        if (!EVOLUTION_API_URL) {
-          throw new Error('EVOLUTION_API_URL not configured. Please set VITE_EVOLUTION_API_URL environment variable.');
-        }
-
-        if (!EVOLUTION_API_KEY) {
-          throw new Error('EVOLUTION_API_KEY not configured. Please set EVOLUTION_API_KEY environment variable.');
-        }
-
-        // Build full URL for Evolution API
-        const evolutionApiUrl = `${EVOLUTION_API_URL.replace(/\/$/, '')}${endpoint}`;
-        
-        console.log('📤 Direct API call:', { 
-          url: evolutionApiUrl,
-          method, 
-          hasData: Object.keys(data || {}).length > 0,
-          dataKeys: Object.keys(data || {})
+        // SECURITY: Call Evolution API through Supabase Edge Function (backend proxy)
+        // This keeps EVOLUTION_API_KEY secure on server-side
+        const { data: result, error } = await supabase.functions.invoke('evolution-api', {
+          body: {
+            endpoint,
+            method,
+            data: data || {}
+          }
         });
 
-        // Prepare headers for Evolution API V2
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'apikey': EVOLUTION_API_KEY, // Evolution API V2 uses 'apikey' header
-        };
-
-        // Prepare request options
-        const requestOptions: RequestInit = {
-          method,
-          headers,
-        };
-
-        // Add body for non-GET requests
-        if (method !== 'GET' && data) {
-          requestOptions.body = JSON.stringify(data);
+        if (error) {
+          console.error('❌ Backend proxy error:', error);
+          throw new Error(`Backend proxy error: ${error.message}`);
         }
 
-        // Make direct call to Evolution API
-        const response = await fetch(evolutionApiUrl, requestOptions);
-
-        console.log('📥 Evolution API response:', { 
-          status: response.status,
-          statusText: response.statusText,
-          ok: response.ok
-        });
-
-        // Parse response
-        let result: any;
-        const contentType = response.headers.get('content-type') || '';
-        
-        if (contentType.includes('application/json')) {
-          result = await response.json();
-        } else {
-          const textResult = await response.text();
-          try {
-            result = JSON.parse(textResult);
-          } catch {
-            result = { message: textResult, status: response.status };
-          }
-        }
-
-        if (!response.ok) {
-          console.error('❌ Evolution API error:', { 
-            status: response.status, 
-            result,
-            url: evolutionApiUrl
-          });
-          
-          // Handle specific error types
-          if (response.status === 401 || response.status === 403) {
-            const authError = new Error(`Evolution API authentication failed (${response.status}). Check EVOLUTION_API_KEY.`) as any;
-            authError.name = 'AuthenticationError';
-            authError.status = response.status;
-            
-            if (PREVENT_CREDIT_CONSUMPTION_ON_FAILURE) {
-              console.error("🛑 Canceling operation to prevent credit consumption");
-            }
-            
-            throw authError;
-          }
-          
-          if (response.status === 404) {
-            throw new Error(`Evolution API endpoint not found: ${endpoint} (${response.status})`);
-          }
-          
-          if (response.status >= 500) {
-            throw new Error(`Evolution API server error (${response.status}): ${JSON.stringify(result)}`);
-          }
-          
-          throw new Error(`Evolution API error (${response.status}): ${JSON.stringify(result)}`);
-        }
-
-        console.log(`✅ Direct Evolution API call successful - Endpoint: ${endpoint}`);
+        console.log(`✅ Secure Evolution API call successful via backend - Endpoint: ${endpoint}`);
         return result;
         
       } catch (error) {
-        console.error(`❌ Direct Evolution API call failed - Endpoint: ${endpoint}:`, error);
+        console.error(`❌ Secure Evolution API call failed - Endpoint: ${endpoint}:`, error);
         throw error;
       }
     }, undefined, undefined, (error) => {
