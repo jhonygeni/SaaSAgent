@@ -9,6 +9,10 @@ import {
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+// Get Evolution API configuration from environment
+const EVOLUTION_API_URL = import.meta.env.VITE_EVOLUTION_API_URL;
+const EVOLUTION_API_KEY = import.meta.env.EVOLUTION_API_KEY;
+
 // Initialize Supabase client
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
@@ -68,57 +72,93 @@ export const retryOperation = async <T>(
  */
 export const secureApiClient = {
   /**
-   * Call Evolution API through secure Edge Function with direct endpoint support
+   * Call Evolution API directly (external API) - NO MORE EDGE FUNCTIONS
    */
   async callEvolutionAPI<T>(endpoint: string, method: string = 'GET', data?: any): Promise<T> {
-    console.log(`🔄 Making secure API call - Endpoint: ${endpoint}, Method: ${method}`);
+    console.log(`🔄 Making DIRECT Evolution API call - Endpoint: ${endpoint}, Method: ${method}`);
     
     return retryOperation(async () => {
       try {
-        // Get current user session for authentication
+        // Get current user session for authentication (Supabase auth)
         const { data: { session } } = await supabase.auth.getSession();
         
         if (!session) {
           throw new Error('User not authenticated. Please login to continue.');
         }
 
-        // Prepare request body with endpoint and method information
-        const requestBody = {
-          endpoint,
-          method,
-          data: data || {}
-        };
+        // Validate Evolution API configuration
+        if (!EVOLUTION_API_URL) {
+          throw new Error('EVOLUTION_API_URL not configured. Please set VITE_EVOLUTION_API_URL environment variable.');
+        }
 
-        console.log('📤 Request body:', { 
-          endpoint, 
+        if (!EVOLUTION_API_KEY) {
+          throw new Error('EVOLUTION_API_KEY not configured. Please set EVOLUTION_API_KEY environment variable.');
+        }
+
+        // Build full URL for Evolution API
+        const evolutionApiUrl = `${EVOLUTION_API_URL.replace(/\/$/, '')}${endpoint}`;
+        
+        console.log('📤 Direct API call:', { 
+          url: evolutionApiUrl,
           method, 
           hasData: Object.keys(data || {}).length > 0,
           dataKeys: Object.keys(data || {})
         });
 
-        // Call the Edge Function with endpoint and method information
-        const { data: result, error } = await supabase.functions.invoke('evolution-api', {
-          body: requestBody,
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json'
+        // Prepare headers for Evolution API V2
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'apikey': EVOLUTION_API_KEY, // Evolution API V2 uses 'apikey' header
+        };
+
+        // Prepare request options
+        const requestOptions: RequestInit = {
+          method,
+          headers,
+        };
+
+        // Add body for non-GET requests
+        if (method !== 'GET' && data) {
+          requestOptions.body = JSON.stringify(data);
+        }
+
+        // Make direct call to Evolution API
+        const response = await fetch(evolutionApiUrl, requestOptions);
+
+        console.log('📥 Evolution API response:', { 
+          status: response.status,
+          statusText: response.statusText,
+          ok: response.ok
+        });
+
+        // Parse response
+        let result: any;
+        const contentType = response.headers.get('content-type') || '';
+        
+        if (contentType.includes('application/json')) {
+          result = await response.json();
+        } else {
+          const textResult = await response.text();
+          try {
+            result = JSON.parse(textResult);
+          } catch {
+            result = { message: textResult, status: response.status };
           }
-        });
+        }
 
-        console.log('📥 Edge Function response:', { 
-          hasError: !!error, 
-          hasResult: !!result,
-          errorMessage: error?.message 
-        });
-
-        if (error) {
-          console.error('❌ Edge Function error:', error);
+        if (!response.ok) {
+          console.error('❌ Evolution API error:', { 
+            status: response.status, 
+            result,
+            url: evolutionApiUrl
+          });
           
-          // Special handling for authentication errors
-          if (error.message?.includes('401') || error.message?.includes('403')) {
-            const authError = new Error(`Authentication failed: ${error.message}`) as any;
+          // Handle specific error types
+          if (response.status === 401 || response.status === 403) {
+            const authError = new Error(`Evolution API authentication failed (${response.status}). Check EVOLUTION_API_KEY.`) as any;
             authError.name = 'AuthenticationError';
-            authError.status = 401;
+            authError.status = response.status;
             
             if (PREVENT_CREDIT_CONSUMPTION_ON_FAILURE) {
               console.error("🛑 Canceling operation to prevent credit consumption");
@@ -127,22 +167,22 @@ export const secureApiClient = {
             throw authError;
           }
           
-          // Handle specific error types
-          if (error.message?.includes('404')) {
-            throw new Error(`Evolution API endpoint not found: ${endpoint}. Error: ${error.message}`);
+          if (response.status === 404) {
+            throw new Error(`Evolution API endpoint not found: ${endpoint} (${response.status})`);
           }
           
-          if (error.message?.includes('500')) {
-            throw new Error(`Evolution API server error: ${error.message}. Check server configuration.`);
+          if (response.status >= 500) {
+            throw new Error(`Evolution API server error (${response.status}): ${JSON.stringify(result)}`);
           }
           
-          throw new Error(`API Error: ${error.message}`);
+          throw new Error(`Evolution API error (${response.status}): ${JSON.stringify(result)}`);
         }
 
-        console.log(`✅ Secure API call successful - Endpoint: ${endpoint}`);
+        console.log(`✅ Direct Evolution API call successful - Endpoint: ${endpoint}`);
         return result;
+        
       } catch (error) {
-        console.error(`❌ Secure API call failed - Endpoint: ${endpoint}:`, error);
+        console.error(`❌ Direct Evolution API call failed - Endpoint: ${endpoint}:`, error);
         throw error;
       }
     }, undefined, undefined, (error) => {
