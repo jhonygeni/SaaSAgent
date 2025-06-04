@@ -19,20 +19,70 @@ serve(async (req) => {
       throw new Error('Missing EVOLUTION_API_KEY. Please set this secret using: supabase secrets set EVOLUTION_API_KEY=your_key')
     }
 
-    // Basic API key validation for security (optional - remove in production if using Supabase auth)
+    // Basic API key validation for security
     const apiKey = req.headers.get('apikey') || req.headers.get('Authorization')?.replace('Bearer ', '')
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: 'API key required' }), {
+      return new Response(JSON.stringify({ 
+        error: 'API key required',
+        status: 401,
+        timestamp: new Date().toISOString()
+      }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
-    const { action, instanceName, data } = await req.json()
+    // Safely parse request body
+    let requestData = null
+    try {
+      const bodyText = await req.text()
+      if (bodyText) {
+        try {
+          requestData = JSON.parse(bodyText)
+        } catch (parseError) {
+          return new Response(JSON.stringify({
+            error: 'Invalid JSON format',
+            message: 'Request body must be valid JSON',
+            details: parseError.message,
+            status: 400,
+            timestamp: new Date().toISOString()
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          })
+        }
+      }
+    } catch (bodyError) {
+      return new Response(JSON.stringify({
+        error: 'Request body error',
+        message: 'Failed to read request body',
+        details: bodyError.message,
+        status: 400,
+        timestamp: new Date().toISOString()
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
 
-    // Validate required parameters
+    // Handle empty body for actions that don't require it
+    let { action, instanceName, data } = requestData || { action: null, instanceName: null, data: null }
+
+    // For fetchInstances, we don't need body data
+    if (!action && req.method === 'GET') {
+      action = 'fetchInstances'
+    }
+
     if (!action) {
-      throw new Error('Missing required parameter: action')
+      return new Response(JSON.stringify({
+        error: 'Missing parameter',
+        message: 'The action parameter is required',
+        status: 400,
+        timestamp: new Date().toISOString()
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
     }
 
     // Build the Evolution API URL based on the action
@@ -99,7 +149,15 @@ serve(async (req) => {
         body = JSON.stringify(data)
         break
       default:
-        throw new Error('Invalid action')
+        return new Response(JSON.stringify({
+          error: 'Invalid action',
+          message: `Action '${action}' is not supported`,
+          status: 400,
+          timestamp: new Date().toISOString()
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
     }
 
     console.log(`Making request to Evolution API: ${url}`)
@@ -115,14 +173,46 @@ serve(async (req) => {
       body
     })
 
-    const result = await response.json()
+    let result
+    try {
+      result = await response.json()
+    } catch (jsonError) {
+      return new Response(JSON.stringify({
+        error: 'Invalid response from Evolution API',
+        message: 'Failed to parse Evolution API response',
+        details: jsonError.message,
+        status: 502,
+        timestamp: new Date().toISOString()
+      }), {
+        status: 502,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
 
     if (!response.ok) {
       // Add specific error handling for authentication issues
       if (response.status === 401 || response.status === 403) {
-        throw new Error(`Authentication failed with Evolution API (${response.status}). Please verify your EVOLUTION_API_KEY.`)
+        return new Response(JSON.stringify({
+          error: 'Authentication failed',
+          message: 'Failed to authenticate with Evolution API',
+          status: response.status,
+          timestamp: new Date().toISOString()
+        }), {
+          status: response.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
       }
-      throw new Error(`Evolution API error: ${response.status} ${response.statusText}`)
+      
+      return new Response(JSON.stringify({
+        error: 'Evolution API error',
+        message: `Evolution API returned status ${response.status}`,
+        details: result,
+        status: response.status,
+        timestamp: new Date().toISOString()
+      }), {
+        status: response.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
     }
 
     // Return the response with CORS headers
@@ -134,12 +224,14 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in evolution-api function:', error)
     return new Response(JSON.stringify({ 
-      error: error.message,
+      error: 'Internal server error',
+      message: error.message,
+      status: 500,
       timestamp: new Date().toISOString(),
       path: req.url
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: error.message.includes('Authentication failed') ? 401 : 500
+      status: 500
     })
   }
 }) 
