@@ -19,8 +19,7 @@ export default async function handler(req: any, res: any) {
       },
       body: JSON.stringify(req.body)
     });
-
-    const data = await response.json();
+    const data: any = await response.json();
     if (!response.ok) {
       return res.status(response.status).json({ error: data?.error || 'Erro na Evolution API' });
     }
