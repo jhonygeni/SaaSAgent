@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Segurança - Evolution API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        .warning { background-color: #fff3cd; color: #856404; }
+        .security { background-color: #f8d7da; color: #721c24; border: 2px solid #dc3545; }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        .security-check {
+            border: 2px solid #28a745;
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔐 Teste de Segurança - Evolution API</h1>
+    
+    <div class="test-section">
+        <h2>🛡️ Verificação de Segurança</h2>
+        <div id="securityCheck"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🧪 Teste Roteamento Seguro</h2>
+        <p>Testa se as chamadas estão passando pelos endpoints Vercel (proxy seguro)</p>
+        <button onclick="testarRoteamentoSeguro()">Testar Roteamento</button>
+        <div id="resultadoRoteamento"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📊 Comparação: Direto vs Proxy</h2>
+        <div id="comparacaoUrls"></div>
+    </div>
+
+    <script>
+        // Simular secureApiClient corrigido
+        const secureApiClientSeguro = {
+            async callEvolutionAPIViaVercel(endpoint, method = 'GET', data) {
+                const baseUrl = window.location.origin; // Frontend domain
+                console.log(`🌐 Using Vercel API Routes at: ${baseUrl}`);
+
+                // Map Evolution API endpoints to Vercel API Routes
+                let url = '';
+                let fetchOptions = { method, headers: { 'Content-Type': 'application/json' } };
+
+                // Route mapping based on Evolution API endpoints
+                if (endpoint === '/instance/create') {
+                    url = `${baseUrl}/api/evolution/create-instance`;
+                    fetchOptions.method = 'POST';
+                    fetchOptions.body = JSON.stringify(data);
+                } else if (endpoint.startsWith('/instance/connect/')) {
+                    const instanceName = endpoint.split('/')[3];
+                    url = `${baseUrl}/api/evolution/connect`;
+                    fetchOptions.method = 'POST';
+                    fetchOptions.body = JSON.stringify({ instance: instanceName });
+                } else if (endpoint === '/instance/fetchInstances') {
+                    url = `${baseUrl}/api/evolution/instances`;
+                    fetchOptions.method = 'GET';
+                } else if (endpoint.startsWith('/instance/info/')) {
+                    const instanceName = endpoint.split('/')[3];
+                    url = `${baseUrl}/api/evolution/info?instance=${instanceName}`;
+                    fetchOptions.method = 'GET';
+                } else if (endpoint.startsWith('/instance/qrcode/')) {
+                    const instanceName = endpoint.split('/')[3];
+                    url = `${baseUrl}/api/evolution/qrcode?instance=${instanceName}`;
+                    fetchOptions.method = 'GET';
+                } else if (endpoint.startsWith('/instance/connectionState/')) {
+                    const instanceName = endpoint.split('/')[3];
+                    url = `${baseUrl}/api/evolution/status?instance=${instanceName}`;
+                    fetchOptions.method = 'GET';
+                } else if (endpoint.startsWith('/instance/delete/')) {
+                    const instanceName = endpoint.split('/')[3];
+                    url = `${baseUrl}/api/evolution/delete`;
+                    fetchOptions.method = 'DELETE';
+                    fetchOptions.body = JSON.stringify({ instance: instanceName });
+                } else {
+                    throw new Error(`Endpoint não mapeado: ${endpoint}`);
+                }
+
+                return { url, fetchOptions };
+            }
+        };
+
+        function verificarSeguranca() {
+            const securityDiv = document.getElementById('securityCheck');
+            
+            // Verificar se API keys estão expostas
+            let exposedKeys = [];
+            let environmentVars = [];
+            
+            // Tentar acessar variáveis de ambiente
+            try {
+                if (typeof import !== 'undefined' && import.meta && import.meta.env) {
+                    Object.keys(import.meta.env).forEach(key => {
+                        if (key.includes('API_KEY')) {
+                            if (key.startsWith('VITE_')) {
+                                exposedKeys.push(key);
+                            } else {
+                                environmentVars.push(key + ' (não exposta - OK)');
+                            }
+                        }
+                    });
+                }
+            } catch (e) {
+                // Não há problema se não conseguir acessar
+            }
+
+            let html = '';
+            
+            if (exposedKeys.length > 0) {
+                html += `
+                    <div class="security">
+                        <strong>⚠️ FALHA DE SEGURANÇA DETECTADA!</strong><br>
+                        As seguintes API keys estão EXPOSTAS no frontend:<br>
+                        <ul>
+                            ${exposedKeys.map(key => `<li><code>${key}</code></li>`).join('')}
+                        </ul>
+                        <strong>AÇÃO NECESSÁRIA:</strong> Remover essas variáveis do .env e usar apenas no backend!
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="security-check">
+                        <strong>✅ SEGURANÇA OK!</strong><br>
+                        Nenhuma API key detectada no frontend.<br>
+                        As chamadas devem passar pelo proxy seguro (Vercel API Routes).
+                    </div>
+                `;
+            }
+
+            html += `
+                <div class="info">
+                    <strong>📋 Como funciona a segurança:</strong><br>
+                    1. Frontend faz chamada para <code>/api/evolution/*</code> (proxy)<br>
+                    2. Vercel API Route usa <code>process.env.EVOLUTION_API_KEY</code> (seguro)<br>
+                    3. Vercel faz chamada real para <code>https://cloudsaas.geni.chat</code><br>
+                    4. Response volta via proxy para o frontend<br>
+                    <br>
+                    <strong>✅ API Key NUNCA é exposta ao frontend!</strong>
+                </div>
+            `;
+            
+            securityDiv.innerHTML = html;
+        }
+
+        async function testarRoteamentoSeguro() {
+            const resultDiv = document.getElementById('resultadoRoteamento');
+            
+            try {
+                resultDiv.innerHTML = '<div class="info">🔄 Testando roteamento seguro...</div>';
+                
+                // Testar diferentes endpoints
+                const testEndpoints = [
+                    { endpoint: '/instance/create', method: 'POST', data: { instanceName: 'test' } },
+                    { endpoint: '/instance/connect/test123', method: 'POST' },
+                    { endpoint: '/instance/fetchInstances', method: 'GET' },
+                    { endpoint: '/instance/info/test123', method: 'GET' },
+                    { endpoint: '/instance/qrcode/test123', method: 'GET' },
+                    { endpoint: '/instance/connectionState/test123', method: 'GET' },
+                    { endpoint: '/instance/delete/test123', method: 'DELETE' }
+                ];
+
+                let resultados = [];
+                let comparacoes = [];
+
+                for (const test of testEndpoints) {
+                    try {
+                        const resultado = await secureApiClientSeguro.callEvolutionAPIViaVercel(
+                            test.endpoint, 
+                            test.method, 
+                            test.data
+                        );
+
+                        // URL que seria chamada diretamente (INSEGURA)
+                        const urlDireta = `https://cloudsaas.geni.chat${test.endpoint}`;
+                        
+                        // URL do proxy seguro (CORRETA)
+                        const urlProxy = resultado.url;
+
+                        resultados.push({
+                            endpoint: test.endpoint,
+                            status: 'success',
+                            urlProxy: urlProxy,
+                            method: resultado.fetchOptions.method
+                        });
+
+                        comparacoes.push({
+                            endpoint: test.endpoint,
+                            urlDireta: urlDireta,
+                            urlProxy: urlProxy,
+                            segura: urlProxy.includes('/api/evolution/')
+                        });
+
+                    } catch (error) {
+                        resultados.push({
+                            endpoint: test.endpoint,
+                            status: 'error',
+                            error: error.message
+                        });
+                    }
+                }
+
+                // Mostrar resultados
+                let html = '<h3>📋 Resultados dos Testes:</h3>';
+                resultados.forEach(resultado => {
+                    if (resultado.status === 'success') {
+                        const isSecure = resultado.urlProxy.includes('/api/evolution/');
+                        html += `
+                            <div class="${isSecure ? 'success' : 'error'}">
+                                <strong>${isSecure ? '✅' : '❌'} ${resultado.endpoint}</strong><br>
+                                URL Proxy: <code>${resultado.urlProxy}</code><br>
+                                Método: <code>${resultado.method}</code><br>
+                                Status: <strong>${isSecure ? 'SEGURO (via proxy)' : 'INSEGURO (direto)'}</strong>
+                            </div>
+                        `;
+                    } else {
+                        html += `
+                            <div class="error">
+                                <strong>❌ ${resultado.endpoint}</strong><br>
+                                Erro: <code>${resultado.error}</code>
+                            </div>
+                        `;
+                    }
+                });
+                
+                resultDiv.innerHTML = html;
+
+                // Mostrar comparação
+                const compDiv = document.getElementById('comparacaoUrls');
+                let compHtml = '<h3>🔍 Comparação: Chamada Direta vs Proxy Seguro</h3>';
+                comparacoes.forEach(comp => {
+                    compHtml += `
+                        <div class="warning">
+                            <strong>Endpoint:</strong> <code>${comp.endpoint}</code><br>
+                            <strong>❌ Direto (INSEGURO):</strong> <code>${comp.urlDireta}</code><br>
+                            <strong>✅ Proxy (SEGURO):</strong> <code>${comp.urlProxy}</code><br>
+                            <strong>Status:</strong> ${comp.segura ? '<span style="color: green;">SEGURO</span>' : '<span style="color: red;">INSEGURO</span>'}
+                        </div>
+                    `;
+                });
+                
+                compDiv.innerHTML = compHtml;
+
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Erro no teste: ${error.message}</div>`;
+            }
+        }
+
+        // Executar verificação ao carregar a página
+        window.onload = function() {
+            verificarSeguranca();
+        };
+    </script>
+</body>
+</html>

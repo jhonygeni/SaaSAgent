@@ -82,15 +82,25 @@ serve(async (req) => {
     }
 
     // Construir URL completa para Evolution API
-    const evolutionApiUrl = EVOLUTION_API_URL.replace(/\/$/, '') + endpoint;
+    let evolutionApiUrl = EVOLUTION_API_URL.replace(/\/$/, '') + endpoint;
+    let body: string | undefined = undefined;
     
-    logDebug('🔗 Building Evolution API request', { 
-      endpoint,
-      method,
-      finalUrl: evolutionApiUrl,
-      hasData: Object.keys(requestData).length > 0,
-      EVOLUTION_API_URL_clean: EVOLUTION_API_URL.replace(/\/$/, ''),
-      endpoint_clean: endpoint
+    // Evolution API v2: Handle endpoints correctly
+    if (method !== 'GET') {
+      // For POST/PUT/DELETE requests, include the body data
+      if (Object.keys(requestData).length > 0) {
+        body = JSON.stringify(requestData);
+      }
+    }
+    
+    // ⚠️ IMPORTANT: /instance/connect/{instance} is always a GET request in Evolution API v2
+    // Do not modify it to POST with body
+    
+    logDebug('🌐 Making request to Evolution API v2', { 
+      url: evolutionApiUrl, 
+      method, 
+      bodyLength: body ? body.length : 0,
+      hasApiKey: !!EVOLUTION_API_KEY
     });
 
     // 🔧 CORREÇÃO: Headers padronizados para Evolution API V2
@@ -99,28 +109,7 @@ serve(async (req) => {
       'Accept': 'application/json',
       'User-Agent': 'SaaSAgent-Supabase-Function'
     };
-
-    // 🔧 CORREÇÃO: Evolution API V2 usa 'apikey' header
     headers['apikey'] = EVOLUTION_API_KEY;
-
-    logDebug('📡 Request headers prepared', { 
-      hasContentType: !!headers['Content-Type'],
-      hasApiKey: !!headers['apikey'],
-      headerCount: Object.keys(headers).length
-    });
-
-    // Preparar body se necessário
-    let body: string | undefined = undefined;
-    if (method !== 'GET' && Object.keys(requestData).length > 0) {
-      body = JSON.stringify(requestData);
-    }
-
-    logDebug('🌐 Making request to Evolution API', { 
-      url: evolutionApiUrl, 
-      method, 
-      bodyLength: body ? body.length : 0,
-      hasApiKey: !!EVOLUTION_API_KEY
-    });
 
     // Make the request to Evolution API
     const response = await fetch(evolutionApiUrl, {
@@ -230,4 +219,4 @@ serve(async (req) => {
       status: statusCode
     });
   }
-}) 
+})

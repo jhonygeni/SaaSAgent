@@ -15,6 +15,7 @@ export default async function handler(req: any, res: any) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
         'apikey': apiKey,
       },
       body: JSON.stringify(req.body)

@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug API Responses - Captura de Estados Reais</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 1000px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            background: #f5f5f5;
+        }
+        .container { 
+            background: white;
+            border-radius: 8px; 
+            padding: 20px; 
+            margin: 10px 0; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .critical { 
+            border-left: 5px solid #dc3545; 
+            background: #fff5f5; 
+        }
+        .success { 
+            border-left: 5px solid #28a745; 
+            background: #f0fff4; 
+        }
+        .info { 
+            border-left: 5px solid #17a2b8; 
+            background: #e6f7ff; 
+        }
+        .warning { 
+            border-left: 5px solid #ffc107; 
+            background: #fffbf0; 
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 8px;
+            font-size: 14px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        button.danger { background: #dc3545; }
+        button.danger:hover { background: #c82333; }
+        button.success { background: #28a745; }
+        button.success:hover { background: #1e7e34; }
+        
+        input[type="text"] {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 300px;
+            margin: 5px;
+        }
+        
+        #output {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 4px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        
+        .response-box {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 11px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin: 10px 0;
+        }
+        
+        .state-analysis {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        
+        .detection-logic {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug API Responses - Infinite Loop Fix</h1>
+    
+    <div class="container critical">
+        <h2>❌ PROBLEMA IDENTIFICADO</h2>
+        <p><strong>O polling continua após escanear o QR code porque a detecção de sucesso não está funcionando!</strong></p>
+        <p>Esta ferramenta vai capturar as respostas REAIS da Evolution API v2 para identificar o formato correto dos estados.</p>
+    </div>
+
+    <div class="container info">
+        <h3>📡 Teste de Captura API</h3>
+        <label>Nome da Instância:</label>
+        <input type="text" id="instanceName" placeholder="nome-da-instancia" value="debug-test-123">
+        <br>
+        <button onclick="captureApiResponse()">🔍 Capturar Resposta da API</button>
+        <button onclick="simulateConnectedState()">✅ Simular Estado Conectado</button>
+        <button onclick="clearOutput()" class="danger">🗑️ Limpar</button>
+    </div>
+
+    <div class="container">
+        <h3>📊 Resultado da Captura</h3>
+        <div id="output">Clique em "Capturar Resposta da API" para começar...</div>
+    </div>
+
+    <div class="container">
+        <h3>🔍 Última Resposta da API</h3>
+        <div id="lastApiResponse" class="response-box">Nenhuma resposta capturada ainda...</div>
+    </div>
+
+    <div class="container">
+        <h3>🧠 Análise de Estado</h3>
+        <div id="stateAnalysis" class="state-analysis">Análise será exibida após capturar uma resposta...</div>
+    </div>
+
+    <div class="container">
+        <h3>🎯 Lógica de Detecção Atual</h3>
+        <div id="detectionLogic" class="detection-logic">
+            <strong>Condição atual no código:</strong><br>
+            <code>const isConnected = connectionState === "open" || connectionState === "connected" || connectionState === "confirmed";</code>
+            <br><br>
+            <strong>Onde connectionState vem de:</strong><br>
+            <code>const connectionState = stateData?.instance?.state || stateData?.state || stateData?.status;</code>
+        </div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const output = document.getElementById('output');
+            const timestamp = new Date().toLocaleTimeString();
+            const emoji = {
+                'info': 'ℹ️',
+                'success': '✅',
+                'error': '❌',
+                'warning': '⚠️',
+                'api': '📡'
+            }[type] || 'ℹ️';
+            
+            output.textContent += `[${timestamp}] ${emoji} ${message}\n`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function clearOutput() {
+            document.getElementById('output').textContent = '';
+            document.getElementById('lastApiResponse').textContent = 'Nenhuma resposta capturada ainda...';
+            document.getElementById('stateAnalysis').textContent = 'Análise será exibida após capturar uma resposta...';
+            log('Output limpo', 'info');
+        }
+
+        function formatApiResponse(data) {
+            return JSON.stringify(data, null, 2);
+        }
+
+        function analyzeState(data) {
+            const states = [];
+            
+            // Todos os possíveis campos de estado
+            if (data?.instance?.state) states.push(`instance.state: "${data.instance.state}"`);
+            if (data?.instance?.status) states.push(`instance.status: "${data.instance.status}"`);
+            if (data?.state) states.push(`state: "${data.state}"`);
+            if (data?.status) states.push(`status: "${data.status}"`);
+            if (data?.connection?.state) states.push(`connection.state: "${data.connection.state}"`);
+            if (data?.connectionStatus) states.push(`connectionStatus: "${data.connectionStatus}"`);
+            
+            return states.length > 0 ? states.join('\n') : 'Nenhum estado encontrado nos campos esperados';
+        }
+
+        function testDetectionLogic(data) {
+            // Replicar exatamente a lógica do código real
+            const connectionState = data?.instance?.state || data?.state || data?.status;
+            const isConnected = connectionState === "open" || connectionState === "connected" || connectionState === "confirmed";
+            
+            return {
+                extractedState: connectionState,
+                wouldDetectSuccess: isConnected,
+                allPossibleStates: {
+                    'instance.state': data?.instance?.state,
+                    'state': data?.state,  
+                    'status': data?.status,
+                    'instance.status': data?.instance?.status
+                }
+            };
+        }
+
+        async function callEvolutionApi(instanceName) {
+            try {
+                log(`📡 Chamando Evolution API para: ${instanceName}`, 'api');
+                
+                // Detectar ambiente
+                const isDev = window.location.hostname === 'localhost';
+                let url, response;
+                
+                if (isDev) {
+                    // Development: Supabase Edge Function
+                    url = `/_supabase/functions/v1/evolution-api`;
+                    response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            action: 'getConnectionState',
+                            instanceName: instanceName
+                        })
+                    });
+                } else {
+                    // Production: Vercel API Routes  
+                    url = `/api/evolution/status?instance=${encodeURIComponent(instanceName)}`;
+                    response = await fetch(url, {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        }
+                    });
+                }
+                
+                log(`📡 Resposta HTTP: ${response.status}`, response.ok ? 'success' : 'error');
+                
+                const data = await response.json();
+                return data;
+                
+            } catch (error) {
+                log(`❌ Erro na API: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+
+        async function captureApiResponse() {
+            const instanceName = document.getElementById('instanceName').value.trim();
+            if (!instanceName) {
+                log('⚠️ Digite um nome de instância', 'warning');
+                return;
+            }
+
+            try {
+                log(`🔍 Iniciando captura para instância: ${instanceName}`, 'info');
+                
+                const data = await callEvolutionApi(instanceName);
+                
+                // Mostrar resposta bruta
+                document.getElementById('lastApiResponse').textContent = formatApiResponse(data);
+                
+                // Analisar estados  
+                const stateAnalysis = analyzeState(data);
+                document.getElementById('stateAnalysis').innerHTML = `
+                    <strong>Estados encontrados:</strong><br>
+                    <pre>${stateAnalysis}</pre>
+                `;
+                
+                // Testar lógica de detecção
+                const detection = testDetectionLogic(data);
+                document.getElementById('stateAnalysis').innerHTML += `
+                    <br><strong>Teste da Lógica de Detecção:</strong><br>
+                    <pre>Estado extraído: "${detection.extractedState}"
+Detectaria sucesso? ${detection.wouldDetectSuccess ? '✅ SIM' : '❌ NÃO'}
+
+Todos os estados disponíveis:
+${JSON.stringify(detection.allPossibleStates, null, 2)}</pre>
+                `;
+                
+                log(`✅ Captura concluída!`, 'success');
+                log(`🔍 Estado extraído: "${detection.extractedState}"`, 'info');
+                log(`🎯 Detectaria sucesso? ${detection.wouldDetectSuccess ? 'SIM' : 'NÃO'}`, detection.wouldDetectSuccess ? 'success' : 'warning');
+                
+            } catch (error) {
+                log(`❌ Erro na captura: ${error.message}`, 'error');
+                document.getElementById('lastApiResponse').textContent = `Erro: ${error.message}`;
+            }
+        }
+
+        async function simulateConnectedState() {
+            log('🧪 Simulando diferentes estados conectados...', 'info');
+            
+            const mockStates = [
+                { instance: { state: "open" }, message: "Teste com instance.state = 'open'" },
+                { state: "connected", message: "Teste com state = 'connected'" },
+                { status: "confirmed", message: "Teste com status = 'confirmed'" },
+                { instance: { state: "close" }, message: "Teste com instance.state = 'close'" },
+                { instance: { status: "connected", state: "open" }, message: "Teste com ambos status e state" }
+            ];
+            
+            mockStates.forEach((mockData, index) => {
+                const detection = testDetectionLogic(mockData);
+                log(`${index + 1}. ${mockData.message}`, 'info');
+                log(`   → Estado extraído: "${detection.extractedState}"`, 'info');
+                log(`   → Detectaria sucesso? ${detection.wouldDetectSuccess ? '✅ SIM' : '❌ NÃO'}`, detection.wouldDetectSuccess ? 'success' : 'warning');
+            });
+        }
+
+        // Inicializar
+        log('🔍 Debug API Responses inicializado', 'success');
+        log('👉 Digite um nome de instância e clique em "Capturar Resposta da API"', 'info');
+        log('📝 Esta ferramenta vai revelar o formato real das respostas da Evolution API v2', 'info');
+    </script>
+</body>
+</html>

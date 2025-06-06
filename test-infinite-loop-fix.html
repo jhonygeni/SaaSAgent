@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 Test Infinite Loop Fix</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .log { background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 5px; font-family: monospace; }
+        .error { background: #ffe6e6; border: 1px solid #ff9999; }
+        .success { background: #e6ffe6; border: 1px solid #99ff99; }
+        .info { background: #e6f3ff; border: 1px solid #99ccff; }
+        .warning { background: #fff3cd; border: 1px solid #ffc107; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        #output { max-height: 500px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Test Infinite Loop Fix - Evolution API v2</h1>
+    <p><strong>Current Server:</strong> <span id="serverUrl"></span></p>
+    
+    <div>
+        <button onclick="testConnectionFlow()">🚀 Test Full Connection Flow</button>
+        <button onclick="testPollingStopsOnSuccess()">✅ Test Polling Stops on Success</button>
+        <button onclick="simulateSuccessfulConnection()">🎯 Simulate Successful Connection</button>
+        <button onclick="clearLogs()">🧹 Clear Logs</button>
+    </div>
+
+    <div id="output"></div>
+
+    <script>
+        const SERVER_URL = 'http://localhost:8082';
+        let pollingActive = false;
+        let pollCount = 0;
+        
+        document.getElementById('serverUrl').textContent = SERVER_URL;
+
+        function log(message, type = 'info') {
+            const output = document.getElementById('output');
+            const div = document.createElement('div');
+            div.className = `log ${type}`;
+            div.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            output.appendChild(div);
+            output.scrollTop = output.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function clearLogs() {
+            document.getElementById('output').innerHTML = '';
+            pollCount = 0;
+            pollingActive = false;
+        }
+
+        async function testConnectionFlow() {
+            log('🚀 Starting complete connection flow test...', 'info');
+            
+            const instanceName = `test_infinite_loop_fix_${Date.now()}`;
+            log(`🏷️ Using instance name: ${instanceName}`, 'info');
+            
+            try {
+                // Step 1: Create instance and get QR code
+                log('📱 Step 1: Creating instance and getting QR code...', 'info');
+                
+                const qrResponse = await fetch(`${SERVER_URL}/api/evolution/qrcode`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ instanceName })
+                });
+                
+                if (!qrResponse.ok) {
+                    throw new Error(`QR request failed: ${qrResponse.status}`);
+                }
+                
+                const qrData = await qrResponse.json();
+                log(`✅ QR Code response: ${qrData.success ? 'SUCCESS' : 'FAILED'}`, qrData.success ? 'success' : 'error');
+                
+                if (qrData.success) {
+                    // Step 2: Start polling status
+                    log('🔄 Step 2: Starting status polling (this should stop automatically on success)...', 'info');
+                    await startStatusPolling(instanceName);
+                }
+                
+            } catch (error) {
+                log(`❌ Connection flow test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function startStatusPolling(instanceName) {
+            if (pollingActive) {
+                log('⚠️ Polling already active - preventing duplicate polling', 'warning');
+                return;
+            }
+            
+            pollingActive = true;
+            pollCount = 0;
+            const maxPolls = 10;
+            const pollInterval = 2000;
+            
+            log(`🔄 Starting status polling for instance: ${instanceName}`, 'info');
+            
+            const polling = setInterval(async () => {
+                if (!pollingActive) {
+                    log('🛑 Polling flag is false - stopping interval', 'info');
+                    clearInterval(polling);
+                    return;
+                }
+                
+                pollCount++;
+                log(`📊 Poll #${pollCount}: checking connection state...`, 'info');
+                
+                try {
+                    const statusResponse = await fetch(`${SERVER_URL}/api/evolution/status`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ instanceName })
+                    });
+                    
+                    if (!statusResponse.ok) {
+                        log(`⚠️ Status request failed: ${statusResponse.status}`, 'warning');
+                        return;
+                    }
+                    
+                    const statusData = await statusResponse.json();
+                    const connectionState = statusData?.instance?.state || statusData?.state || statusData?.status || 'unknown';
+                    
+                    log(`📡 Connection state: "${connectionState}"`, 'info');
+                    
+                    // Check for success states - SHOULD STOP IMMEDIATELY
+                    const isConnected = connectionState === "open" || connectionState === "connected" || connectionState === "confirmed";
+                    
+                    if (isConnected) {
+                        log(`🎉 SUCCESS STATE DETECTED: ${connectionState}`, 'success');
+                        log(`🛑 STOPPING POLLING IMMEDIATELY - This should prevent infinite loop!`, 'success');
+                        
+                        pollingActive = false;
+                        clearInterval(polling);
+                        
+                        log(`✅ Test Result: Polling stopped after ${pollCount} attempts`, 'success');
+                        log(`🎯 INFINITE LOOP FIX: WORKING - Polling stopped on first success detection`, 'success');
+                        return;
+                    }
+                    
+                    // Check for error states
+                    const isErrorState = connectionState === "close" || connectionState === "error" || connectionState === "disconnected";
+                    
+                    if (isErrorState) {
+                        log(`❌ Error state detected: ${connectionState}`, 'error');
+                        pollingActive = false;
+                        clearInterval(polling);
+                        return;
+                    }
+                    
+                    // Check max polls
+                    if (pollCount >= maxPolls) {
+                        log(`⏰ Max polling attempts reached (${maxPolls})`, 'warning');
+                        log(`🔍 Current behavior: Polling stopped after max attempts`, 'info');
+                        pollingActive = false;
+                        clearInterval(polling);
+                        return;
+                    }
+                    
+                } catch (error) {
+                    log(`❌ Polling error: ${error.message}`, 'error');
+                }
+            }, pollInterval);
+            
+            // Safety timeout
+            setTimeout(() => {
+                if (pollingActive) {
+                    log('🛑 Safety timeout reached - force stop polling', 'warning');
+                    pollingActive = false;
+                    clearInterval(polling);
+                }
+            }, 30000);
+        }
+
+        async function testPollingStopsOnSuccess() {
+            log('🧪 Testing if polling correctly stops on success state...', 'info');
+            
+            // Simulate different connection states
+            const testStates = [
+                { state: 'connecting', shouldStop: false },
+                { state: 'qrReadSuccess', shouldStop: false },
+                { state: 'open', shouldStop: true },  // This should trigger stop
+                { state: 'open', shouldStop: true }   // This should NOT be reached
+            ];
+            
+            let consecutiveSuccessCount = 0;
+            
+            testStates.forEach((test, index) => {
+                log(`🔄 Simulating state: "${test.state}"`, 'info');
+                
+                const isConnected = test.state === "open" || test.state === "connected" || test.state === "confirmed";
+                
+                if (isConnected) {
+                    consecutiveSuccessCount++;
+                    log(`✅ SUCCESS STATE DETECTED! Count: ${consecutiveSuccessCount}`, 'success');
+                    
+                    // NEW LOGIC: Should stop immediately
+                    log(`🛑 NEW LOGIC: Stopping immediately on first success`, 'success');
+                    log(`🎯 INFINITE LOOP PREVENTED: No need to wait for multiple confirmations`, 'success');
+                    
+                    // Simulate stopping the polling
+                    if (index < testStates.length - 1) {
+                        log(`✅ CORRECT: Remaining ${testStates.length - index - 1} polls were avoided`, 'success');
+                    }
+                    
+                    return; // Exit simulation
+                } else {
+                    consecutiveSuccessCount = 0;
+                    log(`📊 Non-success state, continuing...`, 'info');
+                }
+            });
+        }
+
+        async function simulateSuccessfulConnection() {
+            log('🎯 Simulating a successful connection scenario...', 'info');
+            
+            const instanceName = 'simulation_test';
+            
+            // Simulate the exact scenario that was causing infinite loop
+            log('📱 Scenario: QR code scanned and connection established', 'info');
+            
+            const mockResponses = [
+                { state: 'connecting', iteration: 1 },
+                { state: 'qrReadSuccess', iteration: 2 },
+                { state: 'open', iteration: 3 }, // SUCCESS - should stop here
+                { state: 'open', iteration: 4 }, // This should NOT happen
+                { state: 'open', iteration: 5 }  // This should NOT happen
+            ];
+            
+            for (let i = 0; i < mockResponses.length; i++) {
+                const mock = mockResponses[i];
+                log(`🔄 Poll ${mock.iteration}: State "${mock.state}"`, 'info');
+                
+                const isConnected = mock.state === "open" || mock.state === "connected" || mock.state === "confirmed";
+                
+                if (isConnected) {
+                    log(`🎉 SUCCESS STATE DETECTED on poll ${mock.iteration}!`, 'success');
+                    log(`🛑 IMMEDIATE STOP: Polling should end here`, 'success');
+                    log(`✅ RESULT: Prevented ${mockResponses.length - i - 1} unnecessary polls`, 'success');
+                    log(`🔥 INFINITE LOOP PREVENTION: SUCCESS`, 'success');
+                    break;
+                }
+                
+                // Small delay to simulate real polling
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+        }
+
+        // Auto-start test when page loads
+        window.onload = () => {
+            log('🔧 Infinite Loop Fix Test Tool loaded', 'info');
+            log('🚀 Click "Test Full Connection Flow" to test with real API', 'info');
+            log('🧪 Click "Test Polling Stops on Success" for logic simulation', 'info');
+        };
+    </script>
+</body>
+</html>

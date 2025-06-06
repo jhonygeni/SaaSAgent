@@ -51,18 +51,22 @@ export interface WhatsAppInstanceResponse {
   };
 }
 
-// Connection state response - updated to handle different API response formats
+// Connection state response - updated to match Evolution API v2 format
+// GET /instance/connectionState/{instance} returns: { "instance": { "instanceName": "name", "state": "open" } }
 export interface ConnectionStateResponse {
+  // Evolution API v2 format
+  instance?: {
+    instanceName?: string;
+    state?: string; // "open", "close", "connecting", etc.
+    status?: string; // Some responses may include both state and status
+  };
+  
+  // Legacy/fallback properties for backward compatibility
   status?: string;
   state?: string;
   message?: string;
-  instance?: {
-    instanceName?: string;
-    state?: string;
-    status?: string;
-  };
-  qrCode?: string;  // Add this missing property
-  error?: boolean;   // Add this missing property
+  qrCode?: string;
+  error?: boolean;
 }
 
 // Instance info response

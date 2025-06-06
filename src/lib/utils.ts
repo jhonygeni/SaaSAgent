@@ -48,6 +48,7 @@ export async function sendAgentToWebhook(agent: Agent): Promise<boolean> {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "Accept": "application/json",
       },
       body: JSON.stringify(agent),
     });

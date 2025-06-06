@@ -46,6 +46,8 @@ const supabaseClient = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
   global: {
     headers: {
       'X-Client-Info': 'conversa-ai-brasil@1.0.0',
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
     },
   },
 });

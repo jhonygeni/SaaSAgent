@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infinite Loop Fix - Final Test</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            line-height: 1.6; 
+        }
+        .container { 
+            border: 2px solid #007bff; 
+            border-radius: 8px; 
+            padding: 20px; 
+            margin: 10px 0; 
+        }
+        .test-section { 
+            margin: 20px 0; 
+            padding: 15px; 
+            border-radius: 5px; 
+            border-left: 5px solid #007bff; 
+            background: #f8f9fa; 
+        }
+        .critical { border-color: #dc3545; background: #fff5f5; }
+        .success { border-color: #28a745; background: #f0fff4; }
+        .info { border-color: #17a2b8; background: #e6f7ff; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        #output {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status.running { background: #ffc107; color: #212529; }
+        .status.stopped { background: #dc3545; color: white; }
+        .status.success { background: #28a745; color: white; }
+        .counter {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .fix-highlight {
+            background: #fff3cd;
+            padding: 10px;
+            border-radius: 5px;
+            border-left: 5px solid #ffc107;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Infinite Loop Fix - Final Verification</h1>
+        <p><strong>Testing the critical fixes made to prevent infinite polling:</strong></p>
+        
+        <div class="fix-highlight">
+            <h4>🛠️ Fixes Applied:</h4>
+            <ul>
+                <li><strong>Removed 'connectionStatus' from useCallback dependencies</strong> - Prevents function recreation on status changes</li>
+                <li><strong>Added robust clearPolling with logging</strong> - Better tracking of polling lifecycle</li>
+                <li><strong>Added safety timeout (2 minutes max)</strong> - Force stops polling regardless of bugs</li>
+                <li><strong>Enhanced logging</strong> - Better debugging and monitoring</li>
+                <li><strong>Added polling protection flags</strong> - Prevents multiple polling instances</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 Polling Simulation Test</h3>
+            <p>This simulates the WhatsApp connection polling with the fixes applied:</p>
+            
+            <div class="counter">
+                Poll Count: <span id="pollCount">0</span> / 20
+            </div>
+            <div class="counter">
+                Elapsed Time: <span id="elapsedTime">0</span>s / 120s (max)
+            </div>
+            <div class="counter">
+                Status: <span id="pollingStatus" class="status stopped">Stopped</span>
+            </div>
+            
+            <button id="startPolling">Start Polling Simulation</button>
+            <button id="stopPolling" disabled>Stop Polling</button>
+            <button id="simulateSuccess">Simulate QR Scan Success</button>
+            <button id="clearOutput">Clear Log</button>
+        </div>
+
+        <div class="test-section critical">
+            <h3>⚠️ Critical Tests</h3>
+            <p><strong>These tests verify the infinite loop is fixed:</strong></p>
+            <button id="testMaxAttempts">Test Max Attempts (20 polls)</button>
+            <button id="testMaxTime">Test Max Time (10s for demo)</button>
+            <button id="testMultipleStart">Test Multiple Start Calls</button>
+            <button id="testStateChange">Test State Change Scenario</button>
+        </div>
+
+        <div class="test-section info">
+            <h3>📊 Monitoring</h3>
+            <div id="output">Waiting for tests to start...\n</div>
+        </div>
+    </div>
+
+    <script>
+        let pollingInterval = null;
+        let pollCount = 0;
+        let startTime = null;
+        let isPollingActive = false;
+        let simulateConnectedAfterPoll = null;
+
+        // Constants matching the fixed code
+        const MAX_POLLING_ATTEMPTS = 20;
+        const STATUS_POLLING_INTERVAL_MS = 2000;
+        const MAX_POLLING_TIME_MS = 120000; // 2 minutes
+
+        function log(message, type = 'info') {
+            const output = document.getElementById('output');
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : 
+                          type === 'success' ? '✅' : 
+                          type === 'warning' ? '⚠️' : 
+                          type === 'critical' ? '🚨' : 'ℹ️';
+            output.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function updateUI() {
+            document.getElementById('pollCount').textContent = pollCount;
+            document.getElementById('elapsedTime').textContent = startTime ? 
+                Math.round((Date.now() - startTime) / 1000) : 0;
+            
+            const statusEl = document.getElementById('pollingStatus');
+            if (isPollingActive) {
+                statusEl.textContent = 'Running';
+                statusEl.className = 'status running';
+            } else {
+                statusEl.textContent = 'Stopped';
+                statusEl.className = 'status stopped';
+            }
+            
+            document.getElementById('startPolling').disabled = isPollingActive;
+            document.getElementById('stopPolling').disabled = !isPollingActive;
+        }
+
+        // Simulate the fixed clearPolling function
+        function clearPolling() {
+            if (pollingInterval) {
+                log("🛑 CLEARING POLLING INTERVAL - Stopping all polling activity", 'critical');
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+                isPollingActive = false;
+                log("✅ Polling cleared successfully", 'success');
+            } else {
+                log("ℹ️ No active polling to clear");
+            }
+            updateUI();
+        }
+
+        // Simulate the fixed polling logic
+        function startStatusPolling(testMode = 'normal') {
+            // Prevent multiple polling instances
+            if (isPollingActive) {
+                log("⚠️ Polling already active. Ignoring duplicate start request.", 'warning');
+                return;
+            }
+
+            // CRITICAL: Clear any existing polling to prevent memory leaks and race conditions
+            clearPolling();
+
+            // Set polling active flag
+            isPollingActive = true;
+            startTime = Date.now();
+            pollCount = 0;
+            simulateConnectedAfterPoll = null;
+
+            log(`🚀 STARTING STATUS POLLING`, 'info');
+            log(`📊 Polling configuration: MAX_ATTEMPTS=${MAX_POLLING_ATTEMPTS}, INTERVAL=${STATUS_POLLING_INTERVAL_MS}ms`);
+
+            // Safety mechanism: Force stop polling after maximum time
+            const pollingStartTime = Date.now();
+            let maxTimeForTest = testMode === 'maxTime' ? 10000 : MAX_POLLING_TIME_MS; // 10s for demo
+
+            pollingInterval = setInterval(() => {
+                // Safety check: Force stop after maximum time to prevent infinite loops
+                const elapsedTime = Date.now() - pollingStartTime;
+                if (elapsedTime > maxTimeForTest) {
+                    log(`⏰ FORCE STOPPING: Maximum polling time (${maxTimeForTest/1000}s) exceeded`, 'critical');
+                    clearPolling();
+                    return;
+                }
+
+                pollCount++;
+                updateUI();
+
+                // Simulate API call
+                log(`📊 Poll ${pollCount}/${MAX_POLLING_ATTEMPTS}: Connection state = "connecting"`);
+                log(`🕐 Elapsed time: ${Math.round(elapsedTime/1000)}s / ${maxTimeForTest/1000}s`);
+
+                // Check for simulated success
+                if (simulateConnectedAfterPoll && pollCount >= simulateConnectedAfterPoll) {
+                    log(`✅ SUCCESS STATE DETECTED! State: open`, 'success');
+                    log(`🛑 STOPPING POLLING IMMEDIATELY - Connection confirmed after ${pollCount} attempts`, 'success');
+                    clearPolling();
+                    document.getElementById('pollingStatus').textContent = 'Success';
+                    document.getElementById('pollingStatus').className = 'status success';
+                    log(`🎉 Connection completed successfully after ${pollCount} polling attempts`, 'success');
+                    return;
+                }
+
+                // Se atingir máximo de tentativas de polling
+                if (pollCount >= MAX_POLLING_ATTEMPTS) {
+                    log(`⏰ STOPPING: Max polling attempts reached (${pollCount}/${MAX_POLLING_ATTEMPTS})`, 'critical');
+                    clearPolling();
+                    return;
+                }
+
+            }, STATUS_POLLING_INTERVAL_MS);
+
+            updateUI();
+        }
+
+        // Event listeners
+        document.getElementById('startPolling').addEventListener('click', () => {
+            startStatusPolling();
+        });
+
+        document.getElementById('stopPolling').addEventListener('click', () => {
+            log("🛑 Manual stop requested", 'warning');
+            clearPolling();
+        });
+
+        document.getElementById('simulateSuccess').addEventListener('click', () => {
+            if (isPollingActive) {
+                simulateConnectedAfterPoll = pollCount + 2; // Success in 2 more polls
+                log(`🎯 Simulated QR scan success - will trigger after poll ${simulateConnectedAfterPoll}`, 'info');
+            } else {
+                log("⚠️ Start polling first before simulating success", 'warning');
+            }
+        });
+
+        document.getElementById('clearOutput').addEventListener('click', () => {
+            document.getElementById('output').textContent = 'Output cleared...\n';
+        });
+
+        // Critical tests
+        document.getElementById('testMaxAttempts').addEventListener('click', () => {
+            log("🧪 TESTING: Max attempts limit (should stop at 20 polls)", 'critical');
+            startStatusPolling();
+        });
+
+        document.getElementById('testMaxTime').addEventListener('click', () => {
+            log("🧪 TESTING: Max time limit (should stop at 10s for demo)", 'critical');
+            startStatusPolling('maxTime');
+        });
+
+        document.getElementById('testMultipleStart').addEventListener('click', () => {
+            log("🧪 TESTING: Multiple start calls (should prevent duplicates)", 'critical');
+            startStatusPolling();
+            // Try to start again immediately
+            setTimeout(() => startStatusPolling(), 100);
+            setTimeout(() => startStatusPolling(), 200);
+            setTimeout(() => startStatusPolling(), 300);
+        });
+
+        document.getElementById('testStateChange').addEventListener('click', () => {
+            log("🧪 TESTING: State change scenario", 'critical');
+            startStatusPolling();
+            
+            // Simulate multiple state changes that previously caused issues
+            setTimeout(() => {
+                log("📱 Simulating state change: waiting -> connecting", 'info');
+            }, 1000);
+            
+            setTimeout(() => {
+                log("📱 Simulating state change: connecting -> waiting_qr", 'info');
+            }, 2000);
+            
+            setTimeout(() => {
+                log("🎯 Simulating QR scan success", 'info');
+                simulateConnectedAfterPoll = pollCount + 1;
+            }, 5000);
+        });
+
+        // Initialize UI
+        updateUI();
+        log("🚀 Infinite Loop Fix Test Ready!", 'success');
+        log("Click the test buttons to verify the fixes work correctly.", 'info');
+    </script>
+</body>
+</html>

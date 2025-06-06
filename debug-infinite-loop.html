@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Infinite Loop - WhatsApp Connection</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .log { background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .error { background: #ffe6e6; border: 1px solid #ff9999; }
+        .success { background: #e6ffe6; border: 1px solid #99ff99; }
+        .info { background: #e6f3ff; border: 1px solid #99ccff; }
+        button { padding: 10px 20px; margin: 5px; }
+        #output { max-height: 400px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>🐛 Debug Infinite Loop - WhatsApp Connection</h1>
+    
+    <div>
+        <button onclick="testConnectionFlow()">🔄 Test Full Connection Flow</button>
+        <button onclick="testPollingLogic()">📊 Test Polling Logic</button>
+        <button onclick="testStateTransitions()">🔄 Test State Transitions</button>
+        <button onclick="clearLogs()">🧹 Clear Logs</button>
+    </div>
+
+    <div id="output"></div>
+
+    <script>
+        function log(message, type = 'info') {
+            const output = document.getElementById('output');
+            const div = document.createElement('div');
+            div.className = `log ${type}`;
+            div.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            output.appendChild(div);
+            output.scrollTop = output.scrollHeight;
+            console.log(message);
+        }
+
+        function clearLogs() {
+            document.getElementById('output').innerHTML = '';
+        }
+
+        async function testConnectionFlow() {
+            log('🚀 Starting full connection flow test...', 'info');
+            
+            try {
+                // Test QR Code Generation
+                log('📱 Step 1: Testing QR code generation', 'info');
+                const qrResponse = await fetch('/api/evolution/qrcode', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ instanceName: 'test_instance_debug' })
+                });
+                
+                if (!qrResponse.ok) {
+                    throw new Error(`QR Code failed: ${qrResponse.status}`);
+                }
+                
+                const qrData = await qrResponse.json();
+                log(`✅ QR Code generated: ${qrData.success ? 'SUCCESS' : 'FAILED'}`, qrData.success ? 'success' : 'error');
+                
+                if (qrData.success) {
+                    // Test Status Polling
+                    log('🔄 Step 2: Testing status polling', 'info');
+                    
+                    let pollCount = 0;
+                    const maxPolls = 5;
+                    const pollInterval = 2000;
+                    
+                    const polling = setInterval(async () => {
+                        pollCount++;
+                        log(`📊 Poll #${pollCount}: Checking connection state`, 'info');
+                        
+                        try {
+                            const statusResponse = await fetch('/api/evolution/status', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ instanceName: 'test_instance_debug' })
+                            });
+                            
+                            const statusData = await statusResponse.json();
+                            const state = statusData?.instance?.state || statusData?.state || 'unknown';
+                            
+                            log(`📡 Connection state: ${state}`, 'info');
+                            
+                            // Check for terminal states
+                            if (state === 'open' || state === 'connected' || state === 'confirmed') {
+                                log(`🎉 SUCCESS STATE DETECTED! Stopping polling immediately.`, 'success');
+                                clearInterval(polling);
+                                return;
+                            }
+                            
+                            if (state === 'close' || state === 'error' || state === 'disconnected') {
+                                log(`❌ ERROR STATE DETECTED: ${state}`, 'error');
+                                clearInterval(polling);
+                                return;
+                            }
+                            
+                            if (pollCount >= maxPolls) {
+                                log(`⏰ Max polling attempts reached (${maxPolls})`, 'error');
+                                clearInterval(polling);
+                                return;
+                            }
+                            
+                        } catch (error) {
+                            log(`❌ Polling error: ${error.message}`, 'error');
+                        }
+                    }, pollInterval);
+                    
+                    // Set a safety timeout
+                    setTimeout(() => {
+                        clearInterval(polling);
+                        log('🛑 Safety timeout reached - stopping polling', 'error');
+                    }, 30000);
+                }
+                
+            } catch (error) {
+                log(`❌ Test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testPollingLogic() {
+            log('🔬 Testing polling logic patterns...', 'info');
+            
+            // Simulate different connection states
+            const states = [
+                'getting',
+                'connecting', 
+                'open',     // Success state
+                'open',     // Consecutive success - should stop here
+            ];
+            
+            let consecutiveSuccessCount = 0;
+            const CONSECUTIVE_SUCCESS_THRESHOLD = 2; // Current buggy threshold
+            
+            states.forEach((state, index) => {
+                log(`🔄 Simulating state: ${state}`, 'info');
+                
+                const isConnected = state === "open" || state === "connected" || state === "confirmed";
+                
+                if (isConnected) {
+                    consecutiveSuccessCount++;
+                    log(`✅ SUCCESS STATE! Consecutive count: ${consecutiveSuccessCount}`, 'success');
+                    
+                    // OLD BUGGY LOGIC
+                    if (consecutiveSuccessCount >= CONSECUTIVE_SUCCESS_THRESHOLD) {
+                        log(`🛑 OLD LOGIC: Would stop after ${CONSECUTIVE_SUCCESS_THRESHOLD} confirmations`, 'error');
+                    } else {
+                        log(`⏳ OLD LOGIC: Waiting for ${CONSECUTIVE_SUCCESS_THRESHOLD - consecutiveSuccessCount} more confirmations...`, 'error');
+                    }
+                    
+                    // NEW IMMEDIATE LOGIC
+                    log(`🛑 NEW LOGIC: Should stop immediately on first success!`, 'success');
+                    
+                } else {
+                    consecutiveSuccessCount = 0;
+                    log(`📊 Non-success state, reset counter`, 'info');
+                }
+            });
+        }
+
+        async function testStateTransitions() {
+            log('🔄 Testing state transition scenarios...', 'info');
+            
+            // Test various Evolution API v2 states
+            const testStates = [
+                'connecting',
+                'qrReadSuccess', 
+                'open',          // Should stop here
+                'open',          // This would be second poll - should NOT happen
+            ];
+            
+            testStates.forEach((state, index) => {
+                const shouldStop = state === 'open' || state === 'connected' || state === 'confirmed';
+                
+                log(`📡 State ${index + 1}: ${state} | Should stop: ${shouldStop}`, shouldStop ? 'success' : 'info');
+                
+                if (shouldStop) {
+                    log(`🛑 CRITICAL: Polling should STOP here to prevent infinite loop!`, 'success');
+                }
+            });
+        }
+
+        // Auto-run tests when page loads
+        window.onload = () => {
+            log('🔧 Debug tool loaded. Click buttons to run tests.', 'info');
+        };
+    </script>
+</body>
+</html>

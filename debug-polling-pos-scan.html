@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Polling Pós-Scan QR Code</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            line-height: 1.6; 
+        }
+        .container { 
+            border: 2px solid #dc3545; 
+            border-radius: 8px; 
+            padding: 20px; 
+            margin: 10px 0; 
+            background: #fff5f5;
+        }
+        .test-section { 
+            margin: 20px 0; 
+            padding: 15px; 
+            border-radius: 5px; 
+            border-left: 5px solid #dc3545; 
+            background: #f8f9fa; 
+        }
+        .critical { border-color: #dc3545; background: #fff5f5; }
+        .success { border-color: #28a745; background: #f0fff4; }
+        .info { border-color: #17a2b8; background: #e6f7ff; }
+        button {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #c82333; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        #output {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            max-height: 500px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 11px;
+            white-space: pre-wrap;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status.running { background: #ffc107; color: #212529; }
+        .status.stopped { background: #dc3545; color: white; }
+        .status.success { background: #28a745; color: white; }
+        .counter {
+            font-size: 16px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .api-response {
+            background: #fff;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 11px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐛 Debug: Polling Continua Após Scan QR Code</h1>
+        <p><strong>PROBLEMA:</strong> O polling continua mesmo depois de escanear o código QR</p>
+        <p><strong>OBJETIVO:</strong> Capturar as respostas reais da API para entender por que a detecção de sucesso falha</p>
+
+        <div class="test-section critical">
+            <h3>🎯 Teste de Captura de Estado Real</h3>
+            <p>Este teste vai capturar a resposta real da Evolution API e mostrar exatamente o que está sendo retornado.</p>
+            
+            <div class="counter">
+                Instância de Teste: <input type="text" id="instanceName" value="test-debug-scan" placeholder="Nome da instância">
+            </div>
+            
+            <button id="startDebugPolling">🔍 Iniciar Debug Polling</button>
+            <button id="stopDebugPolling" disabled>⏹️ Parar Debug</button>
+            <button id="testSingleCall">📡 Teste Uma Chamada</button>
+            <button id="clearLog">🧹 Limpar Log</button>
+        </div>
+
+        <div class="test-section info">
+            <h3>📊 Status do Debug</h3>
+            <div class="counter">
+                Polls Executados: <span id="pollCount">0</span>
+            </div>
+            <div class="counter">
+                Status: <span id="debugStatus" class="status stopped">Parado</span>
+            </div>
+            <div class="counter">
+                Último Estado Detectado: <span id="lastState">-</span>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>📡 Última Resposta da API</h3>
+            <div id="lastApiResponse" class="api-response">Aguardando primeira chamada...</div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔍 Análise de Estados</h3>
+            <div id="stateAnalysis" class="api-response">
+                <strong>Estados esperados:</strong>
+                - "connecting" = Aguardando scan do QR
+                - "open" = Conectado com sucesso ✅
+                - "connected" = Conectado (formato alternativo) ✅
+                - "close" = Desconectado
+                - "disconnected" = Desconectado
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>📋 Log Detalhado</h3>
+            <div id="output">Aguardando início do debug...\n</div>
+        </div>
+    </div>
+
+    <script>
+        let debugInterval = null;
+        let pollCount = 0;
+        let isDebugging = false;
+
+        function log(message, type = 'info') {
+            const output = document.getElementById('output');
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : 
+                          type === 'success' ? '✅' : 
+                          type === 'warning' ? '⚠️' : 
+                          type === 'critical' ? '🚨' : 
+                          type === 'api' ? '📡' : 'ℹ️';
+            output.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function updateUI() {
+            document.getElementById('pollCount').textContent = pollCount;
+            
+            const statusEl = document.getElementById('debugStatus');
+            if (isDebugging) {
+                statusEl.textContent = 'Executando';
+                statusEl.className = 'status running';
+            } else {
+                statusEl.textContent = 'Parado';
+                statusEl.className = 'status stopped';
+            }
+            
+            document.getElementById('startDebugPolling').disabled = isDebugging;
+            document.getElementById('stopDebugPolling').disabled = !isDebugging;
+        }
+
+        function formatApiResponse(data) {
+            return JSON.stringify(data, null, 2);
+        }
+
+        function analyzeState(data) {
+            const states = [];
+            
+            // Verificar todos os campos possíveis onde o estado pode estar
+            if (data?.instance?.state) states.push(`instance.state: "${data.instance.state}"`);
+            if (data?.instance?.status) states.push(`instance.status: "${data.instance.status}"`);
+            if (data?.state) states.push(`state: "${data.state}"`);
+            if (data?.status) states.push(`status: "${data.status}"`);
+            
+            return states.length > 0 ? states.join(', ') : 'Nenhum estado encontrado';
+        }
+
+        async function callConnectionState(instanceName) {
+            try {
+                log(`📡 Chamando API para instância: ${instanceName}`, 'api');
+                
+                // Detectar ambiente (development vs production)
+                const isDev = window.location.hostname === 'localhost';
+                let url;
+                
+                if (isDev) {
+                    // Development: Usar Supabase Edge Function
+                    url = `/_supabase/functions/v1/evolution-api`;
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            action: 'getConnectionState',
+                            instanceName: instanceName
+                        })
+                    });
+                    return await response.json();
+                } else {
+                    // Production: Usar Vercel API Routes
+                    url = `/api/evolution/status?instance=${encodeURIComponent(instanceName)}`;
+                    const response = await fetch(url, {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        }
+                    });
+                    return await response.json();
+                }
+            } catch (error) {
+                log(`❌ Erro na chamada API: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+
+        async function performSingleTest() {
+            const instanceName = document.getElementById('instanceName').value.trim();
+            if (!instanceName) {
+                log('⚠️ Por favor, informe o nome da instância', 'warning');
+                return;
+            }
+
+            try {
+                const data = await callConnectionState(instanceName);
+                
+                log(`📡 Resposta recebida:`, 'api');
+                log(formatApiResponse(data), 'api');
+                
+                // Atualizar UI com a resposta
+                document.getElementById('lastApiResponse').textContent = formatApiResponse(data);
+                
+                // Analisar estados
+                const stateAnalysis = analyzeState(data);
+                document.getElementById('lastState').textContent = stateAnalysis;
+                
+                log(`🔍 Estados detectados: ${stateAnalysis}`, 'info');
+                
+                // Verificar se é um estado de sucesso
+                const connectionState = data?.instance?.state || data?.state || data?.status;
+                const isConnected = connectionState === "open" || connectionState === "connected" || connectionState === "confirmed";
+                
+                if (isConnected) {
+                    log(`✅ ESTADO DE SUCESSO DETECTADO! Estado: ${connectionState}`, 'success');
+                } else {
+                    log(`ℹ️ Estado atual: ${connectionState} (não é sucesso)`, 'info');
+                }
+                
+            } catch (error) {
+                log(`❌ Erro no teste: ${error.message}`, 'error');
+                document.getElementById('lastApiResponse').textContent = `Erro: ${error.message}`;
+            }
+        }
+
+        function startDebugPolling() {
+            const instanceName = document.getElementById('instanceName').value.trim();
+            if (!instanceName) {
+                log('⚠️ Por favor, informe o nome da instância', 'warning');
+                return;
+            }
+
+            if (isDebugging) {
+                log('⚠️ Debug já está executando', 'warning');
+                return;
+            }
+
+            isDebugging = true;
+            pollCount = 0;
+            updateUI();
+
+            log(`🚀 INICIANDO DEBUG POLLING para instância: ${instanceName}`, 'critical');
+            log(`📊 Configuração: Intervalo de 3 segundos`, 'info');
+
+            debugInterval = setInterval(async () => {
+                pollCount++;
+                updateUI();
+
+                try {
+                    log(`\n--- POLL #${pollCount} ---`, 'info');
+                    const data = await callConnectionState(instanceName);
+                    
+                    log(`📡 Resposta do poll #${pollCount}:`, 'api');
+                    log(formatApiResponse(data), 'api');
+                    
+                    // Atualizar UI
+                    document.getElementById('lastApiResponse').textContent = formatApiResponse(data);
+                    
+                    // Analisar estados
+                    const stateAnalysis = analyzeState(data);
+                    document.getElementById('lastState').textContent = stateAnalysis;
+                    
+                    // Verificar lógica de detecção de sucesso
+                    const connectionState = data?.instance?.state || data?.state || data?.status;
+                    log(`🔍 Estado detectado: "${connectionState}"`, 'info');
+                    
+                    // Aplicar a mesma lógica do código real
+                    const isConnected = connectionState === "open" || connectionState === "connected" || connectionState === "confirmed";
+                    
+                    if (isConnected) {
+                        log(`✅ ESTADO DE SUCESSO DETECTADO! Estado: ${connectionState}`, 'success');
+                        log(`🛑 PARANDO DEBUG - Conexão confirmada`, 'success');
+                        stopDebugPolling();
+                        return;
+                    } else {
+                        log(`ℹ️ Estado atual: "${connectionState}" (continuando polling...)`, 'info');
+                    }
+                    
+                    // Parar após 20 tentativas para evitar spam
+                    if (pollCount >= 20) {
+                        log(`⏰ PARANDO: Máximo de 20 tentativas atingido`, 'warning');
+                        stopDebugPolling();
+                    }
+                    
+                } catch (error) {
+                    log(`❌ Erro no poll #${pollCount}: ${error.message}`, 'error');
+                }
+            }, 3000); // 3 segundos de intervalo
+        }
+
+        function stopDebugPolling() {
+            if (debugInterval) {
+                clearInterval(debugInterval);
+                debugInterval = null;
+            }
+            isDebugging = false;
+            updateUI();
+            log(`🛑 DEBUG POLLING PARADO após ${pollCount} tentativas`, 'critical');
+        }
+
+        // Event listeners
+        document.getElementById('startDebugPolling').addEventListener('click', startDebugPolling);
+        document.getElementById('stopDebugPolling').addEventListener('click', stopDebugPolling);
+        document.getElementById('testSingleCall').addEventListener('click', performSingleTest);
+        document.getElementById('clearLog').addEventListener('click', () => {
+            document.getElementById('output').textContent = 'Log limpo...\n';
+            pollCount = 0;
+            updateUI();
+        });
+
+        // Initialize
+        updateUI();
+        log('🚀 Debug Tool Pronto!', 'success');
+        log('📋 Instruções:', 'info');
+        log('1. Informe o nome da instância de teste', 'info');
+        log('2. Clique em "Teste Uma Chamada" para verificar a resposta atual', 'info');
+        log('3. Use "Iniciar Debug Polling" para monitorar continuamente', 'info');
+        log('4. Escaneie o QR code e observe se o estado muda para "open"', 'info');
+    </script>
+</body>
+</html>

@@ -98,14 +98,36 @@ export function useConnectionPoller(
         
         // Enhanced status check to handle different response formats
         // The API returns different field names in different contexts, so we check multiple fields
-        const state = stateData?.state || stateData?.status;
+        const primaryState = stateData?.state || stateData?.status;
+        const instanceState = stateData?.instance?.state || stateData?.instance?.status;
+        const alternativeState = stateData?.connectionStatus || stateData?.connection?.state;
+        const isInstanceConnected = stateData?.instance?.isConnected === true;
+        const hasUserInfo = !!(stateData?.instance?.user?.id || stateData?.user?.id);
+        
+        // ENHANCED: More comprehensive success detection
+        const isConnectedByPrimary = primaryState === "open" || primaryState === "connected" || primaryState === "confirmed";
+        const isConnectedByInstance = instanceState === "open" || instanceState === "connected" || instanceState === "confirmed";
+        const isConnectedByAlt = alternativeState === "open" || alternativeState === "connected" || alternativeState === "confirmed";
+        const isConnectedByFlag = isInstanceConnected === true;
+        const isConnectedByUserPresence = hasUserInfo && (primaryState !== "close" && instanceState !== "close");
+        
+        const isConnected = isConnectedByPrimary || isConnectedByInstance || isConnectedByAlt || isConnectedByFlag || isConnectedByUserPresence;
+        
+        console.log(`🔍 State analysis: primary="${primaryState}", instance="${instanceState}", alt="${alternativeState}", flag=${isInstanceConnected}, hasUser=${hasUserInfo}`);
         
         // If state is connected/open/confirmed, stop polling and mark as connected
-        if (state === "open" || state === "connected" || state === "confirmed") {
-          console.log("Connection detected as CONNECTED!");
+        if (isConnected) {
+          const successReasons = [];
+          if (isConnectedByPrimary) successReasons.push(`primary="${primaryState}"`);
+          if (isConnectedByInstance) successReasons.push(`instance="${instanceState}"`);
+          if (isConnectedByAlt) successReasons.push(`alt="${alternativeState}"`);
+          if (isConnectedByFlag) successReasons.push(`flag=true`);
+          if (isConnectedByUserPresence) successReasons.push(`user present`);
+          
+          console.log(`🎉 Connection detected as CONNECTED! Reasons: [${successReasons.join(', ')}]`);
           const phoneNumber = await handleSuccessfulConnection(instanceName);
           return phoneNumber;
-        } else if (state === "connecting" || state === "loading") {
+        } else if (primaryState === "connecting" || primaryState === "loading" || instanceState === "connecting") {
           console.log("Still connecting or loading QR code...");
           
           // If using mock data and this is the 5th attempt, simulate success
@@ -114,7 +136,8 @@ export function useConnectionPoller(
             const phoneNumber = await handleSuccessfulConnection(instanceName);
             return phoneNumber;
           }
-        } else if (state === "close" || state === "disconnected") {
+        } else if (primaryState === "close" || primaryState === "disconnected" || 
+                   instanceState === "close" || instanceState === "disconnected") {
           console.log("Connection is closed or disconnected");
           
           // If it's disconnected for more than a few attempts, refresh the QR code

@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-World Infinite Loop Fix Test</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 1400px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            background: #f8f9fa;
+        }
+        .container { 
+            background: white;
+            border-radius: 8px; 
+            padding: 20px; 
+            margin: 10px 0; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .critical { 
+            border-left: 5px solid #dc3545; 
+            background: #fff5f5; 
+        }
+        .success { 
+            border-left: 5px solid #28a745; 
+            background: #f0fff4; 
+        }
+        .info { 
+            border-left: 5px solid #17a2b8; 
+            background: #e6f7ff; 
+        }
+        .warning { 
+            border-left: 5px solid #ffc107; 
+            background: #fffbf0; 
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 8px;
+            font-size: 14px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        button.danger { background: #dc3545; }
+        button.danger:hover { background: #c82333; }
+        button.success { background: #28a745; }
+        button.success:hover { background: #218838; }
+        
+        .status-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .metric {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+        
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        
+        .metric-label {
+            font-size: 14px;
+            color: #6c757d;
+        }
+        
+        #console {
+            background: #000;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            padding: 15px;
+            border-radius: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+        }
+        
+        .fix-status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .fix-status.applied { background: #d4edda; color: #155724; }
+        .fix-status.testing { background: #fff3cd; color: #856404; }
+        .fix-status.verified { background: #d1ecf1; color: #0c5460; }
+        
+        .timeline {
+            border-left: 3px solid #007bff;
+            padding-left: 20px;
+            margin: 20px 0;
+        }
+        
+        .timeline-item {
+            margin: 15px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        
+        .timeline-time {
+            font-size: 12px;
+            color: #6c757d;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Real-World Infinite Loop Fix Test</h1>
+        <p><strong>Testing the infinite loop fix in real conditions with actual API calls</strong></p>
+        
+        <div class="container warning">
+            <h3>⚠️ Critical Fixes Applied</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px; margin: 15px 0;">
+                <div>
+                    <span class="fix-status applied">Applied</span>
+                    <strong>useCallback Dependency Fix</strong><br>
+                    <small>Removed 'connectionStatus' from dependencies to prevent function recreation</small>
+                </div>
+                <div>
+                    <span class="fix-status applied">Applied</span>
+                    <strong>Enhanced State Detection</strong><br>
+                    <small>Multiple fallback detection methods for API response formats</small>
+                </div>
+                <div>
+                    <span class="fix-status applied">Applied</span>
+                    <strong>Absolute Timeout</strong><br>
+                    <small>120-second maximum polling time regardless of bugs</small>
+                </div>
+                <div>
+                    <span class="fix-status applied">Applied</span>
+                    <strong>Polling Protection</strong><br>
+                    <small>Flags to prevent multiple concurrent polling instances</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-panel">
+            <div class="metric">
+                <div class="metric-value" id="requestCount">0</div>
+                <div class="metric-label">Total API Requests</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" id="elapsedTime">0s</div>
+                <div class="metric-label">Test Duration</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" id="pollingStatus">Stopped</div>
+                <div class="metric-label">Polling Status</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" id="memoryUsage">-</div>
+                <div class="metric-label">Est. Memory Usage</div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 Real API Test Controls</h3>
+            <p>Test the actual WhatsApp connection with real API calls to verify the infinite loop fix:</p>
+            
+            <div style="margin: 15px 0;">
+                <label for="instanceName"><strong>Instance Name:</strong></label>
+                <input type="text" id="instanceName" value="test_instance_fix" 
+                       style="margin-left: 10px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 200px;">
+            </div>
+            
+            <button onclick="startRealPollingTest()" id="startBtn">🚀 Start Real Polling Test</button>
+            <button onclick="simulateQRScan()" id="scanBtn" disabled>📱 Simulate QR Code Scan</button>
+            <button onclick="stopTest()" id="stopBtn" class="danger" disabled>🛑 Force Stop Test</button>
+            <button onclick="clearConsole()" class="success">🧹 Clear Console</button>
+        </div>
+
+        <div class="timeline" id="timeline">
+            <h4>📋 Test Timeline</h4>
+            <div class="timeline-item">
+                <div class="timeline-time">Ready</div>
+                <div>Test interface loaded and ready to begin</div>
+            </div>
+        </div>
+
+        <div class="container info">
+            <h4>📊 Real-Time Console Output</h4>
+            <div id="console">Waiting for test to begin...\n</div>
+        </div>
+    </div>
+
+    <script>
+        let testStartTime = null;
+        let requestCount = 0;
+        let pollingInterval = null;
+        let isPolling = false;
+        let testTimeout = null;
+        let memoryBaseline = null;
+
+        function log(message, type = 'info') {
+            const console = document.getElementById('console');
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : 'ℹ️';
+            
+            console.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+            console.scrollTop = console.scrollHeight;
+        }
+
+        function addTimelineItem(message, type = 'info') {
+            const timeline = document.getElementById('timeline');
+            const item = document.createElement('div');
+            item.className = 'timeline-item';
+            
+            const time = document.createElement('div');
+            time.className = 'timeline-time';
+            time.textContent = new Date().toLocaleTimeString();
+            
+            const content = document.createElement('div');
+            content.textContent = message;
+            if (type === 'error') content.style.color = '#dc3545';
+            if (type === 'success') content.style.color = '#28a745';
+            if (type === 'warning') content.style.color = '#ffc107';
+            
+            item.appendChild(time);
+            item.appendChild(content);
+            timeline.appendChild(item);
+        }
+
+        function updateMetrics() {
+            document.getElementById('requestCount').textContent = requestCount;
+            
+            if (testStartTime) {
+                const elapsed = Math.floor((Date.now() - testStartTime) / 1000);
+                document.getElementById('elapsedTime').textContent = elapsed + 's';
+            }
+            
+            document.getElementById('pollingStatus').textContent = isPolling ? 'Active' : 'Stopped';
+            
+            // Estimate memory usage (simplified)
+            if (performance.memory) {
+                const currentMemory = performance.memory.usedJSHeapSize;
+                if (!memoryBaseline) memoryBaseline = currentMemory;
+                const diff = Math.round((currentMemory - memoryBaseline) / 1024 / 1024 * 100) / 100;
+                document.getElementById('memoryUsage').textContent = diff > 0 ? `+${diff}MB` : `${diff}MB`;
+            }
+        }
+
+        async function makeAPIRequest(instanceName) {
+            try {
+                requestCount++;
+                log(`Making API request #${requestCount} for instance: ${instanceName}`);
+                
+                // Call our actual API endpoint
+                const response = await fetch(`/api/evolution/status?instance=${encodeURIComponent(instanceName)}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    log(`API Error (${response.status}): ${data.error || 'Unknown error'}`, 'error');
+                    return { error: true, message: data.error || 'API Error' };
+                }
+
+                log(`API Response: ${JSON.stringify(data)}`, 'info');
+                return data;
+
+            } catch (error) {
+                log(`Request failed: ${error.message}`, 'error');
+                return { error: true, message: error.message };
+            }
+        }
+
+        async function startRealPollingTest() {
+            const instanceName = document.getElementById('instanceName').value.trim();
+            if (!instanceName) {
+                alert('Please enter an instance name');
+                return;
+            }
+
+            // Reset state
+            testStartTime = Date.now();
+            requestCount = 0;
+            isPolling = true;
+            memoryBaseline = performance.memory ? performance.memory.usedJSHeapSize : null;
+
+            // Update UI
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('scanBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = false;
+
+            log(`🚀 STARTING REAL POLLING TEST for instance: ${instanceName}`, 'success');
+            addTimelineItem(`Started real polling test for instance: ${instanceName}`, 'success');
+
+            // Set absolute timeout (same as real application: 2 minutes)
+            testTimeout = setTimeout(() => {
+                log('⏰ ABSOLUTE TIMEOUT REACHED - Force stopping test (2 minutes)', 'warning');
+                addTimelineItem('Absolute timeout reached - test force stopped', 'warning');
+                stopTest();
+            }, 120000); // 2 minutes
+
+            // Start polling every 3 seconds (same as real application)
+            pollingInterval = setInterval(async () => {
+                if (!isPolling) return;
+
+                log(`📊 Polling attempt #${requestCount + 1}...`);
+                const result = await makeAPIRequest(instanceName);
+
+                // Apply the SAME enhanced detection logic from the real application
+                const connectionState = result?.instance?.state || result?.state || result?.status;
+                const alternativeState = result?.instance?.status || result?.connectionStatus || result?.connection?.state;
+                const isInstanceConnected = result?.instance?.isConnected === true;
+                const hasUserInfo = !!(result?.instance?.user?.id || result?.user?.id);
+
+                log(`🔍 Detection Analysis: state="${connectionState}", altState="${alternativeState}", connected=${isInstanceConnected}, hasUser=${hasUserInfo}`);
+
+                // Enhanced detection logic (exactly as implemented in the fix)
+                const isConnectedByState = connectionState === "open" || connectionState === "connected" || connectionState === "confirmed";
+                const isConnectedByAltState = alternativeState === "open" || alternativeState === "connected" || alternativeState === "confirmed";
+                const isConnectedByFlag = isInstanceConnected === true;
+                const isConnectedByUserPresence = hasUserInfo && (connectionState !== "close" && connectionState !== "disconnected");
+
+                const isConnected = isConnectedByState || isConnectedByAltState || isConnectedByFlag || isConnectedByUserPresence;
+
+                if (isConnected) {
+                    const successReasons = [];
+                    if (isConnectedByState) successReasons.push(`main state="${connectionState}"`);
+                    if (isConnectedByAltState) successReasons.push(`alt state="${alternativeState}"`);
+                    if (isConnectedByFlag) successReasons.push(`isConnected flag=true`);
+                    if (isConnectedByUserPresence) successReasons.push(`user info present`);
+
+                    log(`✅ SUCCESS STATE DETECTED! Reasons: [${successReasons.join(', ')}]`, 'success');
+                    addTimelineItem(`Connection success detected after ${requestCount} requests: ${successReasons.join(', ')}`, 'success');
+                    stopTest();
+                    return;
+                }
+
+                // Check for error states
+                const isErrorState = connectionState === "close" || 
+                                   connectionState === "error" || 
+                                   connectionState === "failed" ||
+                                   connectionState === "disconnected" ||
+                                   alternativeState === "close" ||
+                                   alternativeState === "error" ||
+                                   alternativeState === "disconnected" ||
+                                   result?.error === true;
+
+                if (isErrorState) {
+                    log(`❌ Error state detected: primary="${connectionState}", alt="${alternativeState}"`, 'error');
+                    addTimelineItem(`Error state detected: ${connectionState}`, 'error');
+                    stopTest();
+                    return;
+                }
+
+                updateMetrics();
+
+            }, 3000); // 3 seconds interval (same as real app)
+
+            // Start metrics update loop
+            const metricsInterval = setInterval(() => {
+                if (isPolling) {
+                    updateMetrics();
+                } else {
+                    clearInterval(metricsInterval);
+                }
+            }, 1000);
+        }
+
+        function simulateQRScan() {
+            log('📱 SIMULATING QR CODE SCAN - This should trigger success detection...', 'warning');
+            addTimelineItem('QR Code scan simulated', 'warning');
+            
+            // In a real scenario, this would change the API response to indicate connection success
+            // For testing, we'll just log that this action was taken
+            log('ℹ️ In real scenario: User scans QR code → API response changes → Enhanced detection should catch this', 'info');
+        }
+
+        function stopTest() {
+            isPolling = false;
+            
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+            }
+            
+            if (testTimeout) {
+                clearTimeout(testTimeout);
+                testTimeout = null;
+            }
+
+            // Update UI
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('scanBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = true;
+
+            const duration = testStartTime ? Math.floor((Date.now() - testStartTime) / 1000) : 0;
+            log(`🛑 TEST STOPPED - Duration: ${duration}s, Total Requests: ${requestCount}`, 'warning');
+            addTimelineItem(`Test stopped after ${duration}s and ${requestCount} requests`, 'warning');
+            
+            updateMetrics();
+        }
+
+        function clearConsole() {
+            document.getElementById('console').textContent = 'Console cleared...\n';
+        }
+
+        // Initial metrics update
+        updateMetrics();
+        
+        // Performance monitoring
+        setInterval(() => {
+            if (isPolling && performance.memory) {
+                const memory = performance.memory.usedJSHeapSize;
+                if (memory > memoryBaseline + 50 * 1024 * 1024) { // 50MB increase
+                    log(`⚠️ HIGH MEMORY USAGE DETECTED: +${Math.round((memory - memoryBaseline) / 1024 / 1024)}MB`, 'warning');
+                }
+            }
+        }, 10000); // Check every 10 seconds
+    </script>
+</body>
+</html>

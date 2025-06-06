@@ -19,6 +19,7 @@ export default async function handler(req: any, res: any) {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
         'apikey': apiKey,
       },
     });

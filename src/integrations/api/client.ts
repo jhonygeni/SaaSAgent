@@ -24,6 +24,7 @@ async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
 
     const headers = {
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
       'Authorization': `Bearer ${token}`,
       ...options.headers,
     };
@@ -48,6 +49,7 @@ async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
         headers: {
           ...headers,
           'Authorization': `Bearer ${session.access_token}`,
+          'Accept': 'application/json',
         },
       });
 

@@ -589,7 +589,7 @@ export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
             loading={isSubmitting || creatingAgent}
             onClick={handleSubmit}
           >
-            Criar e Conectarr
+            Criar e Conectar
           </Button>
         </div>
       </form>

@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { ConnectionStatus } from './whatsapp/types';
 import { whatsappService } from '../services/whatsappService';
@@ -108,6 +107,11 @@ export function useWhatsAppConnection() {
       // Store for later use
       setInstanceData(instanceData);
       createdInstancesRef.current.add(instanceName);
+
+      // 2.5. Connect the instance before fetching QR code (required by Evolution API)
+      console.log(`Connecting instance before fetching QR code: ${instanceName}`);
+      await whatsappService.secureApiClient.connectInstance(instanceName);
+      console.log("Instance connected, proceeding to fetch QR code");
       
       // 3. Get the QR code using connect endpoint (PRIORITY - DO THIS IMMEDIATELY)
       console.log(`Getting QR code for instance: ${instanceName}`);

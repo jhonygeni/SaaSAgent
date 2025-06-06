@@ -15,15 +15,32 @@ console.log('apiUrl', apiUrl);
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json', // Garante que o Accept está presente
         'apikey': apiKey,
       },
+      // Garante que o modo de resposta seja sempre json
+      // credentials: 'include', // descomente se precisar de cookies
     });
-    const data: any = await response.json();
-    if (!response.ok) {
-      return res.status(response.status).json({ error: data?.error || 'Erro na Evolution API' });
+    // Garante que a resposta é application/json
+    if (response.headers.get('content-type')?.includes('application/json')) {
+      const data = await response.json();
+      if (!response.ok) {
+        // Corrige o erro de tipagem ao acessar 'data.error' em um objeto possivelmente vazio
+        const errorMsg = (typeof data === 'object' && data !== null && 'error' in data) ? (data as any).error : 'Erro na Evolution API';
+        // Log detalhado para debug
+        console.error('Erro na Evolution API:', errorMsg, data);
+        return res.status(response.status).json({ error: errorMsg, details: data });
+      }
+      return res.status(200).json(data);
+    } else {
+      const text = await response.text();
+      // Log detalhado para debug
+      console.error('Resposta não é JSON:', text);
+      return res.status(response.status).json({ error: 'Resposta não é JSON', details: text });
     }
-    return res.status(200).json(data);
   } catch (err) {
+    // Log detalhado para debug
+    console.error('Erro ao conectar com Evolution API:', err);
     return res.status(500).json({ error: 'Erro ao conectar com Evolution API', details: String(err) });
   }
 }

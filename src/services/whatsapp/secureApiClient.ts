@@ -113,62 +113,60 @@ export const secureApiClient = {
 
   /**
    * Call Evolution API via Vercel API Routes (PRODUCTION)
+   * Uses secure backend proxy to protect EVOLUTION_API_KEY
    */
   async callEvolutionAPIViaVercel<T>(endpoint: string, method: string = 'GET', data?: any): Promise<T> {
-    const baseUrl = 'https://cloudsaas.geni.chat';
+    const baseUrl = window.location.origin; // Frontend domain
     console.log(`🌐 Using Vercel API Routes at: ${baseUrl}`);
 
-    // Map endpoint/method to the correct Vercel API Route
+    // Map Evolution API endpoints to Vercel API Routes
     let url = '';
-    let fetchOptions: RequestInit = { method, headers: { 'Content-Type': 'application/json' } };
+    let fetchOptions: RequestInit = { method, headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' } };
 
-    // Routing logic for Evolution API endpoints
-    if (endpoint.startsWith('/instance/create')) {
+    // Route mapping based on Evolution API endpoints
+    if (endpoint === '/instance/create') {
       url = `${baseUrl}/api/evolution/create-instance`;
       fetchOptions.method = 'POST';
       fetchOptions.body = JSON.stringify(data);
-    } else if (endpoint.startsWith('/instance/connect')) {
-      url = `${baseUrl}/api/evolution/connect`;
-      fetchOptions.method = 'POST';
-      fetchOptions.body = JSON.stringify(data || { instanceName: endpoint.split('/').pop() });
-    } else if (endpoint.startsWith('/instance/qrcode')) {
-      url = `${baseUrl}/api/evolution/qrcode?instanceId=` + encodeURIComponent(endpoint.split('/').pop()!);
+    } else if (endpoint.startsWith('/instance/connect/')) {
+      const instanceName = endpoint.split('/')[3];
+      url = `${baseUrl}/api/evolution/connect?instance=${instanceName}`;
       fetchOptions.method = 'GET';
-      delete fetchOptions.body;
-    } else if (endpoint.startsWith('/instance/info')) {
-      url = `${baseUrl}/api/evolution/info?instanceId=` + encodeURIComponent(endpoint.split('/').pop()!);
-      fetchOptions.method = 'GET';
-      delete fetchOptions.body;
-    } else if (endpoint.startsWith('/instance/fetchInstances')) {
+    } else if (endpoint === '/instance/fetchInstances') {
       url = `${baseUrl}/api/evolution/instances`;
       fetchOptions.method = 'GET';
-      delete fetchOptions.body;
-    } else if (endpoint.startsWith('/instance/connectionState')) {
-      url = `${baseUrl}/api/evolution/status?instanceId=` + encodeURIComponent(endpoint.split('/').pop()!);
+    } else if (endpoint.startsWith('/instance/info/')) {
+      const instanceName = endpoint.split('/')[3];
+      url = `${baseUrl}/api/evolution/info?instance=${instanceName}`;
       fetchOptions.method = 'GET';
-      delete fetchOptions.body;
-    } else if (endpoint.startsWith('/instance/delete')) {
-      url = `${baseUrl}/api/evolution/delete?instanceId=` + encodeURIComponent(endpoint.split('/').pop()!);
+    } else if (endpoint.startsWith('/instance/qrcode/')) {
+      // This endpoint should not be used anymore - redirect to connect
+      const instanceName = endpoint.split('/')[3];
+      url = `${baseUrl}/api/evolution/connect?instance=${instanceName}`;
+      fetchOptions.method = 'GET';
+    } else if (endpoint.startsWith('/instance/connectionState/')) {
+      const instanceName = endpoint.split('/')[3];
+      url = `${baseUrl}/api/evolution/status?instance=${instanceName}`;
+      fetchOptions.method = 'GET';
+    } else if (endpoint.startsWith('/instance/delete/')) {
+      const instanceName = endpoint.split('/')[3];
+      url = `${baseUrl}/api/evolution/delete`;
       fetchOptions.method = 'DELETE';
-      delete fetchOptions.body;
-    } else if (endpoint.startsWith('/instance/settings')) {
-      url = `${baseUrl}/api/evolution/settings?instanceId=` + encodeURIComponent(endpoint.split('/').pop()!);
-      fetchOptions.method = 'POST';
-      fetchOptions.body = JSON.stringify(data);
-    } else if (endpoint.startsWith('/instance/webhook')) {
-      url = `${baseUrl}/api/evolution/webhook`;
-      fetchOptions.method = 'POST';
-      fetchOptions.body = JSON.stringify(data);
+      fetchOptions.body = JSON.stringify({ instance: instanceName });
     } else {
-      throw new Error('Endpoint não suportado pelo proxy seguro: ' + endpoint);
+      throw new Error(`Endpoint não mapeado: ${endpoint}`);
     }
 
-    // Chamada segura para o backend
+    console.log(`🔒 Making secure API call to: ${url}`);
+    
+    // Call via Vercel API Route (secure proxy)
     const response = await fetch(url, fetchOptions);
     const result = await response.json();
+    
     if (!response.ok) {
-      throw new Error(result?.error || 'Erro desconhecido na Evolution API');
+      throw new Error(result?.error || 'Erro na chamada da Evolution API via Vercel');
     }
+    
     return result;
   },
 
@@ -181,16 +179,20 @@ export const secureApiClient = {
 
   /**
    * Connect to WhatsApp instance and get QR code
+   * According to Evolution API v2 docs: GET /instance/connect/{instance}
+   * Returns: { pairingCode: "WZYEH1YY", code: "2@y8eK+bjtEjUWy9/FOM...", count: 1 }
    */
   async connectInstance(instanceName: string): Promise<any> {
-    return this.callEvolutionAPI(`/instance/connect/${encodeURIComponent(instanceName)}`, 'POST');
+    return this.callEvolutionAPI(`/instance/connect/${encodeURIComponent(instanceName)}`, 'GET');
   },
 
   /**
    * Get QR code for instance
+   * Evolution API v2: Use /instance/connect/{instance} to get QR code and pairing code
+   * This is the CORRECT endpoint for getting QR codes according to the documentation
    */
   async getQRCode(instanceName: string): Promise<any> {
-    return this.callEvolutionAPI(`/instance/qrcode/${encodeURIComponent(instanceName)}`);
+    return this.callEvolutionAPI(`/instance/connect/${encodeURIComponent(instanceName)}`, 'GET');
   },
 
   /**
@@ -225,7 +227,12 @@ export const secureApiClient = {
    * Set webhook for instance
    */
   async setWebhook(instanceName: string, webhookData: any): Promise<any> {
-    return this.callEvolutionAPI(`/webhook/set/${encodeURIComponent(instanceName)}`, 'POST', webhookData);
+    // Garante que o campo 'webhook' está presente, pois Evolution API exige isso
+    const payload = {
+      ...webhookData,
+      webhook: webhookData.webhook || webhookData.url // Prioriza 'webhook', senão usa 'url'
+    };
+    return this.callEvolutionAPI(`/webhook/set/${encodeURIComponent(instanceName)}`, 'POST', payload);
   },
 
   /**

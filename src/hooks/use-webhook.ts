@@ -133,6 +133,7 @@ export function useWebhook(url: string, options: UseWebhookOptions = {}) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            "Accept": "application/json",
             "X-Request-ID": requestId,
           },
           body: JSON.stringify(data),

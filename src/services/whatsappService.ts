@@ -167,7 +167,16 @@ const whatsappService = {
         instanceName: response.instanceName
       };
     }
-    
+    // Corrige para aceitar QR code dentro de response.instance.qrcode
+    if (response?.instance?.qrcode) {
+      return {
+        status: response.status || "success",
+        qrcode: response.instance.qrcode,
+        code: response.instance.qrcode.code || response.instance.qrcode,
+        base64: response.instance.qrcode.base64 || response.instance.qrcode,
+        instanceName: response.instance.instanceName || response.instance.name
+      };
+    }
     if (response?.code || response?.base64) {
       return {
         status: response.status || "success",
@@ -263,21 +272,15 @@ const whatsappService = {
       }
 
       const instanceData = {
+        integration: "WHATSAPP-BAILEYS",
         instanceName,
-        token: instanceName,
         qrcode: true,
-        number: "",
-        webhook: "https://webhooksaas.geni.chat/webhook/principal",
-        webhook_by_events: false,
-        webhook_base64: false,
-        events: [
-          "QRCODE_UPDATED",
-          "MESSAGES_UPSERT",
-          "MESSAGES_UPDATE", 
-          "MESSAGES_DELETE",
-          "SEND_MESSAGE",
-          "CONNECTION_UPDATE"
-        ]
+        rejectCall: true,
+        groupsIgnore: true,
+        alwaysOnline: true,
+        readMessages: false,
+        readStatus: true,
+        syncFullHistory: false
       };
 
       const createResponse = await secureApiClient.createInstance(instanceData);
@@ -431,7 +434,9 @@ const whatsappService = {
    */
   listInstances: async (): Promise<InstancesListResponse> => {
     return whatsappService.fetchInstances();
-  }
+  },
+
+  secureApiClient,
 };
 
 export { whatsappService };

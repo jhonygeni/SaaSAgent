@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Teste de Lógica de Detecção - Evolution API v2</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            background: #f8f9fa;
+        }
+        .container { 
+            background: white;
+            border-radius: 8px; 
+            padding: 20px; 
+            margin: 15px 0; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .success { border-left: 5px solid #28a745; background: #f0fff4; }
+        .error { border-left: 5px solid #dc3545; background: #fff5f5; }
+        .info { border-left: 5px solid #17a2b8; background: #e6f7ff; }
+        .warning { border-left: 5px solid #ffc107; background: #fffbf0; }
+        
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover { background: #0056b3; }
+        button.success { background: #28a745; }
+        button.success:hover { background: #1e7e34; }
+        button.danger { background: #dc3545; }
+        button.danger:hover { background: #c82333; }
+        
+        .test-result {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .scenario {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 5px 0;
+            font-family: monospace;
+            font-size: 11px;
+        }
+        
+        .detection-result {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 5px 0;
+            font-weight: bold;
+        }
+        .detection-result.success { background: #d4edda; color: #155724; }
+        .detection-result.failure { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste de Lógica de Detecção Melhorada</h1>
+    
+    <div class="container info">
+        <h2>📋 Objetivo</h2>
+        <p>Este teste simula diferentes formatos de resposta da Evolution API v2 para validar se nossa nova lógica de detecção de sucesso funciona corretamente em todos os cenários.</p>
+    </div>
+
+    <div class="container">
+        <h3>🎯 Testes de Validação</h3>
+        <button onclick="runAllTests()" class="success">▶️ Executar Todos os Testes</button>
+        <button onclick="runSuccessTests()">✅ Apenas Cenários de Sucesso</button>
+        <button onclick="runFailureTests()">❌ Apenas Cenários de Falha</button>
+        <button onclick="clearResults()" class="danger">🗑️ Limpar Resultados</button>
+    </div>
+
+    <div class="container">
+        <h3>📊 Resultados dos Testes</h3>
+        <div id="testResults">Clique em "Executar Todos os Testes" para começar...</div>
+    </div>
+
+    <script>
+        // NOVA LÓGICA DE DETECÇÃO - Replicada do código real
+        function enhancedSuccessDetection(stateData) {
+            // Extrair múltiplas fontes de informação de estado
+            const connectionState = stateData?.instance?.state || stateData?.state || stateData?.status;
+            const alternativeState = stateData?.instance?.status || stateData?.connectionStatus || stateData?.connection?.state;
+            const isInstanceConnected = stateData?.instance?.isConnected === true;
+            const hasUserInfo = !!(stateData?.instance?.user?.id || stateData?.user?.id);
+            
+            // Múltiplas condições de detecção de sucesso
+            const isConnectedByState = connectionState === "open" || connectionState === "connected" || connectionState === "confirmed";
+            const isConnectedByAltState = alternativeState === "open" || alternativeState === "connected" || alternativeState === "confirmed";
+            const isConnectedByFlag = isInstanceConnected === true;
+            const isConnectedByUserPresence = hasUserInfo && (connectionState !== "close" && connectionState !== "disconnected");
+            
+            const isConnected = isConnectedByState || isConnectedByAltState || isConnectedByFlag || isConnectedByUserPresence;
+            
+            // Retornar detalhes para análise
+            return {
+                isConnected,
+                reasons: {
+                    byState: isConnectedByState,
+                    byAltState: isConnectedByAltState, 
+                    byFlag: isConnectedByFlag,
+                    byUserPresence: isConnectedByUserPresence
+                },
+                extractedData: {
+                    connectionState,
+                    alternativeState,
+                    isInstanceConnected,
+                    hasUserInfo
+                }
+            };
+        }
+
+        // LÓGICA ANTIGA - Para comparação
+        function oldSuccessDetection(stateData) {
+            const connectionState = stateData?.instance?.state || stateData?.state || stateData?.status;
+            const isConnected = connectionState === "open" || connectionState === "connected" || connectionState === "confirmed";
+            
+            return {
+                isConnected,
+                extractedState: connectionState
+            };
+        }
+
+        // CENÁRIOS DE TESTE
+        const testScenarios = [
+            // ✅ CENÁRIOS DE SUCESSO
+            {
+                name: "Evolution API v2 - Estado Open",
+                description: "Formato padrão da Evolution API v2 com state=open",
+                data: { instance: { instanceName: "test-123", state: "open" } },
+                expectedResult: true,
+                category: "success"
+            },
+            {
+                name: "Estado Connected no Status",
+                description: "Usando campo de status alternativo",
+                data: { instance: { instanceName: "test-123", status: "connected" } },
+                expectedResult: true,
+                category: "success"
+            },
+            {
+                name: "Flag isConnected=true",
+                description: "Usando flag booleana de conexão",
+                data: { instance: { isConnected: true, state: "loading" } },
+                expectedResult: true,
+                category: "success"
+            },
+            {
+                name: "Usuário Presente + Estado Válido",
+                description: "Detecta sucesso pela presença de informações do usuário",
+                data: { 
+                    instance: { 
+                        state: "loading",
+                        user: { id: "5511987654321@c.us", name: "João" }
+                    }
+                },
+                expectedResult: true,
+                category: "success"
+            },
+            {
+                name: "ConnectionStatus Open",
+                description: "Estado em campo connectionStatus",
+                data: { connectionStatus: "open", instance: { instanceName: "test" } },
+                expectedResult: true,
+                category: "success"
+            },
+            {
+                name: "Estado Confirmed",
+                description: "Variação com state=confirmed",
+                data: { instance: { state: "confirmed" } },
+                expectedResult: true,
+                category: "success"
+            },
+            {
+                name: "Múltiplos Indicadores",
+                description: "Vários indicadores de sucesso presentes",
+                data: { 
+                    instance: { 
+                        state: "open", 
+                        status: "connected",
+                        isConnected: true,
+                        user: { id: "123@c.us" }
+                    }
+                },
+                expectedResult: true,
+                category: "success"
+            },
+
+            // ❌ CENÁRIOS DE FALHA
+            {
+                name: "Estado Close",
+                description: "Conexão fechada",
+                data: { instance: { state: "close" } },
+                expectedResult: false,
+                category: "failure"
+            },
+            {
+                name: "Estado Disconnected",
+                description: "Desconectado",
+                data: { instance: { state: "disconnected" } },
+                expectedResult: false,
+                category: "failure"
+            },
+            {
+                name: "Estado Loading",
+                description: "Ainda carregando, sem usuário",
+                data: { instance: { state: "loading" } },
+                expectedResult: false,
+                category: "failure"
+            },
+            {
+                name: "Usuário Presente mas Estado Close",
+                description: "Usuário presente mas conexão fechada",
+                data: { 
+                    instance: { 
+                        state: "close",
+                        user: { id: "123@c.us" }
+                    }
+                },
+                expectedResult: false,
+                category: "failure"
+            },
+            {
+                name: "Resposta Vazia",
+                description: "API retorna objeto vazio",
+                data: {},
+                expectedResult: false,
+                category: "failure"
+            },
+            {
+                name: "Apenas InstanceName",
+                description: "Só tem nome da instância, sem estado",
+                data: { instance: { instanceName: "test-123" } },
+                expectedResult: false,
+                category: "failure"
+            }
+        ];
+
+        function runTest(scenario) {
+            const newResult = enhancedSuccessDetection(scenario.data);
+            const oldResult = oldSuccessDetection(scenario.data);
+            
+            const isCorrect = newResult.isConnected === scenario.expectedResult;
+            const improved = oldResult.isConnected !== scenario.expectedResult && newResult.isConnected === scenario.expectedResult;
+            
+            return {
+                scenario,
+                newResult,
+                oldResult,
+                isCorrect,
+                improved
+            };
+        }
+
+        function runAllTests() {
+            console.log("🧪 Executando todos os testes de detecção...");
+            
+            const results = testScenarios.map(runTest);
+            displayResults(results);
+            
+            // Estatísticas
+            const correct = results.filter(r => r.isCorrect).length;
+            const improved = results.filter(r => r.improved).length;
+            const total = results.length;
+            
+            console.log(`📊 Resultados: ${correct}/${total} corretos, ${improved} melhorias`);
+        }
+
+        function runSuccessTests() {
+            const successScenarios = testScenarios.filter(s => s.category === "success");
+            const results = successScenarios.map(runTest);
+            displayResults(results);
+        }
+
+        function runFailureTests() {
+            const failureScenarios = testScenarios.filter(s => s.category === "failure");
+            const results = failureScenarios.map(runTest);
+            displayResults(results);
+        }
+
+        function displayResults(results) {
+            const container = document.getElementById('testResults');
+            let html = '';
+            
+            let correctCount = 0;
+            let improvedCount = 0;
+            
+            results.forEach((result, index) => {
+                const { scenario, newResult, oldResult, isCorrect, improved } = result;
+                
+                if (isCorrect) correctCount++;
+                if (improved) improvedCount++;
+                
+                const statusClass = isCorrect ? 'success' : 'failure';
+                const statusIcon = isCorrect ? '✅' : '❌';
+                const improvedIcon = improved ? '🚀' : '';
+                
+                html += `
+                    <div class="test-result">
+                        <h4>${statusIcon} ${scenario.name} ${improvedIcon}</h4>
+                        <p><strong>Descrição:</strong> ${scenario.description}</p>
+                        
+                        <div class="scenario">
+                            <strong>Dados de entrada:</strong><br>
+                            ${JSON.stringify(scenario.data, null, 2)}
+                        </div>
+                        
+                        <div class="detection-result ${statusClass}">
+                            <strong>Resultado:</strong> ${newResult.isConnected ? 'CONECTADO' : 'NÃO CONECTADO'} 
+                            (Esperado: ${scenario.expectedResult ? 'CONECTADO' : 'NÃO CONECTADO'})
+                        </div>
+                        
+                        ${newResult.isConnected ? `
+                            <div style="background: #e6f7ff; padding: 8px; border-radius: 4px; margin: 5px 0;">
+                                <strong>Razões da detecção:</strong><br>
+                                ${Object.entries(newResult.reasons)
+                                    .filter(([key, value]) => value)
+                                    .map(([key, value]) => `• ${key}: ${value}`)
+                                    .join('<br>') || 'Nenhuma razão identificada'}
+                            </div>
+                        ` : ''}
+                        
+                        <details style="margin-top: 10px;">
+                            <summary>🔍 Detalhes Técnicos</summary>
+                            <div style="background: #f8f9fa; padding: 10px; margin: 5px 0; border-radius: 4px;">
+                                <strong>Nova Lógica:</strong><br>
+                                ${JSON.stringify(newResult.extractedData, null, 2)}<br><br>
+                                <strong>Lógica Antiga:</strong><br>
+                                Estado extraído: "${oldResult.extractedState}" → ${oldResult.isConnected ? 'CONECTADO' : 'NÃO CONECTADO'}
+                            </div>
+                        </details>
+                    </div>
+                `;
+            });
+            
+            // Resumo
+            html = `
+                <div class="container ${correctCount === results.length ? 'success' : 'warning'}">
+                    <h3>📊 Resumo dos Testes</h3>
+                    <p><strong>Corretos:</strong> ${correctCount}/${results.length}</p>
+                    <p><strong>Melhorias:</strong> ${improvedCount} cenários agora detectados corretamente</p>
+                    <p><strong>Taxa de Sucesso:</strong> ${Math.round((correctCount/results.length)*100)}%</p>
+                </div>
+            ` + html;
+            
+            container.innerHTML = html;
+        }
+
+        function clearResults() {
+            document.getElementById('testResults').innerHTML = 'Clique em "Executar Todos os Testes" para começar...';
+        }
+
+        // Inicialização
+        console.log("🧪 Sistema de testes carregado");
+        console.log(`📋 ${testScenarios.length} cenários de teste disponíveis`);
+    </script>
+</body>
+</html>
