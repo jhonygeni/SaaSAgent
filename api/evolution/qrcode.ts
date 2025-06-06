@@ -4,22 +4,17 @@ const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL;
 const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Set CORS headers
-  res.setHeader('Access-Control-Allow-Credentials', true);
+  // Handle CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-  );
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
+    return res.status(200).end();
   }
 
   if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed. Use GET.' });
+    return res.status(405).json({ error: 'Método não permitido' });
   }
 
   // Check if Evolution API is configured
@@ -56,7 +51,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     });
 
-    const responseData = await response.json();
+    const responseData = await response.json() as {
+      message?: string;
+      error?: string;
+      pairingCode?: string;
+      code?: string;
+      count?: number;
+      [key: string]: any;
+    };
     
     if (!response.ok) {
       console.error('Evolution API error:', response.status, responseData);
