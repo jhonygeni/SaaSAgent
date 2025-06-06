@@ -115,7 +115,7 @@ export const secureApiClient = {
    * Call Evolution API via Vercel API Routes (PRODUCTION)
    */
   async callEvolutionAPIViaVercel<T>(endpoint: string, method: string = 'GET', data?: any): Promise<T> {
-    const baseUrl = window.location.origin;
+    const baseUrl = 'https://cloudsaas.geni.chat';
     console.log(`🌐 Using Vercel API Routes at: ${baseUrl}`);
 
     // Map endpoint/method to the correct Vercel API Route

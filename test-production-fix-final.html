@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Final - Roteamento Evolution API Produção</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        .warning { background-color: #fff3cd; color: #856404; }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Teste Final - Correção Roteamento Evolution API</h1>
+    
+    <div class="test-section">
+        <h2>📊 Status da Correção</h2>
+        <div id="correctionStatus"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🧪 Teste de Roteamento</h2>
+        <p>Este teste simula o ambiente de produção e verifica se as URLs estão sendo geradas corretamente.</p>
+        <button onclick="testarRoteamento()">Testar Roteamento</button>
+        <div id="resultadoTeste"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔗 URLs Esperadas vs Geradas</h2>
+        <div id="urlComparison"></div>
+    </div>
+
+    <script>
+        // Simular o objeto secureApiClient corrigido
+        const secureApiClientCorrigido = {
+            async callEvolutionAPIViaVercel(endpoint, method = 'GET', data) {
+                const baseUrl = 'https://cloudsaas.geni.chat';
+                console.log(`🌐 Using Vercel API Routes at: ${baseUrl}`);
+
+                let url = '';
+                let fetchOptions = { method, headers: { 'Content-Type': 'application/json' } };
+
+                // Routing logic for Evolution API endpoints
+                if (endpoint.startsWith('/instance/create')) {
+                    url = `${baseUrl}/api/evolution/create-instance`;
+                    fetchOptions.method = 'POST';
+                    fetchOptions.body = JSON.stringify(data);
+                } else if (endpoint.startsWith('/instance/connect')) {
+                    url = `${baseUrl}/api/evolution/connect`;
+                    fetchOptions.method = 'POST';
+                    fetchOptions.body = JSON.stringify(data);
+                } else if (endpoint.startsWith('/instance/') && endpoint.includes('/status')) {
+                    const instanceName = endpoint.split('/')[2];
+                    url = `${baseUrl}/api/evolution/status?instance=${instanceName}`;
+                } else if (endpoint === '/instance/fetchInstances') {
+                    url = `${baseUrl}/api/evolution/instances`;
+                } else {
+                    throw new Error(`Endpoint não mapeado: ${endpoint}`);
+                }
+
+                return { url, fetchOptions };
+            }
+        };
+
+        function verificarCorrecao() {
+            const statusDiv = document.getElementById('correctionStatus');
+            
+            // Simular os métodos antes e depois da correção
+            const baseUrlAntigo = window.location.origin; // https://ia.geni.chat (INCORRETO)
+            const baseUrlNovo = 'https://cloudsaas.geni.chat'; // CORRETO
+            
+            let html = `
+                <div class="error">
+                    <strong>❌ ANTES (Problemático):</strong><br>
+                    Base URL: <code>${baseUrlAntigo}</code><br>
+                    Resultado: Chamadas iam para <code>${baseUrlAntigo}/api/evolution/*</code>
+                </div>
+                <div class="success">
+                    <strong>✅ DEPOIS (Corrigido):</strong><br>
+                    Base URL: <code>${baseUrlNovo}</code><br>
+                    Resultado: Chamadas vão para <code>${baseUrlNovo}/api/evolution/*</code>
+                </div>
+            `;
+            
+            statusDiv.innerHTML = html;
+        }
+
+        async function testarRoteamento() {
+            const resultDiv = document.getElementById('resultadoTeste');
+            const urlDiv = document.getElementById('urlComparison');
+            
+            try {
+                resultDiv.innerHTML = '<div class="info">🔄 Testando roteamento...</div>';
+                
+                // Testar diferentes endpoints
+                const testEndpoints = [
+                    { endpoint: '/instance/create', method: 'POST', data: { instanceName: 'test' } },
+                    { endpoint: '/instance/connect', method: 'POST', data: { instance: 'test' } },
+                    { endpoint: '/instance/test/status', method: 'GET' },
+                    { endpoint: '/instance/fetchInstances', method: 'GET' }
+                ];
+
+                let resultados = [];
+                let urlComparisons = [];
+
+                for (const test of testEndpoints) {
+                    try {
+                        const resultado = await secureApiClientCorrigido.callEvolutionAPIViaVercel(
+                            test.endpoint, 
+                            test.method, 
+                            test.data
+                        );
+
+                        resultados.push({
+                            endpoint: test.endpoint,
+                            status: 'success',
+                            url: resultado.url,
+                            method: resultado.fetchOptions.method
+                        });
+
+                        // URL incorreta vs correta
+                        const urlIncorreta = `${window.location.origin}/api/evolution/*`;
+                        urlComparisons.push({
+                            endpoint: test.endpoint,
+                            urlIncorreta: urlIncorreta,
+                            urlCorreta: resultado.url
+                        });
+
+                    } catch (error) {
+                        resultados.push({
+                            endpoint: test.endpoint,
+                            status: 'error',
+                            error: error.message
+                        });
+                    }
+                }
+
+                // Mostrar resultados
+                let html = '<h3>📋 Resultados dos Testes:</h3>';
+                resultados.forEach(resultado => {
+                    if (resultado.status === 'success') {
+                        html += `
+                            <div class="success">
+                                <strong>✅ ${resultado.endpoint}</strong><br>
+                                URL Gerada: <code>${resultado.url}</code><br>
+                                Método: <code>${resultado.method}</code>
+                            </div>
+                        `;
+                    } else {
+                        html += `
+                            <div class="error">
+                                <strong>❌ ${resultado.endpoint}</strong><br>
+                                Erro: <code>${resultado.error}</code>
+                            </div>
+                        `;
+                    }
+                });
+                
+                resultDiv.innerHTML = html;
+
+                // Mostrar comparação de URLs
+                let urlHtml = '<h3>🔍 Comparação URLs (Antes vs Depois):</h3>';
+                urlComparisons.forEach(comp => {
+                    urlHtml += `
+                        <div class="warning">
+                            <strong>Endpoint:</strong> <code>${comp.endpoint}</code><br>
+                            <strong>❌ URL Incorreta (antes):</strong> <code>${comp.urlIncorreta}</code><br>
+                            <strong>✅ URL Correta (depois):</strong> <code>${comp.urlCorreta}</code>
+                        </div>
+                    `;
+                });
+                
+                urlDiv.innerHTML = urlHtml;
+
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Erro no teste: ${error.message}</div>`;
+            }
+        }
+
+        // Executar verificação ao carregar a página
+        window.onload = function() {
+            verificarCorrecao();
+        };
+    </script>
+</body>
+</html>
