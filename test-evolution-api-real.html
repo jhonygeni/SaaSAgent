@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evolution API Real Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f8fafc;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-section {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 8px;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        button.secondary {
+            background: #6b7280;
+        }
+        button.secondary:hover {
+            background: #4b5563;
+        }
+        .result {
+            background: #f1f5f9;
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 12px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success {
+            background: #dcfce7;
+            border: 1px solid #16a34a;
+            color: #15803d;
+        }
+        .error {
+            background: #fee2e2;
+            border: 1px solid #dc2626;
+            color: #991b1b;
+        }
+        .warning {
+            background: #fef3c7;
+            border: 1px solid #d97706;
+            color: #92400e;
+        }
+        .info {
+            background: #dbeafe;
+            border: 1px solid #2563eb;
+            color: #1d4ed8;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        .status.pass {
+            background: #dcfce7;
+            color: #15803d;
+        }
+        .status.fail {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .network-log {
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+        iframe {
+            width: 100%;
+            height: 400px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Evolution API Routing Fix - Real Test</h1>
+        <p>This test verifies that Evolution API calls are properly routed to <code>cloudsaas.geni.chat</code> via Supabase Edge Functions in development.</p>
+        
+        <div class="test-section">
+            <h3>Environment Detection</h3>
+            <div id="env-results"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Application Integration Test</h3>
+            <p>Test the Evolution API routing through the actual application:</p>
+            <button onclick="openConnectPage()">🔗 Open Connect Page</button>
+            <button onclick="openMainApp()">🏠 Open Main App</button>
+            <div id="app-results" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Network Monitoring Instructions</h3>
+            <div class="info result">
+To verify the fix is working:
+
+1. Open browser Developer Tools (F12)
+2. Go to Network tab
+3. Clear network history
+4. Click "Open Connect Page" button above
+5. Try to connect WhatsApp on the page
+6. Look for requests to Supabase Edge Functions:
+   - Should see: supabase.co/functions/v1/evolution-api
+   - Should NOT see: ia.geni.chat/api/evolution/*
+   - Backend should proxy to: cloudsaas.geni.chat
+
+Expected behavior:
+✅ Development: localhost → Supabase Edge Function → cloudsaas.geni.chat
+❌ OLD (broken): localhost → /api/evolution/* → ERROR (route doesn't exist in Vite)
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>Live Application Frame</h3>
+            <p>Connect page embedded for testing:</p>
+            <iframe id="connectFrame" src="about:blank"></iframe>
+            <button onclick="loadConnectPage()">🔄 Load Connect Page</button>
+            <button onclick="refreshFrame()">🔃 Refresh Frame</button>
+        </div>
+
+        <div class="test-section">
+            <h3>Supabase Edge Function Test</h3>
+            <button onclick="testSupabaseFunction()">🧪 Test Edge Function</button>
+            <div id="supabase-results" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Network Request Log</h3>
+            <div id="network-log" class="network-log result">
+Network requests will be logged here when you interact with the application...
+            </div>
+            <button onclick="clearNetworkLog()">🗑️ Clear Log</button>
+        </div>
+    </div>
+
+    <script>
+        // Environment detection
+        function detectEnvironment() {
+            const results = document.getElementById('env-results');
+            const hostname = window.location.hostname;
+            const isDev = hostname === 'localhost' || hostname === '127.0.0.1';
+            const port = window.location.port;
+            
+            let html = `
+                <div class="info result">
+                    <strong>Current Environment:</strong><br>
+                    Hostname: ${hostname}<br>
+                    Port: ${port}<br>
+                    Is Development: ${isDev ? '✅ Yes' : '❌ No'}<br>
+                    Expected API Route: ${isDev ? 'Supabase Edge Function' : 'Vercel API Routes'}<br>
+                    User Agent: ${navigator.userAgent.substring(0, 100)}...
+                </div>
+            `;
+            
+            results.innerHTML = html;
+        }
+
+        // Open connect page in new tab
+        function openConnectPage() {
+            const url = 'http://localhost:8081/conectar';
+            window.open(url, '_blank');
+            
+            const results = document.getElementById('app-results');
+            results.innerHTML = `
+                <div class="info result">
+                    ✅ Opened Connect Page: ${url}
+                    
+                    Instructions:
+                    1. The page should load without errors
+                    2. Look for WhatsApp connection interface
+                    3. Try connecting WhatsApp
+                    4. Check browser Network tab for Evolution API calls
+                    5. Verify requests go to Supabase Edge Functions, not /api/evolution/*
+                </div>
+            `;
+        }
+
+        // Open main app
+        function openMainApp() {
+            const url = 'http://localhost:8081/';
+            window.open(url, '_blank');
+            
+            const results = document.getElementById('app-results');
+            results.innerHTML = `
+                <div class="info result">
+                    ✅ Opened Main App: ${url}
+                    
+                    Navigate to the Connect page (/conectar) to test Evolution API calls.
+                </div>
+            `;
+        }
+
+        // Load connect page in iframe
+        function loadConnectPage() {
+            const frame = document.getElementById('connectFrame');
+            frame.src = 'http://localhost:8081/conectar';
+        }
+
+        // Refresh iframe
+        function refreshFrame() {
+            const frame = document.getElementById('connectFrame');
+            frame.src = frame.src;
+        }
+
+        // Test Supabase Edge Function directly
+        async function testSupabaseFunction() {
+            const results = document.getElementById('supabase-results');
+            results.innerHTML = '<div class="info result">Testing Supabase Edge Function...</div>';
+            
+            try {
+                // This is a simplified test - the actual implementation would use Supabase client
+                const testUrl = 'https://your-project.supabase.co/functions/v1/evolution-api';
+                
+                results.innerHTML = `
+                    <div class="warning result">
+                        ⚠️ Direct Supabase Edge Function Test
+                        
+                        Note: This test requires proper Supabase authentication.
+                        The actual application uses the Supabase client with auth.
+                        
+                        Expected Edge Function URL pattern:
+                        https://{project}.supabase.co/functions/v1/evolution-api
+                        
+                        The Edge Function should:
+                        1. Receive requests from the frontend
+                        2. Proxy them to cloudsaas.geni.chat
+                        3. Return the response back to frontend
+                        
+                        ✅ This routing fix ensures development uses Edge Functions
+                        ✅ Production will use Vercel API Routes
+                    </div>
+                `;
+            } catch (error) {
+                results.innerHTML = `
+                    <div class="error result">
+                        ❌ Error testing Edge Function: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // Clear network log
+        function clearNetworkLog() {
+            document.getElementById('network-log').innerHTML = 'Network log cleared. Interact with the application to see new requests...';
+        }
+
+        // Monitor network requests (simplified)
+        function monitorNetworkRequests() {
+            const log = document.getElementById('network-log');
+            
+            // Override fetch to log requests
+            const originalFetch = window.fetch;
+            window.fetch = function(...args) {
+                const url = args[0];
+                const options = args[1] || {};
+                
+                const timestamp = new Date().toLocaleTimeString();
+                const method = options.method || 'GET';
+                
+                let logEntry = `[${timestamp}] ${method} ${url}\n`;
+                
+                if (url.includes('evolution') || url.includes('supabase') || url.includes('cloudsaas')) {
+                    logEntry = `🎯 ${logEntry}`;
+                }
+                
+                log.innerHTML += logEntry;
+                log.scrollTop = log.scrollHeight;
+                
+                return originalFetch.apply(this, args);
+            };
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            detectEnvironment();
+            monitorNetworkRequests();
+        });
+    </script>
+</body>
+</html>

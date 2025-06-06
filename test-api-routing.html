@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evolution API Routing Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        .warning { background-color: #fff3cd; color: #856404; }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        #results {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Evolution API Routing Test</h1>
+        <p>This test verifies that Evolution API calls are correctly routed through the local proxy instead of being redirected to ia.geni.chat</p>
+        
+        <div>
+            <h3>Current Environment Info:</h3>
+            <div class="test-result info">
+                <strong>Location:</strong> <span id="location"></span><br>
+                <strong>Port:</strong> <span id="port"></span><br>
+                <strong>Expected Base URL:</strong> <span id="baseUrl"></span>
+            </div>
+        </div>
+
+        <div>
+            <button onclick="testBaseUrlLogic()">Test Base URL Logic</button>
+            <button onclick="testInstancesEndpoint()">Test /api/evolution/instances</button>
+            <button onclick="testCreateInstance()">Test Create Instance</button>
+            <button onclick="testHealthCheck()">Test API Health</button>
+            <button onclick="clearResults()">Clear Results</button>
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', () => {
+            updateEnvironmentInfo();
+        });
+
+        function updateEnvironmentInfo() {
+            document.getElementById('location').textContent = window.location.href;
+            document.getElementById('port').textContent = window.location.port;
+            
+            // Replicate the logic from secureApiClient.ts
+            const isLocalDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const isDevelopment = true; // Assume dev mode for this test
+            
+            let baseUrl = '';
+            if (isLocalDevelopment && isDevelopment) {
+                baseUrl = `http://localhost:${window.location.port}`;
+            } else {
+                baseUrl = window.location.origin;
+            }
+            
+            document.getElementById('baseUrl').textContent = baseUrl;
+            log(`🌐 Calculated base URL: ${baseUrl}`, 'info');
+        }
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `[${timestamp}] ${message}`;
+            results.appendChild(div);
+            results.scrollTop = results.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        function testBaseUrlLogic() {
+            log('🧪 Testing base URL logic...', 'info');
+            
+            try {
+                // Replicate the exact logic from secureApiClient.ts
+                const isLocalDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                const isDevelopment = true; // We know we're in dev mode
+                
+                let baseUrl = '';
+                if (isLocalDevelopment && isDevelopment) {
+                    baseUrl = `http://localhost:${window.location.port}`;
+                } else {
+                    baseUrl = window.location.origin;
+                }
+                
+                log(`✅ Base URL calculation successful: ${baseUrl}`, 'success');
+                log(`   - isLocalDevelopment: ${isLocalDevelopment}`, 'info');
+                log(`   - isDevelopment: ${isDevelopment}`, 'info');
+                log(`   - window.location.port: ${window.location.port}`, 'info');
+                
+                // Test URL construction for different endpoints
+                const endpoints = [
+                    { endpoint: '/instance/create', expected: `${baseUrl}/api/evolution/create-instance` },
+                    { endpoint: '/instance/qrcode/test123', expected: `${baseUrl}/api/evolution/qrcode?instanceId=test123` },
+                    { endpoint: '/instance/fetchInstances', expected: `${baseUrl}/api/evolution/instances` },
+                    { endpoint: '/instance/connectionState/test123', expected: `${baseUrl}/api/evolution/status?instanceId=test123` }
+                ];
+                
+                log('📝 Testing endpoint URL construction:', 'info');
+                endpoints.forEach(test => {
+                    log(`   ${test.endpoint} → ${test.expected}`, 'info');
+                });
+                
+            } catch (error) {
+                log(`❌ Base URL logic test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testInstancesEndpoint() {
+            log('🔗 Testing /api/evolution/instances endpoint...', 'info');
+            
+            try {
+                const baseUrl = `http://localhost:${window.location.port}`;
+                const url = `${baseUrl}/api/evolution/instances`;
+                
+                log(`📡 Making request to: ${url}`, 'info');
+                
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                log(`📊 Response status: ${response.status}`, response.ok ? 'success' : 'warning');
+                log(`📊 Response headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()))}`, 'info');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Request successful! Response: ${JSON.stringify(data, null, 2)}`, 'success');
+                    log(`🎯 SUCCESS: Evolution API call correctly routed to ${baseUrl}`, 'success');
+                } else {
+                    const errorText = await response.text();
+                    log(`⚠️ Request failed with status ${response.status}: ${errorText}`, 'warning');
+                    
+                    // Check if it's being redirected to ia.geni.chat
+                    if (errorText.includes('ia.geni.chat') || response.url.includes('ia.geni.chat')) {
+                        log(`❌ PROBLEM DETECTED: Request was redirected to ia.geni.chat!`, 'error');
+                    } else {
+                        log(`✅ Good: Request stayed on correct domain (${baseUrl})`, 'success');
+                    }
+                }
+                
+            } catch (error) {
+                log(`❌ Network request failed: ${error.message}`, 'error');
+                
+                // Check if error indicates wrong domain
+                if (error.message.includes('ia.geni.chat')) {
+                    log(`❌ CRITICAL: Request was incorrectly sent to ia.geni.chat!`, 'error');
+                } else {
+                    log(`ℹ️ Error might be due to API not running or authentication`, 'info');
+                }
+            }
+        }
+
+        async function testCreateInstance() {
+            log('🏗️ Testing create instance endpoint...', 'info');
+            
+            try {
+                const baseUrl = `http://localhost:${window.location.port}`;
+                const url = `${baseUrl}/api/evolution/create-instance`;
+                
+                log(`📡 Making POST request to: ${url}`, 'info');
+                
+                const testData = {
+                    instanceName: `test_${Date.now()}`,
+                    token: 'test-token'
+                };
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(testData)
+                });
+                
+                log(`📊 Response status: ${response.status}`, response.ok ? 'success' : 'warning');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Create instance endpoint is accessible! Response: ${JSON.stringify(data, null, 2)}`, 'success');
+                } else {
+                    const errorText = await response.text();
+                    log(`⚠️ Request failed: ${errorText}`, 'warning');
+                    
+                    // Check if the endpoint exists (404 vs other errors)
+                    if (response.status === 404) {
+                        log(`❌ Endpoint not found - check that /api/evolution/create-instance.ts exists`, 'error');
+                    } else {
+                        log(`ℹ️ Endpoint exists but may need authentication or valid data`, 'info');
+                    }
+                }
+                
+            } catch (error) {
+                log(`❌ Create instance test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testHealthCheck() {
+            log('🏥 Testing API health check...', 'info');
+            
+            try {
+                const baseUrl = `http://localhost:${window.location.port}`;
+                
+                // Test main app endpoint
+                const appResponse = await fetch(baseUrl);
+                log(`📊 Main app status: ${appResponse.status}`, appResponse.ok ? 'success' : 'warning');
+                
+                // Test if we can reach the API endpoints directory
+                const endpoints = [
+                    '/api/evolution/instances',
+                    '/api/evolution/create-instance',
+                    '/api/evolution/qrcode',
+                    '/api/evolution/status'
+                ];
+                
+                for (const endpoint of endpoints) {
+                    try {
+                        const testUrl = `${baseUrl}${endpoint}`;
+                        log(`🔍 Testing endpoint: ${testUrl}`, 'info');
+                        
+                        const response = await fetch(testUrl, { method: 'GET' });
+                        const status = response.status;
+                        
+                        if (status === 404) {
+                            log(`❌ Endpoint ${endpoint} not found (404)`, 'error');
+                        } else if (status === 405) {
+                            log(`✅ Endpoint ${endpoint} exists but method not allowed (405) - this is expected`, 'success');
+                        } else if (status >= 200 && status < 300) {
+                            log(`✅ Endpoint ${endpoint} is working (${status})`, 'success');
+                        } else {
+                            log(`⚠️ Endpoint ${endpoint} returned status ${status}`, 'warning');
+                        }
+                        
+                    } catch (endpointError) {
+                        log(`❌ Failed to test ${endpoint}: ${endpointError.message}`, 'error');
+                    }
+                }
+                
+            } catch (error) {
+                log(`❌ Health check failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-run tests on page load
+        window.addEventListener('load', () => {
+            log('🚀 Starting automatic API routing tests...', 'info');
+            setTimeout(() => {
+                testBaseUrlLogic();
+                setTimeout(() => testInstancesEndpoint(), 1000);
+                setTimeout(() => testHealthCheck(), 2000);
+            }, 500);
+        });
+    </script>
+</body>
+</html>

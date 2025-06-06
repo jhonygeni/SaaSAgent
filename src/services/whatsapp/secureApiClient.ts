@@ -65,52 +65,98 @@ export const retryOperation = async <T>(
  */
 export const secureApiClient = {
   /**
-   * Call Evolution API via Vercel API Route (SECURE BACKEND PROXY)
+   * Call Evolution API via secure backend proxy (SECURE APPROACH)
+   * - Development: Uses Supabase Edge Function
+   * - Production: Uses Vercel API Routes
    * This ensures EVOLUTION_API_KEY stays on server-side only
    */
   async callEvolutionAPI<T>(endpoint: string, method: string = 'GET', data?: any): Promise<T> {
-    console.log(`🔒 Making SECURE Evolution API call via /api/evolution/* proxy - Endpoint: ${endpoint}, Method: ${method}`);
+    console.log(`🔒 Making SECURE Evolution API call - Endpoint: ${endpoint}, Method: ${method}`);
+
+    // Determine environment and appropriate backend strategy
+    const isLocalDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const isDevelopment = import.meta.env.DEV;
+    
+    if (isLocalDevelopment && isDevelopment) {
+      // DEVELOPMENT: Use Supabase Edge Function
+      console.log(`🔧 Development mode detected - Using Supabase Edge Function`);
+      return this.callEvolutionAPIViaSupabase(endpoint, method, data);
+    } else {
+      // PRODUCTION: Use Vercel API Routes
+      console.log(`🚀 Production mode detected - Using Vercel API Routes`);
+      return this.callEvolutionAPIViaVercel(endpoint, method, data);
+    }
+  },
+
+  /**
+   * Call Evolution API via Supabase Edge Function (DEVELOPMENT)
+   */
+  async callEvolutionAPIViaSupabase<T>(endpoint: string, method: string = 'GET', data?: any): Promise<T> {
+    console.log(`📡 Calling Supabase Edge Function: evolution-api`);
+    
+    const { data: result, error } = await supabase.functions.invoke('evolution-api', {
+      body: {
+        endpoint,
+        method,
+        data: data || {}
+      }
+    });
+
+    if (error) {
+      console.error('❌ Supabase Edge Function error:', error);
+      throw new Error(error.message || 'Erro na Evolution API via Supabase');
+    }
+
+    console.log('✅ Supabase Edge Function response received');
+    return result;
+  },
+
+  /**
+   * Call Evolution API via Vercel API Routes (PRODUCTION)
+   */
+  async callEvolutionAPIViaVercel<T>(endpoint: string, method: string = 'GET', data?: any): Promise<T> {
+    const baseUrl = window.location.origin;
+    console.log(`🌐 Using Vercel API Routes at: ${baseUrl}`);
 
     // Map endpoint/method to the correct Vercel API Route
     let url = '';
     let fetchOptions: RequestInit = { method, headers: { 'Content-Type': 'application/json' } };
-    let bodyAllowed = ['POST', 'PUT', 'PATCH'].includes(method);
 
     // Routing logic for Evolution API endpoints
     if (endpoint.startsWith('/instance/create')) {
-      url = '/api/evolution/create-instance';
+      url = `${baseUrl}/api/evolution/create-instance`;
       fetchOptions.method = 'POST';
       fetchOptions.body = JSON.stringify(data);
     } else if (endpoint.startsWith('/instance/connect')) {
-      url = '/api/evolution/connect';
+      url = `${baseUrl}/api/evolution/connect`;
       fetchOptions.method = 'POST';
       fetchOptions.body = JSON.stringify(data || { instanceName: endpoint.split('/').pop() });
     } else if (endpoint.startsWith('/instance/qrcode')) {
-      url = '/api/evolution/qrcode?instanceId=' + encodeURIComponent(endpoint.split('/').pop()!);
+      url = `${baseUrl}/api/evolution/qrcode?instanceId=` + encodeURIComponent(endpoint.split('/').pop()!);
       fetchOptions.method = 'GET';
       delete fetchOptions.body;
     } else if (endpoint.startsWith('/instance/info')) {
-      url = '/api/evolution/info?instanceId=' + encodeURIComponent(endpoint.split('/').pop()!);
+      url = `${baseUrl}/api/evolution/info?instanceId=` + encodeURIComponent(endpoint.split('/').pop()!);
       fetchOptions.method = 'GET';
       delete fetchOptions.body;
     } else if (endpoint.startsWith('/instance/fetchInstances')) {
-      url = '/api/evolution/instances';
+      url = `${baseUrl}/api/evolution/instances`;
       fetchOptions.method = 'GET';
       delete fetchOptions.body;
     } else if (endpoint.startsWith('/instance/connectionState')) {
-      url = '/api/evolution/status?instanceId=' + encodeURIComponent(endpoint.split('/').pop()!);
+      url = `${baseUrl}/api/evolution/status?instanceId=` + encodeURIComponent(endpoint.split('/').pop()!);
       fetchOptions.method = 'GET';
       delete fetchOptions.body;
     } else if (endpoint.startsWith('/instance/delete')) {
-      url = '/api/evolution/delete?instanceId=' + encodeURIComponent(endpoint.split('/').pop()!);
+      url = `${baseUrl}/api/evolution/delete?instanceId=` + encodeURIComponent(endpoint.split('/').pop()!);
       fetchOptions.method = 'DELETE';
       delete fetchOptions.body;
     } else if (endpoint.startsWith('/instance/settings')) {
-      url = '/api/evolution/settings?instanceId=' + encodeURIComponent(endpoint.split('/').pop()!);
-      fetchOptions.method = 'GET';
-      delete fetchOptions.body;
+      url = `${baseUrl}/api/evolution/settings?instanceId=` + encodeURIComponent(endpoint.split('/').pop()!);
+      fetchOptions.method = 'POST';
+      fetchOptions.body = JSON.stringify(data);
     } else if (endpoint.startsWith('/instance/webhook')) {
-      url = '/api/evolution/webhook';
+      url = `${baseUrl}/api/evolution/webhook`;
       fetchOptions.method = 'POST';
       fetchOptions.body = JSON.stringify(data);
     } else {

@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>✅ API Routing Verification</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #b6d4ea;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            margin: 10px 0;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .test-result {
+            margin: 15px 0;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-good { background-color: #28a745; }
+        .status-bad { background-color: #dc3545; }
+        .status-unknown { background-color: #6c757d; }
+    </style>
+</head>
+<body>
+    <h1>🔍 API Routing Verification Test</h1>
+    
+    <div class="container">
+        <h2>🎯 Test Objective</h2>
+        <div class="info">
+            <strong>Goal:</strong> Verify that Evolution API calls are correctly routed to <code>localhost:8083/api/evolution/*</code> and <strong>NOT</strong> redirected to <code>ia.geni.chat/api/evolution/*</code>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>📡 API Routing Test</h2>
+        <button onclick="runComprehensiveTest()">🚀 Run Complete Test</button>
+        <button onclick="clearResults()">🧹 Clear Results</button>
+        
+        <div id="testResults"></div>
+        <div id="logOutput" class="log"></div>
+    </div>
+
+    <script>
+        let logOutput = '';
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            logOutput += `[${timestamp}] ${type.toUpperCase()}: ${message}\n`;
+            document.getElementById('logOutput').textContent = logOutput;
+            console.log(`${type.toUpperCase()}: ${message}`);
+        }
+        
+        function clearResults() {
+            document.getElementById('testResults').innerHTML = '';
+            logOutput = '';
+            document.getElementById('logOutput').textContent = '';
+        }
+        
+        // Replicate the exact base URL logic from secureApiClient.ts
+        function getBaseUrl() {
+            const isLocalhost = window.location.hostname === 'localhost' || 
+                              window.location.hostname === '127.0.0.1' || 
+                              window.location.hostname === '0.0.0.0';
+            
+            if (isLocalhost) {
+                const port = window.location.port;
+                const baseUrl = `${window.location.protocol}//${window.location.hostname}:${port}`;
+                log(`🌐 Using base URL for API calls: ${baseUrl}`);
+                return baseUrl;
+            } else {
+                log(`🌐 Using base URL for API calls: ${window.location.origin}`);
+                return window.location.origin;
+            }
+        }
+        
+        async function testApiHealthCall() {
+            log('📋 Testing API health check call...');
+            const baseUrl = getBaseUrl();
+            const url = `${baseUrl}/api/evolution/instances`;
+            
+            try {
+                log(`🔗 Making request to: ${url}`);
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const actualUrl = response.url;
+                const status = response.status;
+                
+                log(`📊 Response received - Status: ${status}, URL: ${actualUrl}`);
+                
+                let result = {
+                    success: true,
+                    requestUrl: url,
+                    actualUrl: actualUrl,
+                    status: status,
+                    message: '',
+                    isGoodRouting: false
+                };
+                
+                // Check if the URL was redirected to ia.geni.chat
+                if (actualUrl.includes('ia.geni.chat')) {
+                    result.success = false;
+                    result.message = '❌ PROBLEM DETECTED: Request was redirected to ia.geni.chat!';
+                    result.isGoodRouting = false;
+                    log('🚨 PROBLEM: Request redirected to ia.geni.chat', 'error');
+                } else if (actualUrl.includes('localhost')) {
+                    result.message = '✅ GOOD: Request stayed on localhost as expected';
+                    result.isGoodRouting = true;
+                    log('✅ SUCCESS: Request stayed on localhost', 'success');
+                } else {
+                    result.message = 'ℹ️ INFO: Using production URL (not localhost)';
+                    result.isGoodRouting = true;
+                    log('ℹ️ INFO: Using production URL', 'info');
+                }
+                
+                return result;
+                
+            } catch (error) {
+                log(`❌ Request failed: ${error.message}`, 'error');
+                return {
+                    success: false,
+                    requestUrl: url,
+                    actualUrl: 'N/A',
+                    status: 'ERROR',
+                    message: `❌ Request failed: ${error.message}`,
+                    isGoodRouting: false
+                };
+            }
+        }
+        
+        async function testMultipleEndpoints() {
+            log('🎯 Testing multiple Evolution API endpoints...');
+            const baseUrl = getBaseUrl();
+            
+            const endpoints = [
+                '/api/evolution/instances',
+                '/api/evolution/health'
+            ];
+            
+            const results = [];
+            
+            for (const endpoint of endpoints) {
+                const url = `${baseUrl}${endpoint}`;
+                log(`🔗 Testing endpoint: ${endpoint}`);
+                
+                try {
+                    const response = await fetch(url, {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    const actualUrl = response.url;
+                    const status = response.status;
+                    
+                    results.push({
+                        endpoint: endpoint,
+                        requestUrl: url,
+                        actualUrl: actualUrl,
+                        status: status,
+                        isGoodRouting: !actualUrl.includes('ia.geni.chat')
+                    });
+                    
+                    if (actualUrl.includes('ia.geni.chat')) {
+                        log(`🚨 ${endpoint}: REDIRECTED to ia.geni.chat`, 'error');
+                    } else {
+                        log(`✅ ${endpoint}: Stayed on correct domain`, 'success');
+                    }
+                    
+                } catch (error) {
+                    log(`❌ ${endpoint}: Failed - ${error.message}`, 'error');
+                    results.push({
+                        endpoint: endpoint,
+                        requestUrl: url,
+                        actualUrl: 'ERROR',
+                        status: 'ERROR',
+                        isGoodRouting: false,
+                        error: error.message
+                    });
+                }
+            }
+            
+            return results;
+        }
+        
+        async function runComprehensiveTest() {
+            clearResults();
+            const resultsDiv = document.getElementById('testResults');
+            
+            log('🚀 Starting comprehensive API routing test...', 'info');
+            
+            // Test 1: Environment Detection
+            log('📍 Test 1: Environment Detection', 'info');
+            const baseUrl = getBaseUrl();
+            const isLocalhost = window.location.hostname === 'localhost';
+            
+            let html = `
+                <div class="test-result info">
+                    <h3>📍 Environment Detection</h3>
+                    <p><strong>Current URL:</strong> ${window.location.href}</p>
+                    <p><strong>Hostname:</strong> ${window.location.hostname}</p>
+                    <p><strong>Port:</strong> ${window.location.port}</p>
+                    <p><strong>Is Localhost:</strong> ${isLocalhost}</p>
+                    <p><strong>Base URL for API calls:</strong> ${baseUrl}</p>
+                </div>
+            `;
+            
+            // Test 2: Base URL Logic
+            log('🔧 Test 2: Base URL Logic', 'info');
+            const expectedUrl = `${window.location.protocol}//${window.location.hostname}:${window.location.port}`;
+            const baseUrlCorrect = baseUrl === expectedUrl;
+            
+            html += `
+                <div class="test-result ${baseUrlCorrect ? 'success' : 'error'}">
+                    <h3>🔧 Base URL Logic</h3>
+                    <p><strong>Expected:</strong> ${expectedUrl}</p>
+                    <p><strong>Calculated:</strong> ${baseUrl}</p>
+                    <p><strong>Match:</strong> ${baseUrlCorrect ? '✅ YES' : '❌ NO'}</p>
+                </div>
+            `;
+            
+            // Test 3: API Health Check
+            log('🏥 Test 3: API Health Check', 'info');
+            const healthResult = await testApiHealthCall();
+            
+            html += `
+                <div class="test-result ${healthResult.isGoodRouting ? 'success' : 'error'}">
+                    <h3>🏥 API Health Check (fetchInstances)</h3>
+                    <p><strong>Request URL:</strong> ${healthResult.requestUrl}</p>
+                    <p><strong>Actual URL:</strong> ${healthResult.actualUrl}</p>
+                    <p><strong>Status:</strong> ${healthResult.status}</p>
+                    <p><strong>Result:</strong> ${healthResult.message}</p>
+                    <div style="margin-top: 10px;">
+                        <span class="status-indicator ${healthResult.isGoodRouting ? 'status-good' : 'status-bad'}"></span>
+                        <strong>${healthResult.isGoodRouting ? 'ROUTING CORRECT' : 'ROUTING PROBLEM'}</strong>
+                    </div>
+                </div>
+            `;
+            
+            // Test 4: Multiple Endpoints
+            log('📡 Test 4: Multiple Endpoints', 'info');
+            const endpointResults = await testMultipleEndpoints();
+            
+            const allGoodRouting = endpointResults.every(r => r.isGoodRouting);
+            
+            html += `
+                <div class="test-result ${allGoodRouting ? 'success' : 'error'}">
+                    <h3>📡 Multiple Endpoints Test</h3>
+                    <div style="margin-bottom: 10px;">
+                        <span class="status-indicator ${allGoodRouting ? 'status-good' : 'status-bad'}"></span>
+                        <strong>${allGoodRouting ? 'ALL ENDPOINTS CORRECT' : 'SOME ENDPOINTS HAVE PROBLEMS'}</strong>
+                    </div>
+            `;
+            
+            endpointResults.forEach(result => {
+                html += `
+                    <div style="margin: 10px 0; padding: 10px; background-color: ${result.isGoodRouting ? '#e8f5e8' : '#ffe8e8'}; border-radius: 4px;">
+                        <strong>${result.endpoint}</strong><br>
+                        <small>Request: ${result.requestUrl}</small><br>
+                        <small>Actual: ${result.actualUrl}</small><br>
+                        <small>Status: ${result.status}</small><br>
+                        <span class="status-indicator ${result.isGoodRouting ? 'status-good' : 'status-bad'}"></span>
+                        ${result.isGoodRouting ? 'Good routing' : 'Bad routing'}
+                        ${result.error ? `<br><small style="color: red;">Error: ${result.error}</small>` : ''}
+                    </div>
+                `;
+            });
+            
+            html += `</div>`;
+            
+            // Final Summary
+            const overallSuccess = baseUrlCorrect && healthResult.isGoodRouting && allGoodRouting;
+            
+            html += `
+                <div class="test-result ${overallSuccess ? 'success' : 'error'}">
+                    <h3>📋 Final Summary</h3>
+                    <div style="margin: 10px 0;">
+                        <span class="status-indicator ${overallSuccess ? 'status-good' : 'status-bad'}"></span>
+                        <strong style="font-size: 18px;">
+                            ${overallSuccess ? 
+                                '🎉 ALL TESTS PASSED - API routing is working correctly!' : 
+                                '🚨 TESTS FAILED - API routing needs investigation'
+                            }
+                        </strong>
+                    </div>
+                    <p><strong>Base URL Logic:</strong> ${baseUrlCorrect ? '✅' : '❌'}</p>
+                    <p><strong>Health Check Routing:</strong> ${healthResult.isGoodRouting ? '✅' : '❌'}</p>
+                    <p><strong>All Endpoints Routing:</strong> ${allGoodRouting ? '✅' : '❌'}</p>
+                    
+                    ${overallSuccess ? 
+                        '<div class="success" style="margin-top: 15px;"><strong>✅ Success!</strong> Evolution API calls are correctly using localhost and not being redirected to ia.geni.chat</div>' :
+                        '<div class="error" style="margin-top: 15px;"><strong>❌ Problem!</strong> Some API calls are still being redirected to ia.geni.chat. Check the secureApiClient.ts configuration.</div>'
+                    }
+                </div>
+            `;
+            
+            resultsDiv.innerHTML = html;
+            log('🏁 Comprehensive test completed!', 'info');
+        }
+        
+        // Auto-run test on page load
+        window.addEventListener('load', () => {
+            log('🌟 API Routing Verification Test loaded');
+            log('📍 Current page: ' + window.location.href);
+            runComprehensiveTest();
+        });
+    </script>
+</body>
+</html>

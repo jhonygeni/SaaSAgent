@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evolution API Routing Verification Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-title {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        .log-container {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .url-test {
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 4px solid #007bff;
+            background-color: #f8f9fa;
+        }
+        .network-monitor {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Evolution API Routing Verification Test</h1>
+    
+    <div class="network-monitor">
+        <h3>📡 Network Monitor Instructions</h3>
+        <p><strong>BEFORE testing:</strong> Open Developer Tools (F12) → Network tab → Clear logs</p>
+        <p><strong>AFTER testing:</strong> Check that Evolution API calls are routed to <code>cloudsaas.geni.chat</code></p>
+        <p><strong>Expected behavior:</strong></p>
+        <ul>
+            <li>Development: Calls should go to <code>supabase.co/functions/v1/evolution-api</code></li>
+            <li>The Supabase function should then proxy to <code>cloudsaas.geni.chat</code></li>
+            <li>No direct calls to <code>ia.geni.chat/api/evolution/*</code></li>
+        </ul>
+    </div>
+
+    <div class="test-container">
+        <h2 class="test-title">Environment Detection Test</h2>
+        <div id="environment-info"></div>
+        <button onclick="testEnvironmentDetection()">Test Environment Detection</button>
+    </div>
+
+    <div class="test-container">
+        <h2 class="test-title">Evolution API Routing Test</h2>
+        <div id="routing-results"></div>
+        <button onclick="testEvolutionAPIRouting()">Test Evolution API Routing</button>
+        <button onclick="testInstanceFetch()">Test Fetch Instances</button>
+        <button onclick="testCreateInstance()">Test Create Instance</button>
+    </div>
+
+    <div class="test-container">
+        <h2 class="test-title">URL Verification</h2>
+        <div id="url-verification"></div>
+        <button onclick="verifyURLs()">Verify URL Configuration</button>
+    </div>
+
+    <div class="test-container">
+        <h2 class="test-title">Test Logs</h2>
+        <button onclick="clearLogs()">Clear Logs</button>
+        <div class="log-container" id="logs"></div>
+    </div>
+
+    <script type="module">
+        // Simulate module environment
+        const import_meta_env = {
+            DEV: true,
+            VITE_EVOLUTION_API_URL: 'https://cloudsaas.geni.chat',
+            VITE_SUPABASE_URL: 'https://hpovwcaskorzzrpphgkc.supabase.co',
+            VITE_SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhwb3Z3Y2Fza29yenpycHBoZ2tjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc4MjYzODYsImV4cCI6MjA2MzQwMjM4Nn0.3Gx3Gc5xlFKwoMvd0Zk9vELzNbrf0ar4gaM92n9dtDc'
+        };
+
+        window.import = { meta: { env: import_meta_env } };
+
+        // Log function
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logContainer = document.getElementById('logs');
+            const logEntry = document.createElement('div');
+            logEntry.className = `test-result ${type}`;
+            logEntry.innerHTML = `<strong>[${timestamp}]</strong> ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+            console.clear();
+        }
+
+        // Mock Supabase client
+        const mockSupabase = {
+            functions: {
+                invoke: async (functionName, options) => {
+                    log(`📞 Supabase Functions Invoke: ${functionName}`, 'info');
+                    log(`📄 Function Options: ${JSON.stringify(options, null, 2)}`, 'info');
+                    
+                    // Simulate network call to Supabase Edge Function
+                    const supabaseUrl = import_meta_env.VITE_SUPABASE_URL;
+                    const functionUrl = `${supabaseUrl}/functions/v1/${functionName}`;
+                    
+                    log(`🌐 Making request to: ${functionUrl}`, 'info');
+                    
+                    try {
+                        const response = await fetch(functionUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${import_meta_env.VITE_SUPABASE_ANON_KEY}`
+                            },
+                            body: JSON.stringify(options.body)
+                        });
+
+                        const result = await response.json();
+                        
+                        if (!response.ok) {
+                            log(`❌ Supabase function failed: ${response.status} ${response.statusText}`, 'error');
+                            return { error: result, data: null };
+                        }
+
+                        log(`✅ Supabase function success: ${JSON.stringify(result)}`, 'success');
+                        return { data: result, error: null };
+                    } catch (error) {
+                        log(`💥 Supabase function error: ${error.message}`, 'error');
+                        return { error: { message: error.message }, data: null };
+                    }
+                }
+            }
+        };
+
+        // Simulate secure API client
+        const secureApiClient = {
+            async callEvolutionAPI(endpoint, method = 'GET', data) {
+                log(`🔒 Starting secure Evolution API call - Endpoint: ${endpoint}, Method: ${method}`, 'info');
+
+                // Environment detection
+                const isLocalDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                const isDevelopment = import_meta_env.DEV;
+                
+                log(`🔍 Environment detected - Local: ${isLocalDevelopment}, Dev: ${isDevelopment}`, 'info');
+                
+                if (isLocalDevelopment && isDevelopment) {
+                    log(`🔧 Development mode detected - Using Supabase Edge Function`, 'warning');
+                    return this.callEvolutionAPIViaSupabase(endpoint, method, data);
+                } else {
+                    log(`🚀 Production mode detected - Using Vercel API Routes`, 'warning');
+                    return this.callEvolutionAPIViaVercel(endpoint, method, data);
+                }
+            },
+
+            async callEvolutionAPIViaSupabase(endpoint, method = 'GET', data) {
+                log(`📡 Calling Supabase Edge Function: evolution-api`, 'info');
+                
+                const result = await mockSupabase.functions.invoke('evolution-api', {
+                    body: {
+                        endpoint,
+                        method,
+                        data: data || {}
+                    }
+                });
+
+                if (result.error) {
+                    log(`❌ Supabase Edge Function error: ${result.error.message}`, 'error');
+                    throw new Error(result.error.message || 'Erro na Evolution API via Supabase');
+                }
+
+                log(`✅ Supabase Edge Function response received`, 'success');
+                return result.data;
+            },
+
+            async callEvolutionAPIViaVercel(endpoint, method = 'GET', data) {
+                const baseUrl = window.location.origin;
+                log(`🌐 Using Vercel API Routes at: ${baseUrl}`, 'info');
+
+                // Simulate Vercel routing logic
+                let url = '';
+                if (endpoint.startsWith('/instance/fetchInstances')) {
+                    url = `${baseUrl}/api/evolution/instances`;
+                } else if (endpoint.startsWith('/instance/create')) {
+                    url = `${baseUrl}/api/evolution/create-instance`;
+                } else {
+                    url = `${baseUrl}/api/evolution/generic${endpoint}`;
+                }
+
+                log(`📍 Mapped URL: ${url}`, 'info');
+
+                try {
+                    const response = await fetch(url, {
+                        method,
+                        headers: { 'Content-Type': 'application/json' },
+                        body: method !== 'GET' ? JSON.stringify(data) : undefined
+                    });
+
+                    const result = await response.json();
+                    if (!response.ok) {
+                        throw new Error(result?.error || 'Erro desconhecido na Evolution API');
+                    }
+                    return result;
+                } catch (error) {
+                    log(`❌ Vercel API Route error: ${error.message}`, 'error');
+                    throw error;
+                }
+            },
+
+            async fetchInstances() {
+                return this.callEvolutionAPI('/instance/fetchInstances');
+            },
+
+            async createInstance(instanceData) {
+                return this.callEvolutionAPI('/instance/create', 'POST', instanceData);
+            }
+        };
+
+        // Test functions
+        window.testEnvironmentDetection = function() {
+            const container = document.getElementById('environment-info');
+            container.innerHTML = '';
+
+            const info = {
+                hostname: window.location.hostname,
+                origin: window.location.origin,
+                isDev: import_meta_env.DEV,
+                evolutionApiUrl: import_meta_env.VITE_EVOLUTION_API_URL,
+                supabaseUrl: import_meta_env.VITE_SUPABASE_URL
+            };
+
+            log('🔍 Environment Detection Results:', 'info');
+            Object.entries(info).forEach(([key, value]) => {
+                log(`  ${key}: ${value}`, 'info');
+                container.innerHTML += `<div class="url-test"><strong>${key}:</strong> ${value}</div>`;
+            });
+
+            const isLocalDev = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && import_meta_env.DEV;
+            const expectedRoute = isLocalDev ? 'Supabase Edge Function' : 'Vercel API Routes';
+            
+            container.innerHTML += `<div class="test-result success"><strong>Expected Route:</strong> ${expectedRoute}</div>`;
+            log(`✅ Expected routing: ${expectedRoute}`, 'success');
+        };
+
+        window.testEvolutionAPIRouting = async function() {
+            const container = document.getElementById('routing-results');
+            container.innerHTML = '<div class="test-result info">Testing Evolution API routing...</div>';
+
+            try {
+                log('🚀 Starting Evolution API routing test', 'info');
+                
+                // Test basic call
+                const result = await secureApiClient.callEvolutionAPI('/instance/fetchInstances', 'GET');
+                
+                container.innerHTML += '<div class="test-result success">✅ Evolution API routing test completed successfully</div>';
+                container.innerHTML += `<div class="test-result info">Result: ${JSON.stringify(result, null, 2)}</div>`;
+                
+                log('✅ Evolution API routing test completed successfully', 'success');
+            } catch (error) {
+                container.innerHTML += `<div class="test-result error">❌ Evolution API routing test failed: ${error.message}</div>`;
+                log(`❌ Evolution API routing test failed: ${error.message}`, 'error');
+            }
+        };
+
+        window.testInstanceFetch = async function() {
+            try {
+                log('📋 Testing fetchInstances', 'info');
+                const result = await secureApiClient.fetchInstances();
+                log('✅ fetchInstances completed', 'success');
+            } catch (error) {
+                log(`❌ fetchInstances failed: ${error.message}`, 'error');
+            }
+        };
+
+        window.testCreateInstance = async function() {
+            try {
+                log('🆕 Testing createInstance', 'info');
+                const testData = {
+                    instanceName: 'test-instance-' + Date.now(),
+                    integration: 'WHATSAPP-BAILEYS'
+                };
+                const result = await secureApiClient.createInstance(testData);
+                log('✅ createInstance completed', 'success');
+            } catch (error) {
+                log(`❌ createInstance failed: ${error.message}`, 'error');
+            }
+        };
+
+        window.verifyURLs = function() {
+            const container = document.getElementById('url-verification');
+            container.innerHTML = '';
+
+            const urlTests = [
+                {
+                    name: 'Evolution API URL',
+                    url: import_meta_env.VITE_EVOLUTION_API_URL,
+                    expected: 'https://cloudsaas.geni.chat',
+                    test: 'should_equal'
+                },
+                {
+                    name: 'Supabase URL',
+                    url: import_meta_env.VITE_SUPABASE_URL,
+                    expected: 'supabase.co',
+                    test: 'should_contain'
+                },
+                {
+                    name: 'Current Origin',
+                    url: window.location.origin,
+                    expected: 'localhost:8080',
+                    test: 'should_contain'
+                }
+            ];
+
+            urlTests.forEach(({ name, url, expected, test }) => {
+                const passed = test === 'should_equal' 
+                    ? url === expected 
+                    : url.includes(expected);
+                
+                const resultClass = passed ? 'success' : 'error';
+                const icon = passed ? '✅' : '❌';
+                
+                container.innerHTML += `
+                    <div class="test-result ${resultClass}">
+                        ${icon} <strong>${name}:</strong> ${url}
+                        <br>Expected: ${test.replace('_', ' ')} "${expected}"
+                    </div>
+                `;
+                
+                log(`${icon} ${name}: ${url} (${test} "${expected}")`, passed ? 'success' : 'error');
+            });
+        };
+
+        // Auto-run initial tests
+        log('🎯 Evolution API Routing Verification Test initialized', 'info');
+        log('👉 Click buttons above to run tests', 'info');
+        log('👉 Open Network tab in DevTools before testing to monitor requests', 'warning');
+    </script>
+</body>
+</html>

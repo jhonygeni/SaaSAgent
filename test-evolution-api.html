@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evolution API Routing Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #b6d4ea;
+        }
+        .console-output {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .button-disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Evolution API Routing Test</h1>
+    
+    <div class="test-container">
+        <h2>📋 Test Information</h2>
+        <div id="testInfo" class="test-result info">
+            <strong>Purpose:</strong> Verify that Evolution API calls are correctly routed to the development server and not redirected to ia.geni.chat
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>🔧 Environment Detection</h2>
+        <div id="envResults"></div>
+        <button onclick="testEnvironment()">Test Environment</button>
+    </div>
+
+    <div class="test-container">
+        <h2>🌐 Base URL Logic Test</h2>
+        <div id="baseUrlResults"></div>
+        <button onclick="testBaseUrlLogic()">Test Base URL Logic</button>
+    </div>
+
+    <div class="test-container">
+        <h2>📡 API Endpoint Construction</h2>
+        <div id="endpointResults"></div>
+        <button onclick="testEndpointConstruction()">Test Endpoint Construction</button>
+    </div>
+
+    <div class="test-container">
+        <h2>🔄 Network Request Test</h2>
+        <div id="networkResults"></div>
+        <button onclick="testNetworkRequests()">Test Network Requests</button>
+    </div>
+
+    <div class="test-container">
+        <h2>📊 Console Output</h2>
+        <div id="consoleOutput" class="console-output"></div>
+        <button onclick="clearConsole()">Clear Console</button>
+    </div>
+
+    <script>
+        // Capture console logs
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        
+        function appendToConsole(type, message) {
+            const consoleOutput = document.getElementById('consoleOutput');
+            const timestamp = new Date().toLocaleTimeString();
+            consoleOutput.textContent += `[${timestamp}] ${type.toUpperCase()}: ${message}\n`;
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            appendToConsole('log', args.join(' '));
+        };
+        
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            appendToConsole('error', args.join(' '));
+        };
+        
+        console.warn = function(...args) {
+            originalWarn.apply(console, args);
+            appendToConsole('warn', args.join(' '));
+        };
+
+        // Copy the exact logic from secureApiClient.ts
+        function getBaseUrl() {
+            const isLocalhost = window.location.hostname === 'localhost' || 
+                              window.location.hostname === '127.0.0.1' || 
+                              window.location.hostname === '0.0.0.0';
+            
+            if (isLocalhost) {
+                const port = window.location.port;
+                const baseUrl = `${window.location.protocol}//${window.location.hostname}:${port}`;
+                console.log(`🌐 Using base URL for API calls: ${baseUrl}`);
+                return baseUrl;
+            } else {
+                console.log(`🌐 Using base URL for API calls: ${window.location.origin}`);
+                return window.location.origin;
+            }
+        }
+
+        function testEnvironment() {
+            const resultsDiv = document.getElementById('envResults');
+            const hostname = window.location.hostname;
+            const port = window.location.port;
+            const protocol = window.location.protocol;
+            const origin = window.location.origin;
+            
+            const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0';
+            
+            let html = `
+                <div class="test-result info">
+                    <strong>Current Environment:</strong><br>
+                    • Hostname: ${hostname}<br>
+                    • Port: ${port}<br>
+                    • Protocol: ${protocol}<br>
+                    • Origin: ${origin}<br>
+                    • Is Localhost: ${isLocalhost}
+                </div>
+            `;
+            
+            if (isLocalhost && port) {
+                html += `<div class="test-result success">✅ Running on localhost with port ${port} - Development environment detected correctly</div>`;
+            } else if (isLocalhost && !port) {
+                html += `<div class="test-result error">❌ Running on localhost but no port detected</div>`;
+            } else {
+                html += `<div class="test-result info">ℹ️ Running in production-like environment</div>`;
+            }
+            
+            resultsDiv.innerHTML = html;
+            console.log('Environment test completed');
+        }
+
+        function testBaseUrlLogic() {
+            const resultsDiv = document.getElementById('baseUrlResults');
+            try {
+                const baseUrl = getBaseUrl();
+                const expectedUrl = `${window.location.protocol}//${window.location.hostname}:${window.location.port}`;
+                
+                let html = `
+                    <div class="test-result info">
+                        <strong>Base URL Calculation:</strong><br>
+                        • Calculated: ${baseUrl}<br>
+                        • Expected: ${expectedUrl}
+                    </div>
+                `;
+                
+                if (baseUrl === expectedUrl) {
+                    html += `<div class="test-result success">✅ Base URL logic is working correctly</div>`;
+                } else {
+                    html += `<div class="test-result error">❌ Base URL mismatch</div>`;
+                }
+                
+                // Check if it's NOT using ia.geni.chat
+                if (!baseUrl.includes('ia.geni.chat')) {
+                    html += `<div class="test-result success">✅ Not using ia.geni.chat - Good!</div>`;
+                } else {
+                    html += `<div class="test-result error">❌ WARNING: Still using ia.geni.chat</div>`;
+                }
+                
+                resultsDiv.innerHTML = html;
+                console.log('Base URL logic test completed');
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="test-result error">❌ Error: ${error.message}</div>`;
+                console.error('Base URL logic test failed:', error);
+            }
+        }
+
+        function testEndpointConstruction() {
+            const resultsDiv = document.getElementById('endpointResults');
+            try {
+                const baseUrl = getBaseUrl();
+                const testEndpoints = [
+                    '/api/evolution/instances',
+                    '/api/evolution/health',
+                    '/api/evolution/instances/test-instance',
+                    '/api/evolution/instances/test-instance/status'
+                ];
+                
+                let html = '<div class="test-result info"><strong>Testing Evolution API endpoints:</strong></div>';
+                
+                testEndpoints.forEach(endpoint => {
+                    const fullUrl = `${baseUrl}${endpoint}`;
+                    
+                    html += `
+                        <div class="test-result">
+                            <strong>Endpoint:</strong> ${endpoint}<br>
+                            <strong>Full URL:</strong> ${fullUrl}
+                    `;
+                    
+                    if (fullUrl.includes('ia.geni.chat')) {
+                        html += `<br><span class="error">❌ WARNING: Using ia.geni.chat</span>`;
+                    } else if (fullUrl.includes('localhost')) {
+                        html += `<br><span class="success">✅ Using localhost (correct for development)</span>`;
+                    } else {
+                        html += `<br><span class="info">ℹ️ Using production URL</span>`;
+                    }
+                    
+                    html += '</div>';
+                });
+                
+                resultsDiv.innerHTML = html;
+                console.log('Endpoint construction test completed');
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="test-result error">❌ Error: ${error.message}</div>`;
+                console.error('Endpoint construction test failed:', error);
+            }
+        }
+
+        async function testNetworkRequests() {
+            const resultsDiv = document.getElementById('networkResults');
+            const baseUrl = getBaseUrl();
+            
+            resultsDiv.innerHTML = '<div class="test-result info">🔄 Testing network requests...</div>';
+            
+            const testUrls = [
+                `${baseUrl}/api/evolution/health`,
+                `${baseUrl}/api/evolution/instances`
+            ];
+            
+            let html = '<div class="test-result info"><strong>Network Request Tests:</strong></div>';
+            
+            for (const url of testUrls) {
+                try {
+                    console.log(`Testing request to: ${url}`);
+                    
+                    const startTime = Date.now();
+                    const response = await fetch(url, {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    const endTime = Date.now();
+                    
+                    const actualUrl = response.url;
+                    const status = response.status;
+                    const responseTime = endTime - startTime;
+                    
+                    html += `
+                        <div class="test-result">
+                            <strong>Request URL:</strong> ${url}<br>
+                            <strong>Actual URL:</strong> ${actualUrl}<br>
+                            <strong>Status:</strong> ${status}<br>
+                            <strong>Response Time:</strong> ${responseTime}ms
+                    `;
+                    
+                    if (actualUrl.includes('ia.geni.chat')) {
+                        html += `<br><span class="error">❌ REDIRECTED TO ia.geni.chat - This is the problem!</span>`;
+                    } else if (actualUrl.includes('localhost')) {
+                        html += `<br><span class="success">✅ Stayed on localhost - Good!</span>`;
+                    } else {
+                        html += `<br><span class="info">ℹ️ Using expected production URL</span>`;
+                    }
+                    
+                    html += '</div>';
+                    
+                } catch (error) {
+                    html += `
+                        <div class="test-result error">
+                            <strong>Request URL:</strong> ${url}<br>
+                            <strong>Error:</strong> ${error.message}
+                        </div>
+                    `;
+                    console.error(`Request to ${url} failed:`, error);
+                }
+            }
+            
+            resultsDiv.innerHTML = html;
+            console.log('Network request test completed');
+        }
+
+        function clearConsole() {
+            document.getElementById('consoleOutput').textContent = '';
+        }
+
+        // Auto-run environment test on page load
+        window.addEventListener('load', () => {
+            console.log('Evolution API Routing Test Page Loaded');
+            testEnvironment();
+        });
+    </script>
+</body>
+</html>
