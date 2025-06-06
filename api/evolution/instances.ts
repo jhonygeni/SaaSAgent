@@ -5,7 +5,7 @@ export default async function handler(req: any, res: any) {
 
   const apiKey = process.env.EVOLUTION_API_KEY;
   const apiUrl = process.env.EVOLUTION_API_URL || 'https://cloudsaas.geni.chat';
-
+console.log('apiUrl', apiUrl);
   if (!apiKey) {
     return res.status(500).json({ error: 'EVOLUTION_API_KEY não configurada no backend' });
   }

@@ -1,20 +1,13 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   MAX_CONNECTION_RETRIES, 
   RETRY_DELAY_MS,
   PREVENT_CREDIT_CONSUMPTION_ON_FAILURE
 } from '../../constants/api';
 
-// Get Supabase configuration from environment
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
 // Get Evolution API configuration from environment
 const EVOLUTION_API_URL = import.meta.env.VITE_EVOLUTION_API_URL;
 // SECURITY: EVOLUTION_API_KEY is NOT exposed to frontend - only backend has access
-
-// Initialize Supabase client
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 /**
  * Helper function to replace placeholders in endpoint URLs

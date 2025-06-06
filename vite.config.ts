@@ -8,13 +8,9 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:3001', // Ajuste para a porta do seu backend
-        changeOrigin: true,
-        secure: false,
-      },
-    },
+    // Removed proxy configuration since we're using direct API calls to external services
+    // Evolution API calls go directly to https://cloudsaas.geni.chat
+    // Supabase Edge Functions are called directly via the Supabase client
   },
   plugins: [
     react(),

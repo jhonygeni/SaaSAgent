@@ -302,7 +302,9 @@ export function ImprovedAgentForm({ onAgentCreated }: ImprovedAgentFormProps) {
       }
 
       console.log("Sending agent creation request to Supabase");
+      console.log("Validated agent data:", validatedAgent);
       const savedAgent = await addAgent(validatedAgent);
+      console.log("Saved agent data:", savedAgent);
       
       if (!savedAgent || !savedAgent.id) {
         toast({
