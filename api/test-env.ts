@@ -1,8 +1,8 @@
 export default function handler(req: any, res: any) {
-  res.status(200).json({
-    apiKey: process.env.EVOLUTION_API_KEY ? 'OK' : 'NOT SET',
-    apiUrl: process.env.EVOLUTION_API_URL || 'NOT SET',
-    nodeEnv: process.env.NODE_ENV || 'NOT SET',
-    allEnv: Object.keys(process.env)
+  return res.status(200).json({
+    EVOLUTION_API_KEY: process.env.EVOLUTION_API_KEY ? 'OK' : 'NOT SET',
+    EVOLUTION_API_URL: process.env.EVOLUTION_API_URL || 'NOT SET',
+    NODE_ENV: process.env.NODE_ENV || 'NOT SET',
+    VERCEL_ENV: process.env.VERCEL_ENV || 'NOT SET'
   });
 }
