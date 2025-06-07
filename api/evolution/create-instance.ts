@@ -11,7 +11,8 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const response = await fetch(`${apiUrl}/instance/create`, {
+    const baseUrl = apiUrl.replace(/\/$/, '');
+    const response = await fetch(`${baseUrl}/instance/create`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

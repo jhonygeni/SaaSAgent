@@ -36,7 +36,8 @@ export default async function handler(req: any, res: any) {
     console.log(`📊 Getting connection state for Evolution API instance: ${instance}`);
 
     // Call Evolution API v2 connectionState endpoint: GET /instance/connectionState/{instance}
-    const evolutionUrl = `${EVOLUTION_API_URL}/instance/connectionState/${encodeURIComponent(instance)}`;
+    const baseUrl = EVOLUTION_API_URL?.replace(/\/$/, '');
+    const evolutionUrl = `${baseUrl}/instance/connectionState/${encodeURIComponent(instance)}`;
     
     console.log(`📡 Making request to: ${evolutionUrl}`);
     

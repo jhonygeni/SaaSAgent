@@ -37,7 +37,8 @@ export default async function handler(req: any, res: any) {
     console.log(`🎯 [DEPRECATED] QR Code endpoint called. Redirecting to Evolution API v2 connect endpoint for instance: ${instanceName}`);
 
     // Evolution API v2: Use /instance/connect/{instance} instead of /instance/qrCode
-    const evolutionUrl = `${EVOLUTION_API_URL}/instance/connect/${encodeURIComponent(instanceName)}`;
+    const baseUrl = EVOLUTION_API_URL?.replace(/\/$/, '');
+    const evolutionUrl = `${baseUrl}/instance/connect/${encodeURIComponent(instanceName)}`;
     
     console.log(`📡 Making request to Evolution API v2: ${evolutionUrl}`);
     

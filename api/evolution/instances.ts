@@ -11,7 +11,9 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const evolutionUrl = `${apiUrl}/instance/fetchInstances`;
+    // Remove trailing slash from apiUrl and ensure proper URL construction
+    const baseUrl = apiUrl.replace(/\/$/, '');
+    const evolutionUrl = `${baseUrl}/instance/fetchInstances`;
     console.log('[EVOLUTION PROXY] Fazendo requisição para:', evolutionUrl);
     console.log('[EVOLUTION PROXY] Usando apikey:', apiKey ? '***' : '(vazia)');
 

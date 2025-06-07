@@ -15,7 +15,8 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const response = await fetch(`${apiUrl}/instance/delete?instanceId=${instanceId}`, {
+    const baseUrl = apiUrl.replace(/\/$/, '');
+    const response = await fetch(`${baseUrl}/instance/delete?instanceId=${instanceId}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
