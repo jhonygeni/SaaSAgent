@@ -13,6 +13,8 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
+    console.log('[EVOLUTION PROXY] Starting handler execution...');
+    
     const apiKey = process.env.EVOLUTION_API_KEY;
     const apiUrl = process.env.EVOLUTION_API_URL || 'https://cloudsaas.geni.chat';
 
@@ -34,41 +36,63 @@ export default async function handler(req: any, res: any) {
     const baseUrl = apiUrl.replace(/\/$/, '');
     const evolutionUrl = `${baseUrl}/instance/fetchInstances`;
     console.log('[EVOLUTION PROXY] Fazendo requisição para:', evolutionUrl);
-    console.log('[EVOLUTION PROXY] Usando apikey:', apiKey ? '***' : '(vazia)');
 
-    const response = await fetch(evolutionUrl, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'apikey': apiKey,
-      },
-    });
+    // Create AbortController for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
-    const contentType = response.headers.get('content-type');
-    let data;
-    if (contentType && contentType.includes('application/json')) {
-      data = await response.json();
-    } else {
-      data = await response.text();
+    try {
+      console.log('[EVOLUTION PROXY] Making fetch request...');
+      const response = await fetch(evolutionUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'apikey': apiKey,
+        },
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+      console.log('[EVOLUTION PROXY] Fetch completed, status:', response.status);
+
+      const contentType = response.headers.get('content-type');
+      let data;
+      
+      console.log('[EVOLUTION PROXY] Content-Type:', contentType);
+      
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        data = await response.text();
+      }
+
+      console.log('[EVOLUTION PROXY] Data parsed successfully');
+
+      if (!response.ok) {
+        const errorMsg = (typeof data === 'object' && data !== null && 'error' in data) ? (data as any).error : 'Erro na Evolution API';
+        return res.status(response.status).json({ error: errorMsg, details: data });
+      }
+      
+      return res.status(200).json(data);
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        console.error('[EVOLUTION PROXY] Request timeout');
+        return res.status(408).json({ error: 'Request timeout - Evolution API não respondeu em 10s' });
+      }
+      
+      throw fetchError; // Re-throw to be caught by outer catch
     }
-
-    console.log('[EVOLUTION PROXY] Status:', response.status);
-    console.log('[EVOLUTION PROXY] Resposta:', data);
-
-    if (!response.ok) {
-      // Acesso seguro à propriedade 'error' se existir
-      const errorMsg = (typeof data === 'object' && data !== null && 'error' in data) ? (data as any).error : 'Erro na Evolution API';
-      return res.status(response.status).json({ error: errorMsg, details: data });
-    }
-    return res.status(200).json(data);
   } catch (err) {
-    console.error('[EVOLUTION PROXY] Erro ao conectar com Evolution API:', err);
+    console.error('[EVOLUTION PROXY] Erro geral:', err);
     return res.status(500).json({ 
       error: 'Erro ao conectar com Evolution API', 
       details: String(err),
       message: err instanceof Error ? err.message : 'Unknown error',
-      stack: err instanceof Error ? err.stack : 'No stack trace'
+      stack: err instanceof Error ? err.stack : 'No stack trace',
+      timestamp: new Date().toISOString()
     });
   }
 }
