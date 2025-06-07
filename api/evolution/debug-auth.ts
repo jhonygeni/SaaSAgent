@@ -80,7 +80,7 @@ export default async function handler(req: any, res: any) {
       try {
         const response = await fetch(evolutionUrl, {
           method: 'GET',
-          headers: option.headers
+          headers: option.headers as Record<string, string>
         });
 
         const result: {
