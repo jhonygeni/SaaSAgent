@@ -81,9 +81,9 @@
 </head>
 <body>
     <div class="container">
-        <h1>🔧 Evolution API URL Fix Validation</h1>
-        <p><strong>Fix Applied:</strong> Changed EVOLUTION_API_URL from <code>https://cloudsaas.geni.chat</code> to <code>https://cloud3.geni.chat</code></p>
-        <p><strong>Issue:</strong> API was returning 401 Unauthorized due to incorrect base URL</p>
+        <h1>🔧 Evolution API URL Validation</h1>
+        <p><strong>Correct URL Confirmed:</strong> <code>https://cloudsaas.geni.chat</code> (NOT cloud3.geni.chat)</p>
+        <p><strong>Issue:</strong> Investigating authentication problems with the correct URL</p>
         
         <button onclick="testAllEndpoints()" class="test-btn" style="background: #28a745; font-size: 16px; padding: 12px 24px;">🚀 Test All Endpoints</button>
         
@@ -297,10 +297,10 @@
 
         // Auto-run test when page loads
         window.addEventListener('load', () => {
-            console.log('Evolution API URL Fix Validation loaded');
-            console.log('Previous URL: https://cloudsaas.geni.chat');
-            console.log('New URL: https://cloud3.geni.chat');
-            console.log('Ready to test endpoints...');
+            console.log('Evolution API URL Validation loaded');
+            console.log('Correct URL: https://cloudsaas.geni.chat');
+            console.log('Previous incorrect attempt: https://cloud3.geni.chat');
+            console.log('Ready to test endpoints with correct URL...');
         });
     </script>
 </body>
