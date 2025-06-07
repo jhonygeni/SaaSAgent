@@ -87,13 +87,13 @@ export default async function handler(req: any, res: any) {
 
   } catch (error) {
     console.error('[ULTRA SIMPLE] Caught error:', error);
-    console.error('[ULTRA SIMPLE] Error type:', error?.constructor?.name);
-    console.error('[ULTRA SIMPLE] Error message:', error?.message);
+    console.error('[ULTRA SIMPLE] Error type:', (error as any)?.constructor?.name);
+    console.error('[ULTRA SIMPLE] Error message:', (error as any)?.message);
     
     return res.status(500).json({
       error: 'Erro interno da função',
       message: error instanceof Error ? error.message : 'Erro desconhecido',
-      type: error?.constructor?.name || 'Unknown',
+      type: (error as any)?.constructor?.name || 'Unknown',
       timestamp: new Date().toISOString()
     });
   }

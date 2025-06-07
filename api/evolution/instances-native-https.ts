@@ -83,7 +83,7 @@ export default async function handler(req: any, res: any) {
             resolve({
               statusCode: httpRes.statusCode,
               data: data,
-              parseError: parseError.message
+              parseError: (parseError as Error).message
             });
           }
         });
@@ -104,7 +104,7 @@ export default async function handler(req: any, res: any) {
     });
 
     console.log('[NATIVE HTTPS] Executing request...');
-    const result = await httpsRequest();
+    const result = await httpsRequest() as any;
     
     console.log('[NATIVE HTTPS] Request completed, status:', result.statusCode);
     
@@ -123,13 +123,13 @@ export default async function handler(req: any, res: any) {
 
   } catch (error) {
     console.error('[NATIVE HTTPS] Caught error:', error);
-    console.error('[NATIVE HTTPS] Error type:', error?.constructor?.name);
-    console.error('[NATIVE HTTPS] Error message:', error?.message);
+    console.error('[NATIVE HTTPS] Error type:', (error as any)?.constructor?.name);
+    console.error('[NATIVE HTTPS] Error message:', (error as any)?.message);
     
     return res.status(500).json({
       error: 'Erro na requisição HTTPS',
       message: error instanceof Error ? error.message : String(error),
-      type: error?.constructor?.name || 'Unknown',
+      type: (error as any)?.constructor?.name || 'Unknown',
       timestamp: new Date().toISOString()
     });
   }

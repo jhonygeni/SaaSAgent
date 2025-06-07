@@ -7,7 +7,12 @@ export default async function handler(req: any, res: any) {
     return res.status(200).end();
   }
 
-  const results = [];
+  const results: Array<{
+    step: number;
+    name: string;
+    status: string;
+    details?: any;
+  }> = [];
   
   try {
     // Step 1: Environment variables
