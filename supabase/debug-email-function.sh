@@ -10,7 +10,7 @@ SMTP_HOST="smtp.hostinger.com"
 SMTP_PORT="465"
 SMTP_USERNAME="validar@geni.chat"
 SMTP_PASSWORD="${SMTP_PASSWORD:-CONFIGURE_YOUR_SMTP_PASSWORD}" 
-SITE_URL="http://localhost:8081"
+SITE_URL="https://ia.geni.chat"
 
 echo "=== Depuração da Configuração de Email ==="
 
