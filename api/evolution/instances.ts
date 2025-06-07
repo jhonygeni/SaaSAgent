@@ -111,109 +111,19 @@ export default async function handler(req: any, res: any) {
 
   } catch (error) {
     console.error('[EVOLUTION API] Handler error:', error);
-    console.error('[EVOLUTION API] Error type:', error?.constructor?.name);
-    console.error('[EVOLUTION API] Error message:', error?.message);
-    console.error('[EVOLUTION API] Error stack:', error?.stack);
+    console.error('[EVOLUTION API] Error type:', (error as any)?.constructor?.name);
+    console.error('[EVOLUTION API] Error message:', (error as any)?.message);
+    console.error('[EVOLUTION API] Error stack:', (error as any)?.stack);
     
     return res.status(500).json({
       error: 'Erro interno da função Evolution API',
       message: error instanceof Error ? error.message : String(error),
-      type: error?.constructor?.name || 'Unknown',
+      type: (error as any)?.constructor?.name || 'Unknown',
       timestamp: new Date().toISOString(),
       details: {
         nodeVersion: process.version,
         platform: process.platform
       }
     });
-  }
-}
-  // Add CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Método não permitido' });
-  }
-
-  console.log('[EVOLUTION PROXY] Handler started - Version 2.1');
-
-  try {
-    const apiKey = process.env.EVOLUTION_API_KEY;
-    const apiUrl = process.env.EVOLUTION_API_URL || 'https://cloudsaas.geni.chat';
-
-    console.log('[EVOLUTION PROXY] Environment check - API Key:', apiKey ? 'PRESENT' : 'MISSING');
-    console.log('[EVOLUTION PROXY] Environment check - API URL:', apiUrl);
-
-    if (!apiKey) {
-      console.error('[EVOLUTION PROXY] Missing API key');
-      return res.status(500).json({ 
-        error: 'EVOLUTION_API_KEY não configurada no backend',
-        timestamp: new Date().toISOString()
-      });
-    }
-
-    // Remove trailing slash and construct URL
-    const baseUrl = apiUrl.replace(/\/$/, '');
-    const evolutionUrl = `${baseUrl}/instance/fetchInstances`;
-    console.log('[EVOLUTION PROXY] Target URL:', evolutionUrl);
-
-    console.log('[EVOLUTION PROXY] Making request...');
-    
-    // Simple fetch using node-fetch
-    const response = await fetch(evolutionUrl, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'apikey': apiKey,
-      }
-    });
-    
-    console.log('[EVOLUTION PROXY] Response received, status:', response.status);
-
-    // Handle response
-    const contentType = response.headers.get('content-type') || '';
-    let data: any;
-    
-    if (contentType.includes('application/json')) {
-      data = await response.json();
-    } else {
-      data = await response.text();
-    }
-
-    console.log('[EVOLUTION PROXY] Response data type:', typeof data);
-    console.log('[EVOLUTION PROXY] Response preview:', JSON.stringify(data).substring(0, 200));
-
-    if (!response.ok) {
-      const errorMsg = (typeof data === 'object' && data !== null && 'error' in data) 
-        ? data.error 
-        : `Evolution API error (${response.status})`;
-      
-      return res.status(response.status).json({ 
-        error: errorMsg, 
-        details: data,
-        timestamp: new Date().toISOString()
-      });
-    }
-    
-    console.log('[EVOLUTION PROXY] Success - returning data');
-    return res.status(200).json(data);
-    
-  } catch (err) {
-    console.error('[EVOLUTION PROXY] Error caught:', err);
-    
-    const errorResponse = {
-      error: 'Erro ao conectar com Evolution API',
-      message: err instanceof Error ? err.message : String(err),
-      type: err instanceof Error ? err.constructor.name : 'Unknown',
-      timestamp: new Date().toISOString()
-    };
-    
-    return res.status(500).json(errorResponse);
   }
 }
