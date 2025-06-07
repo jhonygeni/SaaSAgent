@@ -33,7 +33,17 @@ export default async function handler(req: any, res: any) {
     // Primeiro teste: conectividade básica
     console.log('[EVOLUTION DEBUG] Testing basic connectivity...');
     
-    const testResults = [];
+    const testResults: Array<{
+      test: string;
+      url: string;
+      status?: number;
+      ok?: boolean;
+      error?: string;
+      headers?: string[];
+      dataType?: string;
+      dataLength?: number | string;
+      errorText?: string;
+    }> = [];
     
     // Teste 1: Verificar se a URL base responde
     try {
@@ -73,7 +83,16 @@ export default async function handler(req: any, res: any) {
           headers: option.headers
         });
 
-        const result = {
+        const result: {
+          test: string;
+          url: string;
+          status: number;
+          ok: boolean;
+          headers: string[];
+          dataType?: string;
+          dataLength?: number | string;
+          errorText?: string;
+        } = {
           test: option.name,
           url: evolutionUrl,
           status: response.status,

@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evolution API URL Fix Validation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .endpoint {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #f9f9f9;
+        }
+        .endpoint h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        .test-btn {
+            background: #007cba;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        .test-btn:hover {
+            background: #005a8b;
+        }
+        .status {
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .loading {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .response {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-left: 4px solid #007cba;
+            overflow-x: auto;
+        }
+        pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .summary {
+            margin-top: 30px;
+            padding: 20px;
+            background: #e9ecef;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Evolution API URL Fix Validation</h1>
+        <p><strong>Fix Applied:</strong> Changed EVOLUTION_API_URL from <code>https://cloudsaas.geni.chat</code> to <code>https://cloud3.geni.chat</code></p>
+        <p><strong>Issue:</strong> API was returning 401 Unauthorized due to incorrect base URL</p>
+        
+        <button onclick="testAllEndpoints()" class="test-btn" style="background: #28a745; font-size: 16px; padding: 12px 24px;">🚀 Test All Endpoints</button>
+        
+        <div id="endpoints">
+            <div class="endpoint">
+                <h3>1. 📋 Instances List</h3>
+                <button onclick="testEndpoint('/api/evolution/instances', 'instances')" class="test-btn">Test</button>
+                <span id="instances-status" class="status" style="display: none;"></span>
+                <div id="instances-response" class="response" style="display: none;"></div>
+            </div>
+
+            <div class="endpoint">
+                <h3>2. ⚡ Status Check</h3>
+                <button onclick="testEndpoint('/api/evolution/status', 'status')" class="test-btn">Test</button>
+                <span id="status-status" class="status" style="display: none;"></span>
+                <div id="status-response" class="response" style="display: none;"></div>
+            </div>
+
+            <div class="endpoint">
+                <h3>3. 🔗 Connect Instance</h3>
+                <button onclick="testEndpoint('/api/evolution/connect', 'connect')" class="test-btn">Test</button>
+                <span id="connect-status" class="status" style="display: none;"></span>
+                <div id="connect-response" class="response" style="display: none;"></div>
+            </div>
+
+            <div class="endpoint">
+                <h3>4. ➕ Create Instance</h3>
+                <button onclick="testEndpoint('/api/evolution/create-instance', 'create')" class="test-btn">Test</button>
+                <span id="create-status" class="status" style="display: none;"></span>
+                <div id="create-response" class="response" style="display: none;"></div>
+            </div>
+
+            <div class="endpoint">
+                <h3>5. 🗑️ Delete Instance</h3>
+                <button onclick="testEndpoint('/api/evolution/delete', 'delete')" class="test-btn">Test</button>
+                <span id="delete-status" class="status" style="display: none;"></span>
+                <div id="delete-response" class="response" style="display: none;"></div>
+            </div>
+
+            <div class="endpoint">
+                <h3>6. 📱 QR Code</h3>
+                <button onclick="testEndpoint('/api/evolution/qrcode', 'qrcode')" class="test-btn">Test</button>
+                <span id="qrcode-status" class="status" style="display: none;"></span>
+                <div id="qrcode-response" class="response" style="display: none;"></div>
+            </div>
+
+            <div class="endpoint">
+                <h3>7. ⚙️ Settings</h3>
+                <button onclick="testEndpoint('/api/evolution/settings', 'settings')" class="test-btn">Test</button>
+                <span id="settings-status" class="status" style="display: none;"></span>
+                <div id="settings-response" class="response" style="display: none;"></div>
+            </div>
+
+            <div class="endpoint">
+                <h3>8. 🔔 Webhook</h3>
+                <button onclick="testEndpoint('/api/evolution/webhook', 'webhook')" class="test-btn">Test</button>
+                <span id="webhook-status" class="status" style="display: none;"></span>
+                <div id="webhook-response" class="response" style="display: none;"></div>
+            </div>
+
+            <div class="endpoint">
+                <h3>9. 💳 Create Checkout</h3>
+                <button onclick="testEndpoint('/api/evolution/create-checkout', 'checkout')" class="test-btn">Test</button>
+                <span id="checkout-status" class="status" style="display: none;"></span>
+                <div id="checkout-response" class="response" style="display: none;"></div>
+            </div>
+        </div>
+
+        <div id="summary" class="summary" style="display: none;">
+            <h2>📊 Test Summary</h2>
+            <div id="summary-content"></div>
+        </div>
+    </div>
+
+    <script>
+        let testResults = {};
+
+        async function testEndpoint(endpoint, id) {
+            const statusEl = document.getElementById(`${id}-status`);
+            const responseEl = document.getElementById(`${id}-response`);
+            
+            // Show loading
+            statusEl.style.display = 'inline';
+            statusEl.className = 'status loading';
+            statusEl.textContent = 'Testing...';
+            responseEl.style.display = 'none';
+
+            try {
+                console.log(`Testing ${endpoint}...`);
+                const response = await fetch(endpoint, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.text();
+                let parsedData;
+                
+                try {
+                    parsedData = JSON.parse(data);
+                } catch (e) {
+                    parsedData = data;
+                }
+
+                // Update status
+                if (response.ok) {
+                    statusEl.className = 'status success';
+                    statusEl.textContent = `✅ SUCCESS (${response.status})`;
+                    testResults[id] = 'success';
+                } else {
+                    statusEl.className = 'status error';
+                    statusEl.textContent = `❌ ERROR (${response.status})`;
+                    testResults[id] = 'error';
+                }
+
+                // Show response
+                responseEl.style.display = 'block';
+                responseEl.innerHTML = `
+                    <strong>Status:</strong> ${response.status} ${response.statusText}<br>
+                    <strong>Response:</strong>
+                    <pre>${JSON.stringify(parsedData, null, 2)}</pre>
+                `;
+
+                console.log(`${endpoint} result:`, response.status, parsedData);
+
+            } catch (error) {
+                console.error(`${endpoint} error:`, error);
+                
+                statusEl.className = 'status error';
+                statusEl.textContent = '❌ NETWORK ERROR';
+                testResults[id] = 'error';
+                
+                responseEl.style.display = 'block';
+                responseEl.innerHTML = `
+                    <strong>Error:</strong> ${error.message}
+                `;
+            }
+        }
+
+        async function testAllEndpoints() {
+            console.log('Starting comprehensive test of all Evolution API endpoints...');
+            testResults = {};
+            
+            const endpoints = [
+                { endpoint: '/api/evolution/instances', id: 'instances' },
+                { endpoint: '/api/evolution/status', id: 'status' },
+                { endpoint: '/api/evolution/connect', id: 'connect' },
+                { endpoint: '/api/evolution/create-instance', id: 'create' },
+                { endpoint: '/api/evolution/delete', id: 'delete' },
+                { endpoint: '/api/evolution/qrcode', id: 'qrcode' },
+                { endpoint: '/api/evolution/settings', id: 'settings' },
+                { endpoint: '/api/evolution/webhook', id: 'webhook' },
+                { endpoint: '/api/evolution/create-checkout', id: 'checkout' }
+            ];
+
+            // Test each endpoint with a delay
+            for (let i = 0; i < endpoints.length; i++) {
+                const { endpoint, id } = endpoints[i];
+                await testEndpoint(endpoint, id);
+                
+                // Small delay between tests
+                if (i < endpoints.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+            }
+
+            // Show summary after all tests
+            setTimeout(showSummary, 1000);
+        }
+
+        function showSummary() {
+            const summaryEl = document.getElementById('summary');
+            const contentEl = document.getElementById('summary-content');
+            
+            const total = Object.keys(testResults).length;
+            const successful = Object.values(testResults).filter(r => r === 'success').length;
+            const failed = total - successful;
+            
+            const successRate = total > 0 ? (successful / total * 100).toFixed(1) : 0;
+            
+            contentEl.innerHTML = `
+                <p><strong>Total Endpoints Tested:</strong> ${total}</p>
+                <p><strong>Successful:</strong> ${successful}</p>
+                <p><strong>Failed:</strong> ${failed}</p>
+                <p><strong>Success Rate:</strong> ${successRate}%</p>
+                
+                ${successful > 0 ? `
+                <div style="margin-top: 15px; padding: 10px; background: #d4edda; border-radius: 5px;">
+                    <strong>✅ URL Fix Status:</strong> ${successful === total ? 'COMPLETELY SUCCESSFUL' : 'PARTIALLY SUCCESSFUL'}
+                    <br>The Evolution API endpoints are now responding correctly with the updated URL.
+                </div>
+                ` : `
+                <div style="margin-top: 15px; padding: 10px; background: #f8d7da; border-radius: 5px;">
+                    <strong>❌ URL Fix Status:</strong> NEEDS INVESTIGATION
+                    <br>The endpoints are still failing. Additional debugging may be required.
+                </div>
+                `}
+            `;
+            
+            summaryEl.style.display = 'block';
+            
+            console.log('Test Summary:', {
+                total,
+                successful,
+                failed,
+                successRate: successRate + '%',
+                results: testResults
+            });
+        }
+
+        // Auto-run test when page loads
+        window.addEventListener('load', () => {
+            console.log('Evolution API URL Fix Validation loaded');
+            console.log('Previous URL: https://cloudsaas.geni.chat');
+            console.log('New URL: https://cloud3.geni.chat');
+            console.log('Ready to test endpoints...');
+        });
+    </script>
+</body>
+</html>
