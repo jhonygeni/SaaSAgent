@@ -66,7 +66,7 @@ export default async function handler(req: any, res: any) {
     const evolutionUrl = `${baseUrl}/instance/fetchInstances`;
     console.log('[EVOLUTION DEBUG] Target URL:', evolutionUrl);
 
-    const headerOptions = [
+    const headerOptions: Array<{ name: string; headers: Record<string, string> }> = [
       { name: 'apikey_header', headers: { 'Content-Type': 'application/json', 'apikey': apiKey } },
       { name: 'bearer_auth', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` } },
       { name: 'x_api_key', headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey } },
@@ -80,7 +80,7 @@ export default async function handler(req: any, res: any) {
       try {
         const response = await fetch(evolutionUrl, {
           method: 'GET',
-          headers: option.headers as Record<string, string>
+          headers: option.headers
         });
 
         const result: {
