@@ -5,42 +5,44 @@ export default async function handler(req: any, res: any) {
 
   const apiKey = process.env.EVOLUTION_API_KEY;
   const apiUrl = process.env.EVOLUTION_API_URL || 'https://cloudsaas.geni.chat';
-console.log('apiUrl', apiUrl);
+
   if (!apiKey) {
     return res.status(500).json({ error: 'EVOLUTION_API_KEY não configurada no backend' });
   }
 
   try {
-    const response = await fetch(`${apiUrl}/instance/fetchInstances`, {
+    const evolutionUrl = `${apiUrl}/instance/fetchInstances`;
+    console.log('[EVOLUTION PROXY] Fazendo requisição para:', evolutionUrl);
+    console.log('[EVOLUTION PROXY] Usando apikey:', apiKey ? '***' : '(vazia)');
+
+    const response = await fetch(evolutionUrl, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json', // Garante que o Accept está presente
+        'Accept': 'application/json',
         'apikey': apiKey,
       },
-      // Garante que o modo de resposta seja sempre json
-      // credentials: 'include', // descomente se precisar de cookies
     });
-    // Garante que a resposta é application/json
-    if (response.headers.get('content-type')?.includes('application/json')) {
-      const data = await response.json();
-      if (!response.ok) {
-        // Corrige o erro de tipagem ao acessar 'data.error' em um objeto possivelmente vazio
-        const errorMsg = (typeof data === 'object' && data !== null && 'error' in data) ? (data as any).error : 'Erro na Evolution API';
-        // Log detalhado para debug
-        console.error('Erro na Evolution API:', errorMsg, data);
-        return res.status(response.status).json({ error: errorMsg, details: data });
-      }
-      return res.status(200).json(data);
+
+    const contentType = response.headers.get('content-type');
+    let data;
+    if (contentType && contentType.includes('application/json')) {
+      data = await response.json();
     } else {
-      const text = await response.text();
-      // Log detalhado para debug
-      console.error('Resposta não é JSON:', text);
-      return res.status(response.status).json({ error: 'Resposta não é JSON', details: text });
+      data = await response.text();
     }
+
+    console.log('[EVOLUTION PROXY] Status:', response.status);
+    console.log('[EVOLUTION PROXY] Resposta:', data);
+
+    if (!response.ok) {
+      // Acesso seguro à propriedade 'error' se existir
+      const errorMsg = (typeof data === 'object' && data !== null && 'error' in data) ? (data as any).error : 'Erro na Evolution API';
+      return res.status(response.status).json({ error: errorMsg, details: data });
+    }
+    return res.status(200).json(data);
   } catch (err) {
-    // Log detalhado para debug
-    console.error('Erro ao conectar com Evolution API:', err);
+    console.error('[EVOLUTION PROXY] Erro ao conectar com Evolution API:', err);
     return res.status(500).json({ error: 'Erro ao conectar com Evolution API', details: String(err) });
   }
 }
