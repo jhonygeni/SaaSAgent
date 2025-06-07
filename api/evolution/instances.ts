@@ -1,16 +1,35 @@
 export default async function handler(req: any, res: any) {
+  // Add CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Método não permitido' });
   }
 
-  const apiKey = process.env.EVOLUTION_API_KEY;
-  const apiUrl = process.env.EVOLUTION_API_URL || 'https://cloudsaas.geni.chat';
-
-  if (!apiKey) {
-    return res.status(500).json({ error: 'EVOLUTION_API_KEY não configurada no backend' });
-  }
-
   try {
+    const apiKey = process.env.EVOLUTION_API_KEY;
+    const apiUrl = process.env.EVOLUTION_API_URL || 'https://cloudsaas.geni.chat';
+
+    console.log('[EVOLUTION PROXY] Environment check:', {
+      apiKey: apiKey ? 'PRESENTE' : 'AUSENTE',
+      apiUrl: apiUrl,
+      allEnvKeys: Object.keys(process.env).filter(key => key.includes('EVOLUTION'))
+    });
+
+    if (!apiKey) {
+      console.error('[EVOLUTION PROXY] EVOLUTION_API_KEY não encontrada');
+      return res.status(500).json({ 
+        error: 'EVOLUTION_API_KEY não configurada no backend',
+        availableEnv: Object.keys(process.env).filter(key => key.includes('EVOLUTION'))
+      });
+    }
+
     // Remove trailing slash from apiUrl and ensure proper URL construction
     const baseUrl = apiUrl.replace(/\/$/, '');
     const evolutionUrl = `${baseUrl}/instance/fetchInstances`;
@@ -45,6 +64,11 @@ export default async function handler(req: any, res: any) {
     return res.status(200).json(data);
   } catch (err) {
     console.error('[EVOLUTION PROXY] Erro ao conectar com Evolution API:', err);
-    return res.status(500).json({ error: 'Erro ao conectar com Evolution API', details: String(err) });
+    return res.status(500).json({ 
+      error: 'Erro ao conectar com Evolution API', 
+      details: String(err),
+      message: err instanceof Error ? err.message : 'Unknown error',
+      stack: err instanceof Error ? err.stack : 'No stack trace'
+    });
   }
 }
