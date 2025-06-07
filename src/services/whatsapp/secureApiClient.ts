@@ -6,7 +6,7 @@ import {
 } from '../../constants/api';
 
 // Get Evolution API configuration from environment
-const EVOLUTION_API_URL = import.meta.env.VITE_EVOLUTION_API_URL;
+const EVOLUTION_API_URL = import.meta.env.VITE_EVOLUTION_API_URL || 'https://cloudsaas.geni.chat';
 // SECURITY: EVOLUTION_API_KEY is NOT exposed to frontend - only backend has access
 
 /**
@@ -116,41 +116,38 @@ export const secureApiClient = {
    * Uses secure backend proxy to protect EVOLUTION_API_KEY
    */
   async callEvolutionAPIViaVercel<T>(endpoint: string, method: string = 'GET', data?: any): Promise<T> {
-    const baseUrl = window.location.origin; // Frontend domain
-    console.log(`🌐 Using Vercel API Routes at: ${baseUrl}`);
-
     // Map Evolution API endpoints to Vercel API Routes
     let url = '';
     let fetchOptions: RequestInit = { method, headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' } };
 
     // Route mapping based on Evolution API endpoints
     if (endpoint === '/instance/create') {
-      url = `${baseUrl}/api/evolution/create-instance`;
+      url = `/api/evolution/create-instance`;
       fetchOptions.method = 'POST';
       fetchOptions.body = JSON.stringify(data);
     } else if (endpoint.startsWith('/instance/connect/')) {
       const instanceName = endpoint.split('/')[3];
-      url = `${baseUrl}/api/evolution/connect?instance=${instanceName}`;
+      url = `/api/evolution/connect?instance=${instanceName}`;
       fetchOptions.method = 'GET';
     } else if (endpoint === '/instance/fetchInstances') {
-      url = `${baseUrl}/api/evolution/instances`;
+      url = `/api/evolution/instances`;
       fetchOptions.method = 'GET';
     } else if (endpoint.startsWith('/instance/info/')) {
       const instanceName = endpoint.split('/')[3];
-      url = `${baseUrl}/api/evolution/info?instance=${instanceName}`;
+      url = `/api/evolution/info?instance=${instanceName}`;
       fetchOptions.method = 'GET';
     } else if (endpoint.startsWith('/instance/qrcode/')) {
       // This endpoint should not be used anymore - redirect to connect
       const instanceName = endpoint.split('/')[3];
-      url = `${baseUrl}/api/evolution/connect?instance=${instanceName}`;
+      url = `/api/evolution/connect?instance=${instanceName}`;
       fetchOptions.method = 'GET';
     } else if (endpoint.startsWith('/instance/connectionState/')) {
       const instanceName = endpoint.split('/')[3];
-      url = `${baseUrl}/api/evolution/status?instance=${instanceName}`;
+      url = `/api/evolution/status?instance=${instanceName}`;
       fetchOptions.method = 'GET';
     } else if (endpoint.startsWith('/instance/delete/')) {
       const instanceName = endpoint.split('/')[3];
-      url = `${baseUrl}/api/evolution/delete`;
+      url = `/api/evolution/delete`;
       fetchOptions.method = 'DELETE';
       fetchOptions.body = JSON.stringify({ instance: instanceName });
     } else {
