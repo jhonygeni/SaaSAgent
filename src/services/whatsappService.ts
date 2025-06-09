@@ -154,6 +154,75 @@ const whatsappService = {
   },
 
   /**
+   * Configure N8N webhook with specific format required
+   * This is the exact format needed for n8n integration
+   */
+  configureN8NWebhook: async (instanceName: string): Promise<any> => {
+    try {
+      console.log(`Configuring N8N webhook for instance: ${instanceName}`);
+      
+      if (USE_MOCK_DATA) {
+        console.warn("MOCK MODE IS ACTIVE - This should never be used in production!");
+        return {
+          status: "success",
+          message: "N8N Webhook configured successfully (mock)",
+          webhook: {
+            enabled: true,
+            url: "https://webhooksaas.geni.chat/webhook/principal",
+            webhookByEvents: true,
+            webhookBase64: true,
+            events: ["MESSAGES_UPSERT"]
+          }
+        };
+      }
+
+      // Exact format as specified in the curl command
+      const webhookConfig = {
+        url: "https://webhooksaas.geni.chat/webhook/principal",
+        webhookByEvents: true,
+        webhookBase64: true,
+        events: [
+          "MESSAGES_UPSERT"
+        ]
+      };
+
+      // Use secure API client for N8N webhook configuration
+      const data = await secureApiClient.setWebhook(instanceName, webhookConfig);
+      console.log("N8N webhook configuration successful:", data);
+      return data;
+    } catch (error) {
+      console.error("Error configuring N8N webhook:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Configure N8N webhook without blocking (fire and forget)
+   * This will be called after instance creation
+   */
+  configureN8NWebhookNonBlocking: async (instanceName: string): Promise<void> => {
+    try {
+      console.log(`[NON-BLOCKING] Configuring N8N webhook for instance: ${instanceName}`);
+      
+      // Fire and forget - don't wait for response
+      const webhookConfig = {
+        url: "https://webhooksaas.geni.chat/webhook/principal",
+        webhookByEvents: true,
+        webhookBase64: true,
+        events: [
+          "MESSAGES_UPSERT"
+        ]
+      };
+
+      secureApiClient.setWebhook(instanceName, webhookConfig).catch(error => {
+        console.error(`[NON-BLOCKING] Failed to configure N8N webhook for ${instanceName}:`, error);
+      });
+    } catch (error) {
+      console.error(`[NON-BLOCKING] Error configuring N8N webhook for ${instanceName}:`, error);
+    }
+  },
+
+  /**
    * Normalize QR code response to ensure consistent format
    */
   normalizeQrCodeResponse: (response: any): QrCodeResponse => {
@@ -251,8 +320,8 @@ const whatsappService = {
           webhook: {
             enabled: true,
             url: "https://webhooksaas.geni.chat/webhook/principal",
-            webhook_by_events: false,
-            webhook_base64: false,
+            webhook_by_events: true,
+            webhook_base64: true,
             events: ["MESSAGES_UPSERT"]
           },
           websocket: null,
@@ -286,9 +355,9 @@ const whatsappService = {
       const createResponse = await secureApiClient.createInstance(instanceData);
       console.log("Instance creation successful:", createResponse);
       
-      // Configure settings and webhook non-blocking
+      // Configure settings and N8N webhook non-blocking
       whatsappService.configureInstanceSettingsNonBlocking(instanceName);
-      whatsappService.configureWebhookNonBlocking(instanceName);
+      whatsappService.configureN8NWebhookNonBlocking(instanceName);
       
       return createResponse;
     } catch (error) {

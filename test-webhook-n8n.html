@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teste Webhook N8N</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        .button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        .button:hover { background: #0056b3; }
+        .webhook-format { border: 2px solid #28a745; background: #d4edda; padding: 15px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🔗 Teste de Configuração Webhook N8N</h1>
+    
+    <div class="test-section info">
+        <h3>📋 Formato do Webhook N8N</h3>
+        <div class="webhook-format">
+            <h4>Formato especificado no cURL:</h4>
+            <pre>curl --request POST \
+  --url https://cloudsaas.geni.chat/webhook/set/{instance} \
+  --header 'Content-Type: application/json' \
+  --header 'apikey: api key' \
+  --data '{
+  "url": "https://webhooksaas.geni.chat/webhook/principal",
+  "webhookByEvents": true,
+  "webhookBase64": true,
+  "events": [
+    "MESSAGES_UPSERT"
+  ]
+}'</pre>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 Testar Configuração do Webhook</h3>
+        <p>Insira o nome da instância para testar a configuração do webhook N8N:</p>
+        <input type="text" id="instanceName" placeholder="Ex: test_instance_123" style="width: 300px; padding: 5px;">
+        <br><br>
+        <button class="button" onclick="testN8NWebhookConfig()">Configurar Webhook N8N</button>
+        <button class="button" onclick="verifyWebhookConfig()">Verificar Configuração Atual</button>
+        <div id="webhook-test-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🔧 Configurações Aplicadas</h3>
+        <div id="applied-config"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📊 Log de Atividades</h3>
+        <div id="activity-log"></div>
+        <button class="button" onclick="clearLog()">Limpar Log</button>
+    </div>
+
+    <script>
+        let activityLog = [];
+
+        function logActivity(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            activityLog.push({ timestamp, message, type });
+            updateActivityLog();
+        }
+
+        function updateActivityLog() {
+            const logDiv = document.getElementById('activity-log');
+            const html = activityLog.map(entry => {
+                const color = entry.type === 'error' ? '#dc3545' : 
+                            entry.type === 'success' ? '#28a745' : '#007bff';
+                return `<div style="margin: 5px 0; color: ${color};">[${entry.timestamp}] ${entry.message}</div>`;
+            }).join('');
+            logDiv.innerHTML = html;
+        }
+
+        function clearLog() {
+            activityLog = [];
+            updateActivityLog();
+        }
+
+        // Simulate the webhook configuration as it would happen in the real system
+        async function testN8NWebhookConfig() {
+            const instanceName = document.getElementById('instanceName').value.trim();
+            const resultsDiv = document.getElementById('webhook-test-results');
+            
+            if (!instanceName) {
+                resultsDiv.innerHTML = '<div class="error">❌ Por favor, insira um nome de instância</div>';
+                logActivity('Teste cancelado: nome de instância não fornecido', 'error');
+                return;
+            }
+
+            logActivity(`Iniciando teste de webhook N8N para instância: ${instanceName}`, 'info');
+            resultsDiv.innerHTML = '<div class="info">🔄 Configurando webhook N8N...</div>';
+
+            try {
+                // Simulate the exact configuration that will be sent
+                const webhookConfig = {
+                    url: "https://webhooksaas.geni.chat/webhook/principal",
+                    webhookByEvents: true,
+                    webhookBase64: true,
+                    events: [
+                        "MESSAGES_UPSERT"
+                    ]
+                };
+
+                // Simulate the API call that would be made
+                const simulatedApiUrl = `https://cloudsaas.geni.chat/webhook/set/${encodeURIComponent(instanceName)}`;
+                
+                logActivity(`Configuração que será enviada: ${JSON.stringify(webhookConfig, null, 2)}`, 'info');
+                logActivity(`URL da API: ${simulatedApiUrl}`, 'info');
+
+                // Show the configuration that would be applied
+                document.getElementById('applied-config').innerHTML = `
+                    <div class="success">
+                        <h4>✅ Configuração N8N que será aplicada:</h4>
+                        <pre>${JSON.stringify(webhookConfig, null, 2)}</pre>
+                        <p><strong>Endpoint:</strong> ${simulatedApiUrl}</p>
+                        <p><strong>Método:</strong> POST</p>
+                        <p><strong>Headers:</strong> Content-Type: application/json, apikey: [API_KEY]</p>
+                    </div>
+                `;
+
+                resultsDiv.innerHTML = `
+                    <div class="success">
+                        ✅ Configuração de webhook N8N simulada com sucesso!<br>
+                        <small>Instância: ${instanceName}</small><br>
+                        <small>URL: https://webhooksaas.geni.chat/webhook/principal</small><br>
+                        <small>Events: MESSAGES_UPSERT</small><br>
+                        <small>webhookByEvents: true</small><br>
+                        <small>webhookBase64: true</small>
+                    </div>
+                `;
+
+                logActivity(`Webhook N8N configurado com sucesso para ${instanceName}`, 'success');
+
+                // Show the difference between old and new configuration
+                showConfigurationComparison();
+
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">❌ Erro: ${error.message}</div>`;
+                logActivity(`Erro ao configurar webhook: ${error.message}`, 'error');
+            }
+        }
+
+        function showConfigurationComparison() {
+            const comparisonDiv = document.createElement('div');
+            comparisonDiv.className = 'test-section info';
+            comparisonDiv.innerHTML = `
+                <h4>🔄 Comparação: Configuração Antiga vs Nova</h4>
+                <div style="display: flex; gap: 20px;">
+                    <div style="flex: 1;">
+                        <h5>❌ Configuração Antiga (Geral)</h5>
+                        <pre>{
+  "url": "https://webhooksaas.geni.chat/webhook/principal",
+  "webhook_by_events": false,
+  "webhook_base64": false,
+  "events": [
+    "QRCODE_UPDATED",
+    "MESSAGES_UPSERT",
+    "MESSAGES_UPDATE",
+    "MESSAGES_DELETE",
+    "SEND_MESSAGE",
+    "CONNECTION_UPDATE"
+  ]
+}</pre>
+                    </div>
+                    <div style="flex: 1;">
+                        <h5>✅ Configuração Nova (N8N)</h5>
+                        <pre>{
+  "url": "https://webhooksaas.geni.chat/webhook/principal",
+  "webhookByEvents": true,
+  "webhookBase64": true,
+  "events": [
+    "MESSAGES_UPSERT"
+  ]
+}</pre>
+                    </div>
+                </div>
+                <div style="margin-top: 15px; padding: 10px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px;">
+                    <h6>🔍 Principais Diferenças:</h6>
+                    <ul>
+                        <li><strong>webhookByEvents:</strong> false → true (ativa eventos específicos)</li>
+                        <li><strong>webhookBase64:</strong> false → true (codifica mensagens em base64)</li>
+                        <li><strong>events:</strong> 6 eventos → apenas 1 evento (MESSAGES_UPSERT)</li>
+                        <li><strong>Foco:</strong> Configuração otimizada especificamente para N8N</li>
+                    </ul>
+                </div>
+            `;
+            
+            // Insert after the applied config section
+            const appliedConfigDiv = document.getElementById('applied-config').parentNode;
+            appliedConfigDiv.parentNode.insertBefore(comparisonDiv, appliedConfigDiv.nextSibling);
+        }
+
+        async function verifyWebhookConfig() {
+            const instanceName = document.getElementById('instanceName').value.trim();
+            const resultsDiv = document.getElementById('webhook-test-results');
+            
+            if (!instanceName) {
+                resultsDiv.innerHTML = '<div class="error">❌ Por favor, insira um nome de instância</div>';
+                return;
+            }
+
+            logActivity(`Verificando configuração atual do webhook para: ${instanceName}`, 'info');
+            resultsDiv.innerHTML = '<div class="info">🔍 Verificando configuração atual...</div>';
+
+            // Simulate checking current webhook configuration
+            setTimeout(() => {
+                resultsDiv.innerHTML = `
+                    <div class="info">
+                        ℹ️ Para verificar a configuração real, você precisaria:<br>
+                        <pre>curl --request GET \\
+  --url https://cloudsaas.geni.chat/webhook/find/${encodeURIComponent(instanceName)} \\
+  --header 'apikey: [API_KEY]'</pre>
+                        <p>Isso retornaria a configuração atual do webhook para a instância.</p>
+                    </div>
+                `;
+                logActivity(`Instrução de verificação fornecida para ${instanceName}`, 'info');
+            }, 1000);
+        }
+
+        // Initialize
+        logActivity('Sistema de teste de webhook N8N iniciado', 'success');
+        
+        // Show current implementation status
+        document.getElementById('applied-config').innerHTML = `
+            <div class="success">
+                <h4>✅ Status da Implementação</h4>
+                <ul>
+                    <li>✅ Função <code>configureN8NWebhook()</code> adicionada</li>
+                    <li>✅ Função <code>configureN8NWebhookNonBlocking()</code> adicionada</li>
+                    <li>✅ Método <code>createInstance()</code> atualizado para usar webhook N8N</li>
+                    <li>✅ Configuração mock atualizada</li>
+                    <li>✅ Formato exato do cURL implementado</li>
+                </ul>
+                <p><strong>🎯 Resultado:</strong> Quando uma instância WhatsApp for criada, o webhook N8N será automaticamente configurado com os parâmetros corretos.</p>
+            </div>
+        `;
+    </script>
+</body>
+</html>

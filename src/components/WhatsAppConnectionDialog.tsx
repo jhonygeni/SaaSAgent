@@ -219,7 +219,14 @@ function WhatsAppConnectionDialogInternal({
             if (instanceInfo?.instance?.user?.phone) {
               setPhoneNumber(instanceInfo.instance.user.phone);
               
-              // Update agent with phone number
+              // SIMPLIFIED: Update agent with phone number using agentService
+              console.log("Updating agent with WhatsApp connection data:", {
+                agentId,
+                phoneNumber: instanceInfo.instance.user.phone,
+                connected: true,
+                instanceName: instanceNameToUse
+              });
+              
               await updateAgentById(agentId, {
                 connected: true,
                 status: "ativo",

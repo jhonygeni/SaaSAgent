@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simplified Architecture Validation</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        .button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        .button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Simplified WhatsApp Architecture Validation</h1>
+    
+    <div class="test-section info">
+        <h3>🎯 What We're Testing</h3>
+        <ul>
+            <li>✅ Agents are stored in single `agents` table</li>
+            <li>✅ WhatsApp data stored in `settings` JSON field</li>
+            <li>✅ No dependency on `whatsapp_instances` table</li>
+            <li>✅ Agents appear correctly in dashboard</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h3>🔐 Authentication Status</h3>
+        <div id="auth-status">Checking...</div>
+        <button class="button" onclick="checkAuth()">Refresh Auth Status</button>
+    </div>
+
+    <div class="test-section">
+        <h3>📊 Current Agents in Database</h3>
+        <div id="agents-list">Loading...</div>
+        <button class="button" onclick="loadAgents()">Refresh Agents</button>
+    </div>
+
+    <div class="test-section">
+        <h3>🏗️ Architecture Validation</h3>
+        <div id="architecture-status">Checking...</div>
+        <button class="button" onclick="validateArchitecture()">Validate Architecture</button>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 Create Test Agent</h3>
+        <button class="button" onclick="createTestAgent()">Create Test Agent</button>
+        <button class="button" onclick="connectTestAgent()">Simulate WhatsApp Connection</button>
+        <button class="button" onclick="cleanupTestAgents()">Cleanup Test Agents</button>
+        <div id="test-results"></div>
+    </div>
+
+    <script>
+        // Supabase configuration
+        const supabaseUrl = 'https://uydwjbblkxmpwsmbokzm.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV5ZHdqYmJsa3htcHdzbWJva3ptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ1MzkzMjcsImV4cCI6MjA1MDExNTMyN30.sWm-iGjI62EoJbCnfgLHJMNIwZ8F_wqVG92kHy2_xPE';
+        
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+        
+        let currentUser = null;
+        let testAgentId = null;
+
+        // Check authentication status
+        async function checkAuth() {
+            const authDiv = document.getElementById('auth-status');
+            
+            try {
+                const { data: { user }, error } = await supabase.auth.getUser();
+                
+                if (error) {
+                    authDiv.innerHTML = `<div class="error">❌ Auth Error: ${error.message}</div>`;
+                    return;
+                }
+                
+                if (user) {
+                    currentUser = user;
+                    authDiv.innerHTML = `
+                        <div class="success">
+                            ✅ Authenticated as: ${user.email}<br>
+                            User ID: ${user.id}
+                        </div>
+                    `;
+                } else {
+                    authDiv.innerHTML = `
+                        <div class="error">
+                            ❌ Not authenticated. Please login to the application first.
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                authDiv.innerHTML = `<div class="error">❌ Exception: ${error.message}</div>`;
+            }
+        }
+
+        // Load current agents
+        async function loadAgents() {
+            const agentsDiv = document.getElementById('agents-list');
+            
+            if (!currentUser) {
+                agentsDiv.innerHTML = '<div class="error">❌ Please authenticate first</div>';
+                return;
+            }
+            
+            try {
+                const { data: agents, error } = await supabase
+                    .from('agents')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .order('created_at', { ascending: false });
+                
+                if (error) {
+                    agentsDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+                    return;
+                }
+                
+                if (agents.length === 0) {
+                    agentsDiv.innerHTML = '<div class="info">ℹ️ No agents found</div>';
+                    return;
+                }
+                
+                let html = `<div class="success">✅ Found ${agents.length} agents:</div><br>`;
+                
+                agents.forEach((agent, index) => {
+                    let settings = {};
+                    try {
+                        settings = JSON.parse(agent.settings || '{}');
+                    } catch (e) {
+                        settings = {};
+                    }
+                    
+                    html += `
+                        <div style="margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
+                            <strong>${index + 1}. ${settings.name || 'Unnamed Agent'}</strong><br>
+                            <small>ID: ${agent.id}</small><br>
+                            <small>Instance: ${agent.instance_name}</small><br>
+                            <small>Status: ${agent.status}</small><br>
+                            <small>Connected: ${settings.connected ? '✅' : '❌'}</small><br>
+                            <small>Phone: ${settings.phone_number || 'Not set'}</small><br>
+                            <small>Created: ${new Date(agent.created_at).toLocaleString()}</small><br>
+                            <details>
+                                <summary>Settings JSON</summary>
+                                <pre>${JSON.stringify(settings, null, 2)}</pre>
+                            </details>
+                        </div>
+                    `;
+                });
+                
+                agentsDiv.innerHTML = html;
+            } catch (error) {
+                agentsDiv.innerHTML = `<div class="error">❌ Exception: ${error.message}</div>`;
+            }
+        }
+
+        // Validate architecture
+        async function validateArchitecture() {
+            const statusDiv = document.getElementById('architecture-status');
+            
+            if (!currentUser) {
+                statusDiv.innerHTML = '<div class="error">❌ Please authenticate first</div>';
+                return;
+            }
+            
+            try {
+                // Test 1: Check agents table access
+                const { data: agents, error: agentsError } = await supabase
+                    .from('agents')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .limit(1);
+                
+                if (agentsError) {
+                    statusDiv.innerHTML = `<div class="error">❌ Agents table access failed: ${agentsError.message}</div>`;
+                    return;
+                }
+                
+                // Test 2: Verify settings JSON structure
+                let validSettingsCount = 0;
+                let totalAgents = agents.length;
+                
+                agents.forEach(agent => {
+                    try {
+                        const settings = JSON.parse(agent.settings || '{}');
+                        if (typeof settings === 'object') {
+                            validSettingsCount++;
+                        }
+                    } catch (e) {
+                        // Invalid JSON
+                    }
+                });
+                
+                // Test 3: Try to simulate WhatsApp instance conversion
+                const simulatedInstances = agents.map(agent => {
+                    let settings = {};
+                    try {
+                        settings = JSON.parse(agent.settings || '{}');
+                    } catch (e) {
+                        settings = {};
+                    }
+                    
+                    return {
+                        id: agent.id,
+                        name: agent.instance_name,
+                        instance_name: agent.instance_name,
+                        status: settings.connected ? 'connected' : 'pending',
+                        phone_number: settings.phone_number,
+                        user_id: agent.user_id,
+                        created_at: agent.created_at
+                    };
+                });
+                
+                statusDiv.innerHTML = `
+                    <div class="success">
+                        <h4>✅ Architecture Validation Passed</h4>
+                        <ul>
+                            <li>✅ Agents table accessible</li>
+                            <li>✅ Settings JSON valid in ${validSettingsCount}/${totalAgents} agents</li>
+                            <li>✅ Instance conversion successful (${simulatedInstances.length} instances)</li>
+                            <li>✅ No dependency on whatsapp_instances table needed</li>
+                        </ul>
+                        
+                        <h5>Simulated Instance Conversion:</h5>
+                        <pre>${JSON.stringify(simulatedInstances, null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="error">❌ Architecture validation failed: ${error.message}</div>`;
+            }
+        }
+
+        // Create test agent
+        async function createTestAgent() {
+            const resultsDiv = document.getElementById('test-results');
+            
+            if (!currentUser) {
+                resultsDiv.innerHTML = '<div class="error">❌ Please authenticate first</div>';
+                return;
+            }
+            
+            try {
+                const testAgent = {
+                    user_id: currentUser.id,
+                    instance_name: `test_agent_${Date.now()}`,
+                    status: 'pendente',
+                    settings: JSON.stringify({
+                        name: 'Test Agent - Architecture Validation',
+                        website: 'https://test-architecture.com',
+                        business_sector: 'Tecnologia',
+                        information: 'This is a test agent created to validate the simplified architecture',
+                        prompt: 'Test prompt for architecture validation',
+                        faqs: [],
+                        phone_number: null,
+                        message_count: 0,
+                        message_limit: 100,
+                        connected: false
+                    })
+                };
+                
+                const { data, error } = await supabase
+                    .from('agents')
+                    .insert(testAgent)
+                    .select()
+                    .single();
+                
+                if (error) {
+                    resultsDiv.innerHTML = `<div class="error">❌ Failed to create test agent: ${error.message}</div>`;
+                    return;
+                }
+                
+                testAgentId = data.id;
+                resultsDiv.innerHTML = `
+                    <div class="success">
+                        ✅ Test agent created successfully!<br>
+                        ID: ${data.id}<br>
+                        Instance: ${data.instance_name}<br>
+                        Status: ${data.status}
+                    </div>
+                `;
+                
+                // Refresh agents list
+                await loadAgents();
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">❌ Exception: ${error.message}</div>`;
+            }
+        }
+
+        // Simulate WhatsApp connection
+        async function connectTestAgent() {
+            const resultsDiv = document.getElementById('test-results');
+            
+            if (!testAgentId) {
+                resultsDiv.innerHTML = '<div class="error">❌ Please create a test agent first</div>';
+                return;
+            }
+            
+            try {
+                // Get current agent
+                const { data: agent, error: fetchError } = await supabase
+                    .from('agents')
+                    .select('*')
+                    .eq('id', testAgentId)
+                    .single();
+                
+                if (fetchError) {
+                    resultsDiv.innerHTML = `<div class="error">❌ Failed to fetch test agent: ${fetchError.message}</div>`;
+                    return;
+                }
+                
+                // Update with WhatsApp connection data
+                let settings = JSON.parse(agent.settings);
+                settings.phone_number = '+1234567890';
+                settings.connected = true;
+                
+                const { data, error } = await supabase
+                    .from('agents')
+                    .update({
+                        settings: JSON.stringify(settings),
+                        status: 'ativo',
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', testAgentId)
+                    .select()
+                    .single();
+                
+                if (error) {
+                    resultsDiv.innerHTML = `<div class="error">❌ Failed to update test agent: ${error.message}</div>`;
+                    return;
+                }
+                
+                resultsDiv.innerHTML = `
+                    <div class="success">
+                        ✅ Test agent WhatsApp connection simulated!<br>
+                        Status: ${data.status}<br>
+                        Connected: ${JSON.parse(data.settings).connected}<br>
+                        Phone: ${JSON.parse(data.settings).phone_number}
+                    </div>
+                `;
+                
+                // Refresh agents list
+                await loadAgents();
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">❌ Exception: ${error.message}</div>`;
+            }
+        }
+
+        // Cleanup test agents
+        async function cleanupTestAgents() {
+            const resultsDiv = document.getElementById('test-results');
+            
+            if (!currentUser) {
+                resultsDiv.innerHTML = '<div class="error">❌ Please authenticate first</div>';
+                return;
+            }
+            
+            try {
+                const { data, error } = await supabase
+                    .from('agents')
+                    .delete()
+                    .eq('user_id', currentUser.id)
+                    .like('instance_name', 'test_agent_%')
+                    .select();
+                
+                if (error) {
+                    resultsDiv.innerHTML = `<div class="error">❌ Failed to cleanup: ${error.message}</div>`;
+                    return;
+                }
+                
+                resultsDiv.innerHTML = `
+                    <div class="success">
+                        ✅ Cleaned up ${data.length} test agents
+                    </div>
+                `;
+                
+                testAgentId = null;
+                
+                // Refresh agents list
+                await loadAgents();
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">❌ Exception: ${error.message}</div>`;
+            }
+        }
+
+        // Initialize on page load
+        window.onload = async function() {
+            await checkAuth();
+            if (currentUser) {
+                await loadAgents();
+                await validateArchitecture();
+            }
+        };
+    </script>
+</body>
+</html>

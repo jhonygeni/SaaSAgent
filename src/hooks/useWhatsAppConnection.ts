@@ -55,7 +55,7 @@ export function useWhatsAppConnection() {
     createdInstancesRef,
     clearCurrentInstanceName,
     createAndConfigureInstance,
-    updateInstanceStatus // <-- add this
+    updateAgentWhatsAppData // <-- add this for simplified architecture
   } = useInstanceManager();
   
   // Track connection attempts to avoid consuming credits on retries
@@ -258,26 +258,49 @@ export function useWhatsAppConnection() {
     // Show a toast notification
     showSuccessToast(phoneNumber || undefined);
 
-    // Update instance status in Supabase to 'connected'
+    // SIMPLIFIED: Update agent data directly instead of instance status
+    // This eliminates the need for whatsapp_instances table
     try {
-      // Get current user ID
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData?.user?.id;
-      // Get instance name (from ref or instanceData)
+      
       let instanceName = null;
       if (instanceData && instanceData.instance && instanceData.instance.name) {
         instanceName = instanceData.instance.name;
       } else if (typeof getInstanceName === 'function') {
         instanceName = getInstanceName();
       }
+      
       if (instanceName && userId) {
-        await updateInstanceStatus(instanceName, "connected", userId);
-        console.log(`Instance status updated to 'connected' in Supabase for ${instanceName}`);
+        // Find the agent with this instance name and update it
+        const { data: agents, error } = await supabase
+          .from('agents')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('instance_name', instanceName);
+        
+        if (!error && agents && agents.length > 0) {
+          const agent = agents[0];
+          
+          const success = await updateAgentWhatsAppData(agent.id, {
+            phoneNumber: phoneNumber || undefined,
+            connected: true,
+            instanceName: instanceName
+          });
+          
+          if (success) {
+            console.log(`Agent WhatsApp data updated successfully for ${instanceName}`);
+          } else {
+            console.warn('Failed to update agent WhatsApp data');
+          }
+        } else {
+          console.warn('No agent found with instance name:', instanceName);
+        }
       } else {
-        console.warn('Could not update instance status: missing instanceName or userId', { instanceName, userId });
+        console.warn('Could not update agent: missing instanceName or userId', { instanceName, userId });
       }
     } catch (err) {
-      console.error('Failed to update instance status to connected:', err);
+      console.error('Failed to update agent WhatsApp data:', err);
     }
 
     // Auto-close after success if enabled
@@ -286,7 +309,7 @@ export function useWhatsAppConnection() {
     }
 
     console.log("Connection process completed successfully", phoneNumber ? `for number ${phoneNumber}` : "");
-  }, [clearPolling, showSuccessToast, setConnectionStatus, setCreditsConsumed, instanceData, getInstanceName, updateInstanceStatus]);
+  }, [clearPolling, showSuccessToast, setConnectionStatus, setCreditsConsumed, instanceData, getInstanceName, updateAgentWhatsAppData]);
 
   /**
    * Get current QR code

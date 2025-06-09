@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { Agent, BusinessSector, FAQ } from "@/types";
 import { nanoid } from "nanoid";
@@ -6,16 +5,21 @@ import { getAutomaticInstanceName } from "@/utils/automaticInstanceNameGenerator
 
 /**
  * Service for agent data management in Supabase
+ * SIMPLIFIED ARCHITECTURE: Uses only the agents table for all data
+ * 
+ * WhatsApp data storage strategy:
+ * - phoneNumber, connected, instanceName stored in settings JSON field
+ * - No separate whatsapp_instances table needed
+ * - Single source of truth for all agent data
  */
 const agentService = {
   /**
-   * Create a new agent in Supabase
+   * Create a new agent in Supabase (SIMPLIFIED - only agents table)
    */
   createAgent: async (agent: Agent): Promise<Agent | null> => {
     try {
-      // Set timeout for the operation
       const timeoutPromise = new Promise<null>((_, reject) => {
-        setTimeout(() => reject(new Error("Tempo limite excedido - createAgent")), 5000); // Optimized from 8000ms
+        setTimeout(() => reject(new Error("Tempo limite excedido - createAgent")), 5000);
       });
       
       const createPromise = (async () => {
@@ -26,36 +30,40 @@ const agentService = {
           return null;
         }
 
-        // Generate a custom ID identifier (but don't use it for the primary key)
-        const customId = agent.id || `agent-${nanoid(8)}`;
-        
-        // Generate unique instance name automatically (independent of agent name)
+        // Generate unique instance name automatically
         const instanceName = await getAutomaticInstanceName();
         
-        // Format the agent data for insertion - store most data in the settings field as JSON
+        // Format the agent data for insertion - store ALL data in the settings field as JSON
         const supabaseAgent = {
-          // REMOVED id field to let Supabase generate UUID automatically
           user_id: user.id,
           instance_name: instanceName,
           status: agent.status || "pendente",
           settings: JSON.stringify({
+            // Agent basic info
             name: agent.nome,
             website: agent.site,
             business_sector: agent.areaDeAtuacao,
             information: agent.informacoes,
             prompt: agent.prompt,
             faqs: agent.faqs,
-            phone_number: agent.phoneNumber,
+            
+            // WhatsApp connection data (stored in same place)
+            phone_number: agent.phoneNumber || null,
+            connected: agent.connected || false,
+            instance_name: instanceName,
+            
+            // Usage data
             message_count: agent.messageCount || 0,
             message_limit: agent.messageLimit || 100,
-            connected: agent.connected || false,
-            custom_id: customId // Store the custom ID in the settings JSON
+            
+            // Custom identifier
+            custom_id: agent.id || `agent-${nanoid(8)}`
           })
         };
 
-        console.log("Creating agent with data:", JSON.stringify(supabaseAgent, null, 2));
+        console.log("Creating agent with simplified structure:", JSON.stringify(supabaseAgent, null, 2));
 
-        // Insert the agent data with explicit returning parameter
+        // Insert the agent data
         const { data, error } = await supabase
           .from('agents')
           .insert(supabaseAgent)
@@ -63,26 +71,24 @@ const agentService = {
 
         if (error) {
           console.error("Error creating agent in Supabase:", error);
-          throw new Error(`Erro ao salvar o agente no banco de dados: ${error.message}`);
+          throw new Error(`Erro ao salvar o agente: ${error.message}`);
         }
 
-        console.log("Agent created successfully in Supabase with response:", data);
+        console.log("Agent created successfully:", data);
         
-        // Transform to Agent type
-        if (!data || data.length === 0) {  // Check for empty array as well
+        if (!data || data.length === 0) {
           console.error("No data returned from Supabase after agent creation");
           return null;
         }
         
         // Convert back to our application Agent type
-        return convertDbAgentToAppAgent(data[0]);  // Access the first element of the array
+        return convertDbAgentToAppAgent(data[0]);
       })();
       
-      // Race between the operation and the timeout
       return await Promise.race([createPromise, timeoutPromise]);
     } catch (error) {
       console.error("Exception creating agent:", error);
-      throw error; // Rethrow to allow for retry logic
+      throw error;
     }
   },
 
@@ -91,13 +97,11 @@ const agentService = {
    */
   fetchUserAgents: async (): Promise<Agent[]> => {
     try {
-      // Set timeout for the operation
       const timeoutPromise = new Promise<Agent[]>((_, reject) => {
         setTimeout(() => reject(new Error("Tempo limite excedido - fetchUserAgents")), 5000);
       });
       
       const fetchPromise = (async () => {
-        // Get the current user
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
           console.error("No authenticated user found");
@@ -110,14 +114,14 @@ const agentService = {
         const { data, error } = await supabase
           .from('agents')
           .select('*')
-          .eq('user_id', user.id);
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
 
         if (error) {
           console.error("Error fetching agents from Supabase:", error);
           return [];
         }
 
-        console.log("AgentService - Raw data from Supabase:", data);
         console.log("AgentService - Found", data?.length || 0, "agents");
 
         // Transform the data to match our Agent type
@@ -126,7 +130,6 @@ const agentService = {
         return agents;
       })();
       
-      // Race between the operation and the timeout
       return await Promise.race([fetchPromise, timeoutPromise]);
     } catch (error) {
       console.error("Exception fetching agents:", error);
@@ -178,7 +181,7 @@ const agentService = {
         if (updates.prompt) updatedSettings.prompt = updates.prompt;
         if (updates.faqs) updatedSettings.faqs = updates.faqs;
         
-        // WhatsApp connection data updates (SIMPLIFIED: stored in same settings JSON)
+        // WhatsApp connection data updates (stored in same settings JSON)
         if (updates.phoneNumber !== undefined) updatedSettings.phone_number = updates.phoneNumber;
         if (updates.connected !== undefined) updatedSettings.connected = updates.connected;
         if (updates.instanceName !== undefined) updatedSettings.instance_name = updates.instanceName;
@@ -209,6 +212,7 @@ const agentService = {
           return false;
         }
 
+        console.log("Agent updated successfully");
         return true;
       })();
       
@@ -220,52 +224,15 @@ const agentService = {
   },
 
   /**
-   * Delete an agent and its WhatsApp instance from both Evolution API and Supabase
+   * Delete an agent by ID
    */
   deleteAgent: async (id: string): Promise<boolean> => {
     try {
       const timeoutPromise = new Promise<boolean>((_, reject) => {
-        setTimeout(() => reject(new Error("Request timeout - deleteAgent")), 8000); // Optimized timeout for better performance
+        setTimeout(() => reject(new Error("Request timeout - deleteAgent")), 8000);
       });
       
       const deletePromise = (async () => {
-        // First, get the agent to retrieve its instance name
-        const { data: agent, error: fetchError } = await supabase
-          .from('agents')
-          .select('*')
-          .eq('id', id)
-          .single();
-        
-        if (fetchError) {
-          console.error("Error fetching agent for deletion:", fetchError);
-          // Continue with database deletion even if we can't fetch the agent
-        }
-        
-        // Try to delete the WhatsApp instance from Evolution API first
-        let evolutionApiCleanupSuccess = false;
-        if (agent?.instance_name) {
-          try {
-            console.log(`Attempting to delete Evolution API instance: ${agent.instance_name}`);
-            
-            // Dynamic import to avoid circular dependencies
-            const { default: whatsappService } = await import('./whatsappService');
-            evolutionApiCleanupSuccess = await whatsappService.deleteInstance(agent.instance_name);
-            
-            if (evolutionApiCleanupSuccess) {
-              console.log(`Successfully deleted Evolution API instance: ${agent.instance_name}`);
-            } else {
-              console.warn(`Failed to delete Evolution API instance: ${agent.instance_name}`);
-            }
-          } catch (evolutionError) {
-            console.error(`Error deleting Evolution API instance ${agent.instance_name}:`, evolutionError);
-            // Don't fail the entire operation if Evolution API cleanup fails
-            // The instance might already be deleted or the API might be down
-          }
-        } else {
-          console.log("No instance name found for agent, skipping Evolution API cleanup");
-        }
-
-        // Always proceed with database deletion regardless of Evolution API result
         const { error } = await supabase
           .from('agents')
           .delete()
@@ -276,14 +243,7 @@ const agentService = {
           return false;
         }
 
-        // If Evolution API cleanup failed but database deletion succeeded, log a warning
-        if (agent?.instance_name && !evolutionApiCleanupSuccess) {
-          console.warn(
-            `Agent deleted from database but Evolution API instance ${agent.instance_name} may still exist. ` +
-            `You may need to manually delete it from the Evolution API dashboard.`
-          );
-        }
-
+        console.log("Agent deleted successfully from Supabase");
         return true;
       })();
       
@@ -295,11 +255,11 @@ const agentService = {
   },
 
   /**
-   * Get a single agent by ID
+   * Get a specific agent by ID
    */
   getAgentById: async (id: string): Promise<Agent | null> => {
     try {
-      const timeoutPromise = new Promise<null>((_, reject) => {
+      const timeoutPromise = new Promise<Agent | null>((_, reject) => {
         setTimeout(() => reject(new Error("Request timeout - getAgentById")), 5000);
       });
       
@@ -315,7 +275,6 @@ const agentService = {
           return null;
         }
 
-        // Transform to Agent type
         return convertDbAgentToAppAgent(data);
       })();
       
@@ -328,7 +287,7 @@ const agentService = {
 
   /**
    * Update WhatsApp connection status for an agent
-   * SIMPLIFIED: Convenience method for WhatsApp-specific updates
+   * This is a convenience method for WhatsApp-specific updates
    */
   updateWhatsAppConnection: async (
     agentId: string, 
@@ -350,7 +309,6 @@ const agentService = {
 
   /**
    * Get all connected WhatsApp agents
-   * SIMPLIFIED: Filter agents by connection status
    */
   getConnectedAgents: async (): Promise<Agent[]> => {
     try {
@@ -390,12 +348,10 @@ function convertDbAgentToAppAgent(dbAgent: any): Agent {
     parsedFaqs = [];
   }
   
-  // Map database status to Agent status type based on is_active field only
+  // Map database status to Agent status type
   let status: "ativo" | "inativo" | "pendente" = "pendente";
   if (dbAgent.status === "ativo") status = "ativo";
   else if (dbAgent.status === "inativo") status = "inativo";
-  
-  // Note: Agent status is independent of WhatsApp connection status
   
   // Map business_sector to BusinessSector type or default to "Outro"
   const businessSector: BusinessSector = 
@@ -407,7 +363,7 @@ function convertDbAgentToAppAgent(dbAgent: any): Agent {
 
   // Construct and return the Agent
   return {
-    id: dbAgent.id, // Use the Supabase-generated UUID as the primary ID
+    id: dbAgent.id,
     nome: settings.name || "",
     site: settings.website || "",
     areaDeAtuacao: businessSector,
@@ -416,11 +372,15 @@ function convertDbAgentToAppAgent(dbAgent: any): Agent {
     faqs: parsedFaqs,
     createdAt: dbAgent.created_at,
     status: status,
+    
+    // WhatsApp connection data (from same settings JSON)
     connected: !!settings.connected,
     phoneNumber: settings.phone_number || "",
+    instanceName: settings.instance_name || dbAgent.instance_name,
+    
+    // Usage data
     messageCount: settings.message_count || 0,
-    messageLimit: settings.message_limit || 100,
-    instanceName: dbAgent.instance_name
+    messageLimit: settings.message_limit || 100
   };
 }
 
