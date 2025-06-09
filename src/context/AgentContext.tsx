@@ -60,6 +60,8 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       return Promise.resolve();
     }
     
+    console.log("AgentContext - Starting loadAgentsFromSupabase for user:", user.id);
+    
     try {
       setIsLoading(true);
       setLoadError(null);
@@ -73,7 +75,9 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       
       // Race between actual loading and timeout
       const supabaseAgents = await Promise.race([loadPromise, timeoutPromise]);
+      console.log("AgentContext - Loaded agents from service:", supabaseAgents);
       setAgents(supabaseAgents);
+      console.log("AgentContext - Agents set in state, count:", supabaseAgents.length);
       return Promise.resolve();
     } catch (error) {
       console.error("Error loading agents from Supabase:", error);

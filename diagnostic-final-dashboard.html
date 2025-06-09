@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnóstico Final - Dashboard Agentes</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        .section { border: 1px solid #ddd; padding: 20px; margin: 20px 0; border-radius: 8px; }
+        .success { background: #d4edda; border-color: #c3e6cb; }
+        .error { background: #f8d7da; border-color: #f5c6cb; }
+        .warning { background: #fff3cd; border-color: #ffeaa7; }
+        .info { background: #d1ecf1; border-color: #bee5eb; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 12px; }
+        button { padding: 12px 24px; margin: 8px; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-warning { background: #ffc107; color: #212529; }
+        .flow { display: flex; gap: 20px; flex-wrap: wrap; }
+        .step { flex: 1; min-width: 300px; }
+        h1 { color: #333; text-align: center; }
+        h3 { color: #555; border-bottom: 2px solid #eee; padding-bottom: 8px; }
+        .status-good { color: #28a745; font-weight: bold; }
+        .status-bad { color: #dc3545; font-weight: bold; }
+        .diagnosis { background: #e7f3ff; border: 1px solid #b6d7ff; padding: 15px; border-radius: 6px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Diagnóstico Final - Dashboard de Agentes</h1>
+        
+        <div class="diagnosis">
+            <h3>🎯 Problema Relatado</h3>
+            <p>Agentes não aparecem no dashboard após criação, mesmo sendo salvos no banco de dados.</p>
+        </div>
+
+        <div class="flow">
+            <div class="step">
+                <div class="section info">
+                    <h3>1️⃣ Verificação de Autenticação</h3>
+                    <button class="btn-primary" onclick="checkAuth()">Verificar Auth</button>
+                    <div id="auth-result"></div>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="section info">
+                    <h3>2️⃣ Verificação do Banco de Dados</h3>
+                    <button class="btn-primary" onclick="checkDatabase()">Verificar BD</button>
+                    <div id="db-result"></div>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="section info">
+                    <h3>3️⃣ Teste do AgentService</h3>
+                    <button class="btn-primary" onclick="testAgentService()">Testar Service</button>
+                    <div id="service-result"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>🔧 Ações de Correção</h3>
+            <div class="flow">
+                <button class="btn-success" onclick="createTestAgent()">Criar Agente de Teste</button>
+                <button class="btn-warning" onclick="refreshDashboard()">Forçar Refresh Dashboard</button>
+                <button class="btn-danger" onclick="clearAllTestData()">Limpar Dados de Teste</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>📊 Resultados do Diagnóstico</h3>
+            <div id="main-results"></div>
+        </div>
+
+        <div class="section">
+            <h3>📋 Log de Atividades</h3>
+            <div id="activity-log"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js@2.38.4';
+
+        const supabaseUrl = 'https://fdzhhdmxhzsrfbtqmwip.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZkemhoZG14aHpzcmZidHFtd2lwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzE1ODYxNTAsImV4cCI6MjA0NzE2MjE1MH0.7QON3_zSNGF5oOTU1Pzo1nRCFZ-YxnKCTSXasDz2aOY';
+        
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
+        let currentUser = null;
+        let diagnosisResults = [];
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logElement = document.getElementById('activity-log');
+            const logClass = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            logElement.innerHTML += `<div class="section ${logClass}"><strong>[${timestamp}]</strong> ${message}</div>`;
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        function updateResult(elementId, content) {
+            document.getElementById(elementId).innerHTML = content;
+        }
+
+        function addDiagnosis(step, status, message, details = null) {
+            diagnosisResults.push({ step, status, message, details });
+            updateMainResults();
+        }
+
+        function updateMainResults() {
+            const results = document.getElementById('main-results');
+            let html = '<table style="width: 100%; border-collapse: collapse;">';
+            html += '<tr><th style="border: 1px solid #ddd; padding: 8px;">Etapa</th><th style="border: 1px solid #ddd; padding: 8px;">Status</th><th style="border: 1px solid #ddd; padding: 8px;">Resultado</th></tr>';
+            
+            diagnosisResults.forEach(result => {
+                const statusClass = result.status === 'success' ? 'status-good' : result.status === 'error' ? 'status-bad' : '';
+                html += `<tr>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${result.step}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;" class="${statusClass}">${result.status.toUpperCase()}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${result.message}</td>
+                </tr>`;
+            });
+            
+            html += '</table>';
+            results.innerHTML = html;
+        }
+
+        async function checkAuth() {
+            log('🔐 Verificando autenticação...');
+            try {
+                const { data: { user }, error } = await supabase.auth.getUser();
+                
+                if (error) {
+                    log(`❌ Erro de autenticação: ${error.message}`, 'error');
+                    updateResult('auth-result', '<div class="error">❌ Erro de autenticação</div>');
+                    addDiagnosis('Autenticação', 'error', error.message);
+                    return null;
+                }
+
+                if (!user) {
+                    log('⚠️ Usuário não autenticado', 'warning');
+                    updateResult('auth-result', '<div class="warning">⚠️ Usuário não autenticado</div>');
+                    addDiagnosis('Autenticação', 'warning', 'Usuário não logado');
+                    return null;
+                }
+
+                log(`✅ Usuário autenticado: ${user.email}`, 'success');
+                updateResult('auth-result', `<div class="success">✅ ${user.email}<br>ID: ${user.id}</div>`);
+                addDiagnosis('Autenticação', 'success', `Usuário: ${user.email}`);
+                currentUser = user;
+                return user;
+            } catch (error) {
+                log(`❌ Exceção na autenticação: ${error.message}`, 'error');
+                updateResult('auth-result', '<div class="error">❌ Erro de conexão</div>');
+                addDiagnosis('Autenticação', 'error', 'Exceção na verificação');
+                return null;
+            }
+        }
+
+        async function checkDatabase() {
+            log('🔍 Verificando banco de dados...');
+            
+            if (!currentUser) {
+                const user = await checkAuth();
+                if (!user) return;
+            }
+
+            try {
+                const { data, error, count } = await supabase
+                    .from('agents')
+                    .select('*', { count: 'exact' })
+                    .eq('user_id', currentUser.id);
+
+                if (error) {
+                    log(`❌ Erro na consulta: ${error.message}`, 'error');
+                    updateResult('db-result', '<div class="error">❌ Erro na consulta</div>');
+                    addDiagnosis('Banco de Dados', 'error', error.message);
+                    return;
+                }
+
+                log(`📊 Encontrados ${count || 0} agentes no banco`, 'info');
+
+                if (data && data.length > 0) {
+                    updateResult('db-result', `<div class="success">✅ ${data.length} agentes encontrados</div>`);
+                    addDiagnosis('Banco de Dados', 'success', `${data.length} agentes existem no banco`);
+                    
+                    // Se há agentes mas não aparecem no dashboard, o problema é no frontend
+                    log('🎯 DIAGNÓSTICO: Agentes existem no banco mas não aparecem no dashboard!', 'warning');
+                } else {
+                    updateResult('db-result', '<div class="warning">⚠️ Nenhum agente encontrado</div>');
+                    addDiagnosis('Banco de Dados', 'warning', 'Nenhum agente encontrado - essa é a causa do problema!');
+                    
+                    log('🎯 DIAGNÓSTICO: Não há agentes no banco - esta é a causa raiz!', 'warning');
+                }
+
+                return data;
+            } catch (error) {
+                log(`❌ Exceção na consulta: ${error.message}`, 'error');
+                updateResult('db-result', '<div class="error">❌ Exceção na consulta</div>');
+                addDiagnosis('Banco de Dados', 'error', 'Exceção na consulta');
+            }
+        }
+
+        async function testAgentService() {
+            log('🔧 Testando AgentService...');
+            
+            if (!currentUser) {
+                const user = await checkAuth();
+                if (!user) return;
+            }
+
+            try {
+                // Simular a função fetchUserAgents do AgentService
+                const { data, error } = await supabase
+                    .from('agents')
+                    .select('*')
+                    .eq('user_id', currentUser.id);
+
+                if (error) {
+                    log(`❌ Erro no AgentService: ${error.message}`, 'error');
+                    updateResult('service-result', '<div class="error">❌ Erro no service</div>');
+                    addDiagnosis('AgentService', 'error', error.message);
+                    return;
+                }
+
+                // Simular conversão dos dados
+                const convertedAgents = data.map(agent => {
+                    let settings = {};
+                    try {
+                        settings = agent.settings || {};
+                    } catch (e) {
+                        settings = {};
+                    }
+
+                    return {
+                        id: agent.id,
+                        nome: settings.name || agent.name || 'Sem nome',
+                        status: agent.status || 'pendente',
+                        connected: !!settings.connected,
+                        site: settings.website || '',
+                        areaDeAtuacao: settings.business_sector || 'Outro'
+                    };
+                });
+
+                log(`✅ AgentService processou ${convertedAgents.length} agentes`, 'success');
+                updateResult('service-result', `<div class="success">✅ Service OK (${convertedAgents.length} agentes)</div>`);
+                addDiagnosis('AgentService', 'success', `Processou ${convertedAgents.length} agentes corretamente`);
+
+                return convertedAgents;
+            } catch (error) {
+                log(`❌ Exceção no AgentService: ${error.message}`, 'error');
+                updateResult('service-result', '<div class="error">❌ Exceção no service</div>');
+                addDiagnosis('AgentService', 'error', 'Exceção no processamento');
+            }
+        }
+
+        async function createTestAgent() {
+            log('🆕 Criando agente de teste...');
+            
+            if (!currentUser) {
+                const user = await checkAuth();
+                if (!user) return;
+            }
+
+            try {
+                const testAgent = {
+                    user_id: currentUser.id,
+                    name: 'Agente Dashboard Test',
+                    status: 'ativo',
+                    is_active: true,
+                    prompt: 'Agente criado para testar o dashboard',
+                    settings: {
+                        name: 'Agente Dashboard Test',
+                        website: 'https://dashboard-test.com',
+                        business_sector: 'Tecnologia',
+                        information: 'Agente criado especificamente para testar se o dashboard carrega agentes corretamente.',
+                        faqs: [
+                            { pergunta: 'Este agente funciona?', resposta: 'Sim, se você está vendo isso, o dashboard está funcionando!' }
+                        ],
+                        connected: false,
+                        message_count: 0,
+                        message_limit: 100,
+                        phone_number: '',
+                        custom_id: `test-agent-${Date.now()}`
+                    }
+                };
+
+                const { data, error } = await supabase
+                    .from('agents')
+                    .insert(testAgent)
+                    .select()
+                    .single();
+
+                if (error) {
+                    log(`❌ Erro ao criar agente: ${error.message}`, 'error');
+                    addDiagnosis('Criação de Teste', 'error', error.message);
+                    return;
+                }
+
+                log(`✅ Agente de teste criado com ID: ${data.id}`, 'success');
+                addDiagnosis('Criação de Teste', 'success', `Agente criado com ID: ${data.id}`);
+                
+                // Instruções para o usuário
+                alert(`✅ Agente de teste criado com sucesso!\n\nAgora:\n1. Vá para o dashboard (http://localhost:5173/dashboard)\n2. Recarregue a página\n3. Verifique se o agente "Agente Dashboard Test" aparece\n\nSe aparecer, o problema estava na falta de dados.\nSe não aparecer, o problema é no código do dashboard.`);
+
+                // Auto-recheck database
+                setTimeout(() => checkDatabase(), 1000);
+            } catch (error) {
+                log(`❌ Exceção ao criar agente: ${error.message}`, 'error');
+                addDiagnosis('Criação de Teste', 'error', 'Exceção na criação');
+            }
+        }
+
+        async function refreshDashboard() {
+            log('🔄 Instruções para refresh do dashboard...');
+            
+            const instructions = `
+                <div class="info">
+                    <h4>🔄 Como forçar refresh do dashboard:</h4>
+                    <ol>
+                        <li>Abra o dashboard: <a href="http://localhost:5173/dashboard" target="_blank">http://localhost:5173/dashboard</a></li>
+                        <li>Abra o DevTools (F12)</li>
+                        <li>Vá para a aba Console</li>
+                        <li>Execute este comando:
+                            <pre>window.location.reload(true)</pre>
+                        </li>
+                        <li>Ou use Ctrl+Shift+R (hard refresh)</li>
+                    </ol>
+                </div>
+            `;
+            
+            updateResult('main-results', instructions);
+            addDiagnosis('Dashboard Refresh', 'info', 'Instruções fornecidas para refresh');
+        }
+
+        async function clearAllTestData() {
+            log('🗑️ Limpando dados de teste...');
+            
+            if (!currentUser) {
+                const user = await checkAuth();
+                if (!user) return;
+            }
+
+            try {
+                const { error } = await supabase
+                    .from('agents')
+                    .delete()
+                    .eq('user_id', currentUser.id)
+                    .or('name.ilike.%test%,name.ilike.%teste%');
+
+                if (error) {
+                    log(`❌ Erro ao limpar: ${error.message}`, 'error');
+                    return;
+                }
+
+                log('✅ Dados de teste removidos', 'success');
+                addDiagnosis('Limpeza', 'success', 'Dados de teste removidos');
+                
+                setTimeout(() => checkDatabase(), 1000);
+            } catch (error) {
+                log(`❌ Exceção na limpeza: ${error.message}`, 'error');
+            }
+        }
+
+        // Expor funções globalmente
+        window.checkAuth = checkAuth;
+        window.checkDatabase = checkDatabase;
+        window.testAgentService = testAgentService;
+        window.createTestAgent = createTestAgent;
+        window.refreshDashboard = refreshDashboard;
+        window.clearAllTestData = clearAllTestData;
+
+        // Auto-executar diagnóstico inicial
+        window.addEventListener('load', async () => {
+            log('🚀 Iniciando diagnóstico automático...');
+            await checkAuth();
+            await checkDatabase();
+            await testAgentService();
+            log('✅ Diagnóstico inicial concluído');
+        });
+    </script>
+</body>
+</html>

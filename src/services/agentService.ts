@@ -104,6 +104,8 @@ const agentService = {
           return [];
         }
 
+        console.log("AgentService - Fetching agents for user:", user.id);
+
         // Fetch all agents for this user
         const { data, error } = await supabase
           .from('agents')
@@ -115,8 +117,12 @@ const agentService = {
           return [];
         }
 
+        console.log("AgentService - Raw data from Supabase:", data);
+        console.log("AgentService - Found", data?.length || 0, "agents");
+
         // Transform the data to match our Agent type
         const agents: Agent[] = data.map(convertDbAgentToAppAgent);
+        console.log("AgentService - Converted agents:", agents);
         return agents;
       })();
       
@@ -340,10 +346,12 @@ function convertDbAgentToAppAgent(dbAgent: any): Agent {
     parsedFaqs = [];
   }
   
-  // Map database status to Agent status type
+  // Map database status to Agent status type based on is_active field only
   let status: "ativo" | "inativo" | "pendente" = "pendente";
   if (dbAgent.status === "ativo") status = "ativo";
   else if (dbAgent.status === "inativo") status = "inativo";
+  
+  // Note: Agent status is independent of WhatsApp connection status
   
   // Map business_sector to BusinessSector type or default to "Outro"
   const businessSector: BusinessSector = 

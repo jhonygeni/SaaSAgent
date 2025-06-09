@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - Carregamento de Agentes</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .section { border: 1px solid #ddd; padding: 20px; margin: 20px 0; border-radius: 8px; }
+        .success { background: #d4edda; border-color: #c3e6cb; }
+        .error { background: #f8d7da; border-color: #f5c6cb; }
+        .warning { background: #fff3cd; border-color: #ffeaa7; }
+        .info { background: #d1ecf1; border-color: #bee5eb; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        button { padding: 10px 20px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Debug - Carregamento de Agentes</h1>
+        
+        <div class="section info">
+            <h3>Status Atual</h3>
+            <p id="status">Verificando...</p>
+        </div>
+
+        <div class="section">
+            <h3>Testes de Conexão</h3>
+            <button class="btn-primary" onclick="testSupabaseConnection()">Testar Conexão Supabase</button>
+            <button class="btn-primary" onclick="testAgentService()">Testar AgentService</button>
+            <button class="btn-primary" onclick="testDirectQuery()">Query Direta Agentes</button>
+            <div id="connectionResults"></div>
+        </div>
+
+        <div class="section">
+            <h3>Logs de Debug</h3>
+            <div id="debugLogs"></div>
+        </div>
+
+        <div class="section">
+            <h3>Dados de Agentes</h3>
+            <div id="agentData"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js@2.38.4';
+
+        // Configuração do Supabase (usando as mesmas variáveis do projeto)
+        const supabaseUrl = 'https://fdzhhdmxhzsrfbtqmwip.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZkemhoZG14aHpzcmZidHFtd2lwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzE1ODYxNTAsImV4cCI6MjA0NzE2MjE1MH0.7QON3_zSNGF5oOTU1Pzo1nRCFZ-YxnKCTSXasDz2aOY';
+        
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
+        function log(message, type = 'info') {
+            const debugLogs = document.getElementById('debugLogs');
+            const timestamp = new Date().toLocaleTimeString();
+            const logClass = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            debugLogs.innerHTML += `<div class="section ${logClass}"><strong>[${timestamp}]</strong> ${message}</div>`;
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        function updateStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = type;
+        }
+
+        async function testSupabaseConnection() {
+            log('🔌 Testando conexão com Supabase...');
+            try {
+                const { data: { user }, error } = await supabase.auth.getUser();
+                
+                if (error) {
+                    log(`❌ Erro de autenticação: ${error.message}`, 'error');
+                    return;
+                }
+
+                if (!user) {
+                    log('⚠️ Usuário não autenticado', 'warning');
+                    return;
+                }
+
+                log(`✅ Usuário autenticado: ${user.email} (ID: ${user.id})`, 'success');
+                return user;
+            } catch (error) {
+                log(`❌ Erro na conexão: ${error.message}`, 'error');
+            }
+        }
+
+        async function testDirectQuery() {
+            log('📊 Executando query direta na tabela agents...');
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                
+                if (!user) {
+                    log('❌ Usuário não encontrado para query', 'error');
+                    return;
+                }
+
+                const { data, error, count } = await supabase
+                    .from('agents')
+                    .select('*', { count: 'exact' })
+                    .eq('user_id', user.id);
+
+                if (error) {
+                    log(`❌ Erro na query: ${error.message}`, 'error');
+                    log(`Detalhes do erro: ${JSON.stringify(error, null, 2)}`, 'error');
+                    return;
+                }
+
+                log(`✅ Query executada com sucesso`, 'success');
+                log(`📈 Total de agentes encontrados: ${count || 0}`, 'info');
+                
+                if (data && data.length > 0) {
+                    log(`📋 Dados dos agentes:`, 'info');
+                    data.forEach((agent, index) => {
+                        log(`Agent ${index + 1}: ID=${agent.id}, Name=${agent.name || 'N/A'}, Status=${agent.status || 'N/A'}, Active=${agent.is_active}`, 'info');
+                    });
+                    
+                    document.getElementById('agentData').innerHTML = `
+                        <h4>Agentes Encontrados (${data.length})</h4>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    log('ℹ️ Nenhum agente encontrado na base de dados', 'warning');
+                    document.getElementById('agentData').innerHTML = '<h4>Nenhum agente encontrado</h4>';
+                }
+
+                return data;
+            } catch (error) {
+                log(`❌ Exceção na query: ${error.message}`, 'error');
+            }
+        }
+
+        async function testAgentService() {
+            log('🔧 Testando AgentService...');
+            
+            // Simular a função convertDbAgentToAppAgent
+            function convertDbAgentToAppAgent(dbAgent) {
+                try {
+                    let settings = {};
+                    try {
+                        settings = dbAgent.settings ? 
+                            (typeof dbAgent.settings === 'string' ? 
+                                JSON.parse(dbAgent.settings) : dbAgent.settings) : {};
+                    } catch (e) {
+                        log(`⚠️ Erro ao parsear settings: ${e.message}`, 'warning');
+                        settings = {};
+                    }
+
+                    let parsedFaqs = [];
+                    try {
+                        if (settings.faqs) {
+                            parsedFaqs = typeof settings.faqs === 'string' ? 
+                                JSON.parse(settings.faqs) : settings.faqs;
+                        }
+                    } catch (e) {
+                        log(`⚠️ Erro ao parsear FAQs: ${e.message}`, 'warning');
+                        parsedFaqs = [];
+                    }
+                    
+                    let status = "pendente";
+                    if (dbAgent.status === "ativo") status = "ativo";
+                    else if (dbAgent.status === "inativo") status = "inativo";
+
+                    const businessSector = 
+                        ["Varejo", "Saúde", "Educação", "Finanças", "Serviços", "Imobiliária", 
+                          "Alimentação", "Tecnologia", "Turismo", "Outro"]
+                          .includes(settings.business_sector) 
+                            ? settings.business_sector 
+                            : "Outro";
+
+                    return {
+                        id: dbAgent.id,
+                        nome: settings.name || "",
+                        site: settings.website || "",
+                        areaDeAtuacao: businessSector,
+                        informacoes: settings.information || "",
+                        prompt: settings.prompt || "",
+                        faqs: parsedFaqs,
+                        createdAt: dbAgent.created_at,
+                        status: status,
+                        connected: !!settings.connected,
+                        phoneNumber: settings.phone_number || "",
+                        messageCount: settings.message_count || 0,
+                        messageLimit: settings.message_limit || 100,
+                        instanceName: dbAgent.instance_name
+                    };
+                } catch (error) {
+                    log(`❌ Erro na conversão do agente: ${error.message}`, 'error');
+                    return null;
+                }
+            }
+
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                
+                if (!user) {
+                    log('❌ Usuário não encontrado', 'error');
+                    return;
+                }
+
+                const { data, error } = await supabase
+                    .from('agents')
+                    .select('*')
+                    .eq('user_id', user.id);
+
+                if (error) {
+                    log(`❌ Erro no AgentService: ${error.message}`, 'error');
+                    return;
+                }
+
+                const agents = data.map(convertDbAgentToAppAgent).filter(agent => agent !== null);
+                
+                log(`✅ AgentService processou ${agents.length} agentes`, 'success');
+                
+                if (agents.length > 0) {
+                    log('📋 Agentes processados:', 'info');
+                    agents.forEach((agent, index) => {
+                        log(`Agent ${index + 1}: ${agent.nome} (${agent.status}) - Connected: ${agent.connected}`, 'info');
+                    });
+                }
+
+                return agents;
+            } catch (error) {
+                log(`❌ Exceção no AgentService: ${error.message}`, 'error');
+            }
+        }
+
+        // Executar testes iniciais
+        window.addEventListener('load', async () => {
+            updateStatus('Iniciando diagnóstico...', 'info');
+            
+            try {
+                await testSupabaseConnection();
+                await testDirectQuery();
+                await testAgentService();
+                
+                updateStatus('Diagnóstico concluído', 'success');
+            } catch (error) {
+                updateStatus(`Erro no diagnóstico: ${error.message}`, 'error');
+                log(`❌ Erro geral: ${error.message}`, 'error');
+            }
+        });
+
+        // Expor funções globalmente
+        window.testSupabaseConnection = testSupabaseConnection;
+        window.testAgentService = testAgentService;
+        window.testDirectQuery = testDirectQuery;
+    </script>
+</body>
+</html>

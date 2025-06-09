@@ -1,4 +1,5 @@
 import { useUser } from "@/context/UserContext";
+import { useAgent } from "@/context/AgentContext";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, RefreshCw } from "lucide-react";
@@ -21,6 +22,7 @@ import { ErrorState } from "@/components/ErrorState";
 
 export function Dashboard() {
   const { user, checkSubscriptionStatus, isLoading: isUserLoading } = useUser();
+  const { agents, loadAgentsFromSupabase } = useAgent();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
@@ -28,6 +30,9 @@ export function Dashboard() {
   const [searchParams] = useSearchParams();
   const isMounted = useRef(true);
   const loadTimeoutRef = useRef<NodeJS.Timeout>();
+
+  // Debug: Log agents count
+  console.log("Dashboard - Current agents count:", agents?.length || 0);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -68,9 +73,14 @@ export function Dashboard() {
         setIsLoading(true);
         setLoadError(null);
 
+        // CORREÇÃO: Forçar carregamento dos agentes
+        console.log("Dashboard: Forçando carregamento dos agentes...");
+        await loadAgentsFromSupabase();
+        console.log("Dashboard: Agentes carregados!");
+
         // Simular carregamento com timeout estendido para evitar loops infinitos
         // (CORREÇÃO CRÍTICA: aumentado para 2000ms para garantir estabilidade)
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 1000));
         
         // Verifica se componente ainda está montado antes de atualizar estado
         if (isMounted.current) {
@@ -149,6 +159,33 @@ export function Dashboard() {
   return (
     <div className="container mx-auto py-6 space-y-8">
       <DashboardHeader />
+      
+      {/* Debug info em desenvolvimento */}
+      {process.env.NODE_ENV === 'development' && (
+        <div style={{ 
+          background: '#f0f0f0', 
+          padding: '10px', 
+          border: '1px solid #ccc',
+          fontSize: '12px',
+          fontFamily: 'monospace'
+        }}>
+          <strong>DEBUG:</strong> Agentes carregados: {agents?.length || 0} | 
+          Usuário: {user?.email || 'N/A'} | 
+          Loading: {isLoading ? 'Sim' : 'Não'}
+          <br />
+          <button 
+            onClick={async () => {
+              console.log('Debug: Forçando reload de agentes...');
+              await loadAgentsFromSupabase();
+              console.log('Debug: Reload concluído, agentes:', agents?.length || 0);
+            }}
+            style={{ marginTop: '5px', padding: '5px 10px', fontSize: '11px' }}
+          >
+            🔄 Force Reload Agents
+          </button>
+        </div>
+      )}
+      
       <div className="space-y-6">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">

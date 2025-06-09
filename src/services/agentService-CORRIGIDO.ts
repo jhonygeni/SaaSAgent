@@ -360,9 +360,8 @@ function convertDbAgentToAppAgent(dbAgent: any): Agent {
   // Map database status to Agent status type
   let status: "ativo" | "inativo" | "pendente" = dbAgent.is_active ? "ativo" : "inativo";
   
-  // Get WhatsApp instance status
-  const instanceStatus = dbAgent.whatsapp_instances?.status || "pending";
-  if (instanceStatus === "pending") status = "pendente";
+  // Note: Agent status is independent of WhatsApp connection status
+  // WhatsApp connection status is handled separately in the UI
   
   // Map business_sector to BusinessSector type or default to "Outro"
   const businessSector: BusinessSector = 

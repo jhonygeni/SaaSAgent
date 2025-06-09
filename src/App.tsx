@@ -24,6 +24,7 @@ import UserProfilePage from "./pages/UserProfilePage";
 import EmailConfirmationPage from "./pages/EmailConfirmationPage";
 import EmailConfirmSuccessPage from "./pages/EmailConfirmSuccessPage";
 import ResendConfirmationPage from "./pages/ResendConfirmationPage";
+import { DebugDashboard } from "@/components/DebugDashboard";
 
 // Query client singleton para evitar re-criações
 const queryClient = logStep('Query Client Creation', () => new QueryClient({
@@ -53,6 +54,7 @@ const AppRoutes = memo(() => (
   <Routes>
     <Route path="/" element={<Index />} />
     <Route path="/dashboard" element={<DashboardPage />} />
+    <Route path="/debug-dashboard" element={<DebugDashboard />} />
     <Route path="/novo-agente" element={<NewAgentPage />} />
     <Route path="/conectar" element={<ConnectPage />} />
     <Route path="/planos" element={<PlansPage />} />
