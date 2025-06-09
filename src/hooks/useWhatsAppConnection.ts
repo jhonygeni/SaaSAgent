@@ -41,7 +41,8 @@ export function useWhatsAppConnection() {
     startStatusPolling,
     startConnectionTimer,
     stopConnectionTimer,
-    timeTaken
+    timeTaken,
+    forceCheckConnection
   } = useWhatsAppStatus();
   
   const { validateInstanceName } = useNameValidator();
@@ -53,7 +54,8 @@ export function useWhatsAppConnection() {
     fetchUserInstances,
     createdInstancesRef,
     clearCurrentInstanceName,
-    createAndConfigureInstance
+    createAndConfigureInstance,
+    updateInstanceStatus // <-- add this
   } = useInstanceManager();
   
   // Track connection attempts to avoid consuming credits on retries
@@ -243,26 +245,48 @@ export function useWhatsAppConnection() {
   /**
    * Handle connection success
    */
-  const completeConnection = useCallback((phoneNumber?: string | null) => {
+  const completeConnection = useCallback(async (phoneNumber?: string | null) => {
     setConnectionStatus("connected");
     clearPolling();
-    
+
     // Mark credits as consumed only on successful connection
     if (PREVENT_CREDIT_CONSUMPTION_ON_FAILURE) {
       setCreditsConsumed(true);
       console.log("Credits consumed on successful connection");
     }
-    
+
     // Show a toast notification
     showSuccessToast(phoneNumber || undefined);
-    
+
+    // Update instance status in Supabase to 'connected'
+    try {
+      // Get current user ID
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData?.user?.id;
+      // Get instance name (from ref or instanceData)
+      let instanceName = null;
+      if (instanceData && instanceData.instance && instanceData.instance.name) {
+        instanceName = instanceData.instance.name;
+      } else if (typeof getInstanceName === 'function') {
+        instanceName = getInstanceName();
+      }
+      if (instanceName && userId) {
+        await updateInstanceStatus(instanceName, "connected", userId);
+        console.log(`Instance status updated to 'connected' in Supabase for ${instanceName}`);
+      } else {
+        console.warn('Could not update instance status: missing instanceName or userId', { instanceName, userId });
+      }
+    } catch (err) {
+      console.error('Failed to update instance status to connected:', err);
+    }
+
     // Auto-close after success if enabled
     if (AUTO_CLOSE_AFTER_SUCCESS) {
       console.log(`Auto-close after success is enabled. Will close in ${AUTO_CLOSE_DELAY_MS}ms.`);
     }
-    
+
     console.log("Connection process completed successfully", phoneNumber ? `for number ${phoneNumber}` : "");
-  }, [clearPolling, showSuccessToast, setConnectionStatus, setCreditsConsumed]);
+  }, [clearPolling, showSuccessToast, setConnectionStatus, setCreditsConsumed, instanceData, getInstanceName, updateInstanceStatus]);
 
   /**
    * Get current QR code
@@ -300,6 +324,7 @@ export function useWhatsAppConnection() {
     attemptCount,
     validateInstanceName,
     fetchUserInstances,
-    clearPolling // Export clearPolling function
+    clearPolling, // Export clearPolling function
+    forceCheckConnection // Export new force check function
   };
 }

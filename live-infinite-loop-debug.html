@@ -1,350 +1,376 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🚨 Live Debug - WhatsApp Infinite Loop Investigation</title>
+    <title>🚨 EMERGENCY DEBUG - Loop Infinito Ativo</title>
     <style>
-        body { 
-            font-family: 'Courier New', monospace; 
-            background: #1e1e1e; 
-            color: #d4d4d4; 
-            padding: 20px; 
+        body {
+            font-family: 'Courier New', monospace;
             margin: 0;
+            padding: 20px;
+            background: #000;
+            color: #00ff00;
+            line-height: 1.4;
         }
-        .container { max-width: 1200px; margin: 0 auto; }
-        h1 { color: #f44336; text-align: center; margin-bottom: 30px; }
-        .status { 
-            background: #2d2d30; 
-            padding: 15px; 
-            border-radius: 8px; 
-            margin: 10px 0; 
-            border-left: 4px solid #f44336;
+        .emergency-header {
+            background: #ff0000;
+            color: #fff;
+            padding: 15px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 18px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            animation: blink 1s infinite;
         }
-        .log { 
-            background: #262626; 
-            padding: 8px 12px; 
-            margin: 5px 0; 
-            border-radius: 4px; 
-            border-left: 3px solid #4caf50;
-            font-size: 12px;
-            word-break: break-all;
+        @keyframes blink {
+            50% { opacity: 0.5; }
         }
-        .error { border-left-color: #f44336; background: #3d1a1a; }
-        .warning { border-left-color: #ff9800; background: #3d2e1a; }
-        .critical { border-left-color: #e91e63; background: #3d1a2e; color: #ff6b9d; font-weight: bold; }
-        .counter { 
-            display: inline-block; 
-            background: #1565c0; 
-            color: white; 
-            padding: 4px 8px; 
-            border-radius: 12px; 
-            margin: 0 5px;
+        .debug-section {
+            background: #001100;
+            border: 2px solid #00ff00;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .critical {
+            border-color: #ff0000;
+            background: #330000;
+            color: #ff6666;
+        }
+        .request-monitor {
+            max-height: 300px;
+            overflow-y: auto;
+            background: #000033;
+            padding: 10px;
+            border: 1px solid #0066ff;
+            font-size: 11px;
+        }
+        button {
+            background: #ff0000;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 3px;
+            cursor: pointer;
             font-weight: bold;
         }
-        .button { 
-            background: #2196f3; 
-            color: white; 
-            border: none; 
-            padding: 10px 20px; 
-            border-radius: 6px; 
-            margin: 5px; 
-            cursor: pointer; 
+        button:hover { background: #cc0000; }
+        .status-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin: 20px 0;
         }
-        .button:hover { background: #1976d2; }
-        .button.danger { background: #f44336; }
-        .button.danger:hover { background: #d32f2f; }
-        .stats { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
-            gap: 15px; 
-            margin: 20px 0; 
+        .metric {
+            background: #001122;
+            padding: 15px;
+            text-align: center;
+            border-radius: 5px;
+            border: 1px solid #0088ff;
         }
-        .stat { 
-            background: #2d2d30; 
-            padding: 15px; 
-            border-radius: 8px; 
-            text-align: center; 
+        .metric-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #ff6600;
         }
-        .stat h3 { margin: 0 0 10px 0; color: #81c784; }
-        .stat .value { font-size: 24px; font-weight: bold; color: #fff; }
-        #logs { 
-            max-height: 500px; 
-            overflow-y: auto; 
-            background: #1e1e1e; 
-            border: 1px solid #444; 
-            padding: 10px; 
-            border-radius: 6px; 
+        .metric-label {
+            font-size: 12px;
+            color: #cccccc;
+            margin-top: 5px;
         }
-        .controls { 
-            background: #2d2d30; 
-            padding: 15px; 
-            border-radius: 8px; 
-            margin: 15px 0; 
+        .danger {
+            color: #ff0000;
+            animation: blink 1s infinite;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🚨 LIVE DEBUG: WhatsApp Infinite Loop Investigation</h1>
-        
-        <div class="status">
-            <strong>STATUS:</strong> <span id="systemStatus">Monitoring Console Activity...</span>
-        </div>
+    <div class="emergency-header">
+        🚨 EMERGENCY DEBUG MODE - LOOP INFINITO DETECTADO 🚨
+    </div>
 
-        <div class="stats">
-            <div class="stat">
-                <h3>Polling Requests</h3>
-                <div class="value" id="pollingCount">0</div>
-            </div>
-            <div class="stat">
-                <h3>startStatusPolling Calls</h3>
-                <div class="value" id="startPollingCalls">0</div>
-            </div>
-            <div class="stat">
-                <h3>clearPolling Calls</h3>
-                <div class="value" id="clearPollingCalls">0</div>
-            </div>
-            <div class="stat">
-                <h3>Success Detected</h3>
-                <div class="value" id="successCount">0</div>
-            </div>
-            <div class="stat">
-                <h3>Active Time</h3>
-                <div class="value" id="activeTime">0s</div>
-            </div>
-        </div>
+    <div class="debug-section critical">
+        <h2>🔥 SITUAÇÃO CRÍTICA</h2>
+        <p><strong>PROBLEMA:</strong> Loop infinito voltou e está pior que antes</p>
+        <p><strong>SINTOMAS:</strong> Sistema travou, dados salvam mas não aparecem no dashboard</p>
+        <p><strong>AÇÃO:</strong> Debug em tempo real ativo</p>
+    </div>
 
-        <div class="controls">
-            <button class="button" onclick="testWhatsAppFlow()">🧪 Trigger WhatsApp Connection</button>
-            <button class="button" onclick="monitorConsole()">👁️ Start Console Monitor</button>
-            <button class="button danger" onclick="stopMonitoring()">🛑 Stop Monitoring</button>
-            <button class="button" onclick="clearLogs()">🧹 Clear Logs</button>
-            <button class="button" onclick="exportLogs()">📋 Export Debug Data</button>
+    <div class="status-grid">
+        <div class="metric">
+            <div class="metric-value danger" id="requestCount">0</div>
+            <div class="metric-label">Requests Detectadas</div>
         </div>
+        <div class="metric">
+            <div class="metric-value" id="errorCount">0</div>
+            <div class="metric-label">Erros 404/500</div>
+        </div>
+        <div class="metric">
+            <div class="metric-value" id="duration">0s</div>
+            <div class="metric-label">Tempo Monitorando</div>
+        </div>
+    </div>
 
-        <div id="logs"></div>
+    <div class="debug-section">
+        <h3>🔍 Ações de Emergência</h3>
+        <button onclick="startEmergencyMonitoring()">🚨 INICIAR MONITOR EMERGENCIAL</button>
+        <button onclick="forceStopAllPolling()">🛑 FORCE STOP POLLING</button>
+        <button onclick="killAllIntervals()">💀 KILL ALL INTERVALS</button>
+        <button onclick="clearLogs()">🧹 Limpar Logs</button>
+    </div>
+
+    <div class="debug-section">
+        <h3>📊 Log de Requests em Tempo Real</h3>
+        <div class="request-monitor" id="requestLog">
+            Aguardando início do monitoramento...
+        </div>
+    </div>
+
+    <div class="debug-section">
+        <h3>🔧 Diagnóstico Rápido</h3>
+        <button onclick="testDashboardAPI()">📊 Testar API Dashboard</button>
+        <button onclick="testWhatsAppAPI()">📱 Testar API WhatsApp</button>
+        <button onclick="checkActiveTimers()">🔄 Ver Timers Ativos</button>
+        <button onclick="inspectPollingHooks()">🔍 Inspecionar Hooks</button>
+    </div>
+
+    <div class="debug-section critical">
+        <h3>⚠️ Resultados de Diagnóstico</h3>
+        <div id="diagnosticResults" style="font-family: monospace; font-size: 12px;">
+            Nenhum teste executado ainda...
+        </div>
     </div>
 
     <script>
         let monitoringActive = false;
-        let startTime = Date.now();
-        let consoleInterceptor = null;
-        
-        // Statistics
-        let stats = {
-            pollingRequests: 0,
-            startPollingCalls: 0,
-            clearPollingCalls: 0,
-            successDetections: 0,
-            errors: 0,
-            warnings: 0
-        };
+        let requestCount = 0;
+        let errorCount = 0;
+        let startTime = null;
+        let monitorInterval = null;
+        let originalFetch = null;
 
-        function updateStats() {
-            document.getElementById('pollingCount').textContent = stats.pollingRequests;
-            document.getElementById('startPollingCalls').textContent = stats.startPollingCalls;
-            document.getElementById('clearPollingCalls').textContent = stats.clearPollingCalls;
-            document.getElementById('successCount').textContent = stats.successDetections;
-            
-            const elapsed = Math.floor((Date.now() - startTime) / 1000);
-            document.getElementById('activeTime').textContent = elapsed + 's';
-        }
-
-        function log(message, type = 'info', raw = false) {
+        function log(message, type = 'info') {
+            const logArea = document.getElementById('requestLog');
             const timestamp = new Date().toLocaleTimeString();
-            const logs = document.getElementById('logs');
-            const div = document.createElement('div');
-            div.className = `log ${type}`;
+            const prefix = type === 'error' ? '❌' : 
+                          type === 'warning' ? '⚠️' : 
+                          type === 'critical' ? '🚨' : 
+                          type === 'success' ? '✅' : 'ℹ️';
             
-            if (!raw) {
-                div.innerHTML = `<span style="color: #666;">[${timestamp}]</span> ${message}`;
-            } else {
-                div.textContent = `[${timestamp}] ${message}`;
-            }
-            
-            logs.appendChild(div);
-            logs.scrollTop = logs.scrollHeight;
-            
-            // Update stats based on log content
-            const lowerMessage = message.toLowerCase();
-            if (lowerMessage.includes('polling') && lowerMessage.includes('poll')) {
-                stats.pollingRequests++;
-            }
-            if (lowerMessage.includes('starting status polling')) {
-                stats.startPollingCalls++;
-            }
-            if (lowerMessage.includes('clearing polling') || lowerMessage.includes('polling cleared')) {
-                stats.clearPollingCalls++;
-            }
-            if (lowerMessage.includes('success state detected') || lowerMessage.includes('connection confirmed')) {
-                stats.successDetections++;
-            }
-            
-            updateStats();
+            logArea.innerHTML += `<div>[${timestamp}] ${prefix} ${message}</div>`;
+            logArea.scrollTop = logArea.scrollHeight;
         }
 
-        function monitorConsole() {
+        function logDiagnostic(message) {
+            const diagnosticArea = document.getElementById('diagnosticResults');
+            const timestamp = new Date().toLocaleTimeString();
+            diagnosticArea.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+        }
+
+        function updateMetrics() {
+            document.getElementById('requestCount').textContent = requestCount;
+            document.getElementById('errorCount').textContent = errorCount;
+            
+            if (startTime) {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                document.getElementById('duration').textContent = elapsed + 's';
+            }
+        }
+
+        function startEmergencyMonitoring() {
             if (monitoringActive) {
-                log('⚠️ Console monitoring already active', 'warning');
+                log('Monitor já está ativo!', 'warning');
                 return;
             }
-            
+
             monitoringActive = true;
-            document.getElementById('systemStatus').textContent = 'ACTIVE - Intercepting Console Logs';
-            log('🚀 Console monitoring started - intercepting all console.log calls', 'critical');
+            startTime = Date.now();
+            requestCount = 0;
+            errorCount = 0;
+
+            log('🚨 EMERGENCY MONITORING INICIADO', 'critical');
             
-            // Intercept console methods
-            const originalLog = console.log;
-            const originalError = console.error;
-            const originalWarn = console.warn;
-            
-            console.log = function(...args) {
-                originalLog.apply(console, args);
-                const message = args.map(arg => 
-                    typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
-                ).join(' ');
+            // Salvar fetch original se ainda não foi salvo
+            if (!originalFetch) {
+                originalFetch = window.fetch;
+            }
+
+            // Interceptar fetch requests
+            window.fetch = function(...args) {
+                requestCount++;
+                const url = args[0];
+                log(`📡 REQUEST: ${url}`, 'info');
                 
-                // Filter for WhatsApp related logs
-                if (message.toLowerCase().includes('polling') || 
-                    message.toLowerCase().includes('whatsapp') ||
-                    message.toLowerCase().includes('qr') ||
-                    message.toLowerCase().includes('status') ||
-                    message.toLowerCase().includes('connection')) {
-                    log(`📊 LOG: ${message}`, 'info', true);
+                return originalFetch.apply(this, args)
+                    .then(response => {
+                        if (!response.ok) {
+                            errorCount++;
+                            log(`❌ ERROR ${response.status}: ${url}`, 'error');
+                        } else {
+                            log(`✅ SUCCESS ${response.status}: ${url}`, 'success');
+                        }
+                        updateMetrics();
+                        return response;
+                    })
+                    .catch(error => {
+                        errorCount++;
+                        log(`🚨 FETCH ERROR: ${error.message} - ${url}`, 'critical');
+                        updateMetrics();
+                        throw error;
+                    });
+            };
+
+            // Monitor periódico
+            monitorInterval = setInterval(() => {
+                updateMetrics();
+                
+                // Alerta se muitas requests
+                if (requestCount > 30) {
+                    log(`🚨 ALERTA: ${requestCount} requests detectadas - LOOP INFINITO CONFIRMADO!`, 'critical');
                 }
-            };
-            
-            console.error = function(...args) {
-                originalError.apply(console, args);
-                const message = args.map(arg => 
-                    typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
-                ).join(' ');
-                log(`❌ ERROR: ${message}`, 'error', true);
-            };
-            
-            console.warn = function(...args) {
-                originalWarn.apply(console, args);
-                const message = args.map(arg => 
-                    typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
-                ).join(' ');
-                log(`⚠️ WARN: ${message}`, 'warning', true);
-            };
-            
-            // Store references for cleanup
-            consoleInterceptor = {
-                originalLog,
-                originalError,
-                originalWarn
-            };
+            }, 1000);
+
+            log('Monitor ativo - interceptando requests...', 'success');
         }
 
-        function stopMonitoring() {
-            if (!monitoringActive) {
-                log('ℹ️ Console monitoring not active', 'info');
-                return;
+        function forceStopAllPolling() {
+            log('🛑 FORCE STOPPING ALL POLLING...', 'critical');
+            
+            // Restaurar fetch original
+            if (originalFetch) {
+                window.fetch = originalFetch;
+                log('✅ Fetch original restaurado', 'success');
             }
             
+            // Parar monitoring
             monitoringActive = false;
-            document.getElementById('systemStatus').textContent = 'STOPPED - No longer monitoring';
-            log('🛑 Console monitoring stopped', 'warning');
+            if (monitorInterval) {
+                clearInterval(monitorInterval);
+                monitorInterval = null;
+            }
             
-            // Restore original console methods
-            if (consoleInterceptor) {
-                console.log = consoleInterceptor.originalLog;
-                console.error = consoleInterceptor.originalError;
-                console.warn = consoleInterceptor.originalWarn;
-                consoleInterceptor = null;
+            killAllIntervals();
+        }
+
+        function killAllIntervals() {
+            log('💀 KILLING ALL TIMERS/INTERVALS...', 'critical');
+            
+            // Obter o ID mais alto
+            const highestId = setTimeout(() => {}, 1);
+            let killedCount = 0;
+            
+            // Limpar todos os timers/intervals
+            for (let i = 1; i < highestId; i++) {
+                try {
+                    clearTimeout(i);
+                    clearInterval(i);
+                    killedCount++;
+                } catch (e) {
+                    // Ignorar erros
+                }
+            }
+            
+            log(`✅ ${killedCount} timers/intervals eliminados`, 'success');
+            logDiagnostic(`💀 Eliminados ${killedCount} timers (IDs 1-${highestId})`);
+        }
+
+        function checkActiveTimers() {
+            log('🔍 Verificando timers ativos...', 'info');
+            
+            const highestId = setTimeout(() => {}, 1) - 1;
+            logDiagnostic(`🔍 Highest timer ID: ${highestId}`);
+            
+            if (highestId > 200) {
+                logDiagnostic(`🚨 CRÍTICO: ${highestId} timers - LOOP INFINITO ATIVO!`);
+            } else if (highestId > 50) {
+                logDiagnostic(`⚠️ SUSPEITO: ${highestId} timers - possível leak`);
+            } else {
+                logDiagnostic(`✅ Normal: ${highestId} timers`);
             }
         }
 
-        async function testWhatsAppFlow() {
-            log('🧪 Triggering WhatsApp connection test...', 'critical');
+        async function testDashboardAPI() {
+            log('🧪 Testando API do Dashboard...', 'info');
             
             try {
-                // Try to trigger a connection by simulating the button click
-                const connectButton = document.querySelector('button[type="submit"]');
-                if (connectButton) {
-                    log('🔘 Found connect button, clicking...', 'info');
-                    connectButton.click();
-                } else {
-                    log('❌ Connect button not found - trying alternative methods', 'warning');
-                    
-                    // Try to find WhatsApp related buttons
-                    const buttons = document.querySelectorAll('button');
-                    for (let button of buttons) {
-                        if (button.textContent.toLowerCase().includes('conectar') || 
-                            button.textContent.toLowerCase().includes('whatsapp')) {
-                            log(`🔘 Found potential button: "${button.textContent.trim()}"`, 'info');
-                            button.click();
-                            break;
-                        }
-                    }
-                }
-                
-                // Also try to monitor network requests
-                const observer = new PerformanceObserver((list) => {
-                    for (const entry of list.getEntries()) {
-                        if (entry.name.includes('evolution') || 
-                            entry.name.includes('status') || 
-                            entry.name.includes('qrcode')) {
-                            log(`🌐 Network: ${entry.name}`, 'info');
-                        }
-                    }
+                const response = await fetch('http://localhost:8080/api/usage-stats', {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
                 });
-                observer.observe({entryTypes: ['resource']});
                 
+                if (response.ok) {
+                    const data = await response.json();
+                    logDiagnostic(`✅ Dashboard API OK - ${JSON.stringify(data).substring(0, 100)}...`);
+                } else {
+                    logDiagnostic(`❌ Dashboard API Error: ${response.status}`);
+                }
             } catch (error) {
-                log(`❌ Test error: ${error.message}`, 'error');
+                logDiagnostic(`🚨 Dashboard API Failed: ${error.message}`);
+            }
+        }
+
+        async function testWhatsAppAPI() {
+            log('🧪 Testando API do WhatsApp...', 'info');
+            
+            try {
+                const response = await fetch('http://localhost:8080/api/evolution/status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ instanceName: 'debug-test' })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    logDiagnostic(`✅ WhatsApp API OK - ${JSON.stringify(data).substring(0, 100)}...`);
+                } else {
+                    logDiagnostic(`❌ WhatsApp API Error: ${response.status}`);
+                }
+            } catch (error) {
+                logDiagnostic(`🚨 WhatsApp API Failed: ${error.message}`);
+            }
+        }
+
+        function inspectPollingHooks() {
+            log('🔍 Inspecionando hooks de polling...', 'info');
+            
+            // Verificar se React DevTools está disponível
+            if (window.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
+                logDiagnostic('✅ React DevTools detectado');
+                
+                // Tentar encontrar componentes com polling
+                const hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+                if (hook.renderers) {
+                    logDiagnostic(`🔍 ${hook.renderers.size} React renderers encontrados`);
+                }
+            } else {
+                logDiagnostic('❌ React DevTools não encontrado');
+            }
+            
+            // Verificar variáveis globais do React
+            if (window.React) {
+                logDiagnostic('✅ React global encontrado');
             }
         }
 
         function clearLogs() {
-            document.getElementById('logs').innerHTML = '';
-            stats = {
-                pollingRequests: 0,
-                startPollingCalls: 0,
-                clearPollingCalls: 0,
-                successDetections: 0,
-                errors: 0,
-                warnings: 0
-            };
-            updateStats();
-            log('🧹 Logs cleared', 'info');
+            document.getElementById('requestLog').innerHTML = 'Logs limpos...<br>';
+            document.getElementById('diagnosticResults').innerHTML = 'Diagnósticos limpos...<br>';
         }
 
-        function exportLogs() {
-            const logs = document.getElementById('logs').textContent;
-            const data = {
-                timestamp: new Date().toISOString(),
-                stats: stats,
-                logs: logs,
-                url: window.location.href
-            };
+        // Auto-start on load
+        window.onload = function() {
+            log('🚨 EMERGENCY DEBUG TOOL CARREGADO', 'critical');
+            log('Sistema travou - iniciando monitoramento automático...', 'warning');
             
-            const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `whatsapp-debug-${Date.now()}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            
-            log('📋 Debug data exported', 'info');
-        }
-
-        // Auto-start monitoring
-        setTimeout(() => {
-            monitorConsole();
-            log('🚀 Debug session started - monitoring WhatsApp infinite loop issue', 'critical');
-            log('📍 Current Issue: Loop returned despite fixes being in place', 'critical');
-            log('🎯 Looking for: startStatusPolling calls, clearPolling calls, success detection', 'info');
-        }, 1000);
-
-        // Update timer
-        setInterval(updateStats, 1000);
+            // Auto-start monitoring após 2 segundos
+            setTimeout(() => {
+                startEmergencyMonitoring();
+                checkActiveTimers();
+            }, 2000);
+        };
     </script>
 </body>
 </html>

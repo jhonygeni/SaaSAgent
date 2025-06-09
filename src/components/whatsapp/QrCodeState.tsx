@@ -1,11 +1,15 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
+import { Button } from '@/components/ui/button-extensions';
+import { RefreshCw } from 'lucide-react';
 
 export interface QrCodeStateProps {
   qrCodeData: string;
   pairingCode?: string;
   attemptCount?: number;
+  onManualCheck?: (instanceName: string) => Promise<boolean>;
+  instanceName?: string;
 }
 
 /**
@@ -49,10 +53,28 @@ const validateAndSanitizeQrData = (data: string): string => {
 export const QrCodeState: React.FC<QrCodeStateProps> = ({ 
   qrCodeData, 
   pairingCode,
-  attemptCount = 0
+  attemptCount = 0,
+  onManualCheck,
+  instanceName
 }) => {
+  const [isChecking, setIsChecking] = useState(false);
+  
   // Validate and sanitize QR code data before rendering
   const sanitizedQrData = validateAndSanitizeQrData(qrCodeData);
+  
+  // Handle manual connection check
+  const handleManualCheck = async () => {
+    if (!onManualCheck || !instanceName) return;
+    
+    setIsChecking(true);
+    try {
+      await onManualCheck(instanceName);
+    } catch (error) {
+      console.error('Error during manual check:', error);
+    } finally {
+      setIsChecking(false);
+    }
+  };
   
   // Show error state if QR data is invalid
   if (sanitizedQrData === 'Invalid QR Code Data' || sanitizedQrData === 'Invalid QR Format - Please try again') {
@@ -93,7 +115,7 @@ export const QrCodeState: React.FC<QrCodeStateProps> = ({
         />
       </div>
       
-      <div className="text-center space-y-2">
+      <div className="text-center space-y-4">
         <p className="text-sm font-medium">Escaneie o QR Code para conectar</p>
         
         {pairingCode && (
@@ -106,6 +128,32 @@ export const QrCodeState: React.FC<QrCodeStateProps> = ({
         {attemptCount > 0 && (
           <p className="text-xs text-muted-foreground">Tentativa {attemptCount}</p>
         )}
+        
+        {/* Manual check button */}
+        <div className="pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleManualCheck}
+            disabled={isChecking || !onManualCheck || !instanceName}
+            className="text-xs"
+          >
+            {isChecking ? (
+              <>
+                <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                Verificando...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-3 h-3 mr-1" />
+                Verificar Conexão
+              </>
+            )}
+          </Button>
+          <p className="text-xs text-muted-foreground mt-1">
+            Clique se já escaneou o QR code
+          </p>
+        </div>
       </div>
     </div>
   );

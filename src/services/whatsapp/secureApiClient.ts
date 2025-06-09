@@ -193,10 +193,11 @@ export const secureApiClient = {
   },
 
   /**
-   * Get instance information
+   * Get instance information (corrigido para Evolution API v2)
    */
   async getInstanceInfo(instanceName: string): Promise<any> {
-    return this.callEvolutionAPI(`/instance/info/${encodeURIComponent(instanceName)}`);
+    // O endpoint correto para status/estado é connectionState
+    return this.callEvolutionAPI(`/instance/connectionState/${encodeURIComponent(instanceName)}`);
   },
 
   /**

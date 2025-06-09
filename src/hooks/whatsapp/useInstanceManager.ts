@@ -4,7 +4,7 @@ import whatsappService from '@/services/whatsappService';
 import { USE_MOCK_DATA } from '@/constants/api';
 import { InstancesListResponse } from '@/services/whatsapp/types';
 import { supabase } from '@/integrations/supabase/client';
-import { saveWhatsAppInstanceAdmin } from '@/services/supabaseAdmin';
+import { saveWhatsAppInstanceAdmin, updateWhatsAppInstanceStatusAdmin } from '@/services/supabaseAdmin';
 
 /**
  * Função de formatação de nome para garantir consistência em todas as chamadas de API
@@ -176,24 +176,32 @@ export function useInstanceManager() {
   const updateInstanceStatus = useCallback(async (instanceName: string, status: string, userId?: string) => {
     try {
       const formattedName = formatInstanceName(instanceName);
-      
       const { data: userData } = await supabase.auth.getUser();
-      
-      if (userData && userData.user) {
+      const effectiveUserId = userId || userData?.user?.id;
+      console.log('updateInstanceStatus: formattedName', formattedName, 'status', status, 'userId', effectiveUserId);
+      if (effectiveUserId) {
         const { error } = await supabase
           .from('whatsapp_instances')
           .update({ status })
           .eq('name', formattedName)
-          .eq('user_id', userData.user.id);
-          
+          .eq('user_id', effectiveUserId);
         if (error) {
-          console.error("Error updating WhatsApp instance status in Supabase:", error);
+          console.error('Error updating WhatsApp instance status in Supabase:', error);
+          // Fallback para admin client
+          try {
+            await updateWhatsAppInstanceStatusAdmin(formattedName, status, effectiveUserId);
+            console.log('WhatsApp instance status updated with admin client');
+          } catch (adminError) {
+            console.error('Admin client update also failed:', adminError);
+          }
         } else {
           console.log(`WhatsApp instance status updated to ${status} in Supabase`);
         }
+      } else {
+        console.warn('updateInstanceStatus: missing userId');
       }
     } catch (error) {
-      console.error("Failed to update instance status in Supabase:", error);
+      console.error('Failed to update instance status in Supabase:', error);
     }
   }, []);
 

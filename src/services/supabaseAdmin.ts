@@ -133,3 +133,29 @@ export async function updateInstanceStatus(instanceName: string, userId: string,
     throw error;
   }
 }
+
+/**
+ * Atualiza o status de uma instância WhatsApp no Supabase usando cliente administrativo
+ * Esta função bypass as restrições RLS para operações críticas do sistema
+ */
+export async function updateWhatsAppInstanceStatusAdmin(instanceName: string, status: string, userId: string) {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('whatsapp_instances')
+      .update({ status })
+      .eq('name', instanceName)
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Admin client update failed:', error);
+      throw error;
+    }
+    console.log('WhatsApp instance status updated successfully with admin client:', data);
+    return data;
+  } catch (error) {
+    console.error('Error in updateWhatsAppInstanceStatusAdmin:', error);
+    throw error;
+  }
+}

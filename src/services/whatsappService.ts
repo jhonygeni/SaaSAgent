@@ -331,12 +331,11 @@ const whatsappService = {
   },
 
   /**
-   * Get instance information
+   * Get instance information (agora usa getConnectionState para Evolution API v2)
    */
   getInstanceInfo: async (instanceName: string): Promise<InstanceInfo> => {
     try {
       console.log(`Getting instance info for: ${instanceName}`);
-      
       if (USE_MOCK_DATA) {
         return {
           instance: {
@@ -351,8 +350,8 @@ const whatsappService = {
           }
         };
       }
-      
-      const data = await secureApiClient.getInstanceInfo(instanceName);
+      // Corrigido: usa getConnectionState (que já chama o endpoint correto)
+      const data = await secureApiClient.getConnectionState(instanceName);
       console.log(`Instance info for ${instanceName}:`, data);
       return data;
     } catch (error) {

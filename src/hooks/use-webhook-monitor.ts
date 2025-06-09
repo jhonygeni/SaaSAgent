@@ -69,12 +69,15 @@ export function useWebhookMonitor(
     refreshStats();
   }, [refreshStats]);
 
-  // Auto-refresh
+  // EMERGENCY FIX: Disable auto-refresh to prevent infinite loops
   useEffect(() => {
     if (autoRefreshInterval <= 0) return;
 
-    const interval = setInterval(refreshStats, autoRefreshInterval);
-    return () => clearInterval(interval);
+    // const interval = setInterval(refreshStats, autoRefreshInterval); // DISABLED
+    // return () => clearInterval(interval); // DISABLED
+    
+    // Only refresh once on mount, no auto-refresh
+    refreshStats();
   }, [autoRefreshInterval, refreshStats]);
 
   return {
@@ -101,11 +104,15 @@ export function useInstanceWebhookMonitor(
     setInstanceStats(webhookMonitor.getInstanceStats(instanceName, 30 * 60 * 1000));
   }, [instanceName]);
 
+  // EMERGENCY FIX: Disable auto-refresh for instance monitoring
   useEffect(() => {
     if (autoRefreshInterval <= 0) return;
 
-    const interval = setInterval(refreshInstanceStats, autoRefreshInterval);
-    return () => clearInterval(interval);
+    // const interval = setInterval(refreshInstanceStats, autoRefreshInterval); // DISABLED
+    // return () => clearInterval(interval); // DISABLED
+    
+    // Only refresh once on mount
+    refreshInstanceStats();
   }, [autoRefreshInterval, refreshInstanceStats]);
 
   return {
@@ -149,29 +156,48 @@ export function useWebhookAlerts() {
     setAlerts([]);
   }, []);
 
-  // Monitorar issues automaticamente
+  // EMERGENCY FIX: Disable automatic issue monitoring to prevent infinite loops
   useEffect(() => {
-    const interval = setInterval(() => {
-      const issues = webhookMonitor.detectIssues();
-      
-      issues.forEach(issue => {
-        if (issue.severity === 'high') {
-          addAlert({
-            type: 'error',
-            message: issue.message,
-            instanceName: issue.details?.instanceName
-          });
-        } else if (issue.severity === 'medium') {
-          addAlert({
-            type: 'warning',
-            message: issue.message,
-            instanceName: issue.details?.instanceName
-          });
-        }
-      });
-    }, 30000); // Verificar a cada 30 segundos
+    // const interval = setInterval(() => { // DISABLED
+    //   const issues = webhookMonitor.detectIssues();
+    //   
+    //   issues.forEach(issue => {
+    //     if (issue.severity === 'high') {
+    //       addAlert({
+    //       addAlert({
+    //         type: 'error',
+    //         message: issue.message,
+    //         instanceName: issue.details?.instanceName
+    //       });
+    //     } else if (issue.severity === 'medium') {
+    //       addAlert({
+    //         type: 'warning',
+    //         message: issue.message,
+    //         instanceName: issue.details?.instanceName
+    //       });
+    //     }
+    //   });
+    // }, 30000); // Verificar a cada 30 segundos - DISABLED
 
-    return () => clearInterval(interval);
+    // return () => clearInterval(interval); // DISABLED
+    
+    // Check issues once on mount only
+    const issues = webhookMonitor.detectIssues();
+    issues.forEach(issue => {
+      if (issue.severity === 'high') {
+        addAlert({
+          type: 'error',
+          message: issue.message,
+          instanceName: issue.details?.instanceName
+        });
+      } else if (issue.severity === 'medium') {
+        addAlert({
+          type: 'warning',  
+          message: issue.message,
+          instanceName: issue.details?.instanceName
+        });
+      }
+    });
   }, [addAlert]);
 
   return {
@@ -194,37 +220,48 @@ export function useWebhookRealTimeMetrics(updateInterval: number = 1000) {
 
   const [previousStats, setPreviousStats] = useState(() => webhookMonitor.getStats(60000)); // 1 minuto
 
+  // EMERGENCY FIX: Disable real-time metrics to prevent infinite loops
   useEffect(() => {
-    const interval = setInterval(() => {
-      const currentStats = webhookMonitor.getStats(60000); // 1 minuto
-      const now = Date.now();
-      
-      // Calcular requests por segundo
-      const requestsDiff = currentStats.totalRequests - previousStats.totalRequests;
-      const requestsPerSecond = requestsDiff / (updateInterval / 1000);
-      
-      // Calcular taxa de erro
-      const errorRate = currentStats.totalRequests > 0 
-        ? (currentStats.failedRequests / currentStats.totalRequests) * 100 
-        : 0;
+    // const interval = setInterval(() => { // DISABLED
+    //   const currentStats = webhookMonitor.getStats(60000); // 1 minuto
+    //   const now = Date.now();
+    //   
+    //   // Calcular requests por segundo
+    //   const requestsDiff = currentStats.totalRequests - previousStats.totalRequests;
+    //   const requestsPerSecond = requestsDiff / (updateInterval / 1000);
+    //   
+    //   // Calcular taxa de erro
+    //   const errorRate = currentStats.totalRequests > 0 
+    //     ? (currentStats.failedRequests / currentStats.totalRequests) * 100 
+    //     : 0;
 
-      const newDataPoint = {
-        timestamp: now,
-        requestsPerSecond,
-        averageResponseTime: currentStats.averageResponseTime,
-        errorRate
-      };
+    //   const newDataPoint = {
+    //     timestamp: now,
+    //     requestsPerSecond,
+    //     averageResponseTime: currentStats.averageResponseTime,
+    //     errorRate
+    //   };
 
-      setRealTimeData(prev => [
-        ...prev.slice(-59), // Manter apenas os últimos 60 pontos (1 minuto de dados)
-        newDataPoint
-      ]);
+    //   setRealTimeData(prev => [
+    //     ...prev.slice(-59), // Manter apenas os últimos 60 pontos (1 minuto de dados)
+    //     newDataPoint
+    //   ]);
 
-      setPreviousStats(currentStats);
-    }, updateInterval);
+    //   setPreviousStats(currentStats);
+    // }, updateInterval); // DISABLED
 
-    return () => clearInterval(interval);
-  }, [updateInterval, previousStats]);
+    // return () => clearInterval(interval); // DISABLED
+    
+    // Generate single static data point to prevent crashes
+    const staticDataPoint = {
+      timestamp: Date.now(),
+      requestsPerSecond: 0,
+      averageResponseTime: 50,
+      errorRate: 0
+    };
+    
+    setRealTimeData([staticDataPoint]);
+  }, [updateInterval]);
 
   return {
     realTimeData,

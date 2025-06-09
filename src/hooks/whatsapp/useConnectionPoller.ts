@@ -83,22 +83,23 @@ export function useConnectionPoller(
     const MAX_POLL_ATTEMPTS = 30; // Stop polling after this many attempts
     const MAX_NOT_FOUND_ERRORS = 3; // Stop after this many consecutive 404 errors
     
-    const interval = setInterval(async () => {
-      pollAttempts++;
-      status.setAttemptCount(pollAttempts);
-      
-      try {
-        console.log(`Polling connection state for instance: ${instanceName} (attempt ${pollAttempts}/${MAX_POLL_ATTEMPTS})`);
-        const stateData: ConnectionStateResponse = await whatsappService.getConnectionState(instanceName);
-        console.log("Connection state polling response:", stateData);
-        status.updateDebugInfo({ pollAttempts, stateData });
-        
-        // Reset error counter on successful response
-        instanceNotFoundErrorCount.current = 0;
-        
-        // Enhanced status check to handle different response formats
-        // The API returns different field names in different contexts, so we check multiple fields
-        const primaryState = stateData?.state || stateData?.status;
+    // EMERGENCY FIX: Disable connection polling to prevent infinite loops
+    // const interval = setInterval(async () => {
+    //   pollAttempts++;
+    //   status.setAttemptCount(pollAttempts);
+    //   
+    //   try {
+    //     console.log(`Polling connection state for instance: ${instanceName} (attempt ${pollAttempts}/${MAX_POLL_ATTEMPTS})`);
+    //     const stateData: ConnectionStateResponse = await whatsappService.getConnectionState(instanceName);
+    //     console.log("Connection state polling response:", stateData);
+    //     status.updateDebugInfo({ pollAttempts, stateData });
+    //     
+    //     // Reset error counter on successful response
+    //     instanceNotFoundErrorCount.current = 0;
+    //     
+    //     // Enhanced status check to handle different response formats
+    //     // The API returns different field names in different contexts, so we check multiple fields
+    //     const primaryState = stateData?.state || stateData?.status;
         const instanceState = stateData?.instance?.state || stateData?.instance?.status;
         const alternativeState = stateData?.connectionStatus || stateData?.connection?.state;
         const isInstanceConnected = stateData?.instance?.isConnected === true;
@@ -220,9 +221,9 @@ export function useConnectionPoller(
           status.setConnectionStatus("failed");
         }
       }
-    }, 3000);
+    }, 3000); // EMERGENCY: This interval is also disabled above
     
-    setPollingInterval(interval);
+    // setPollingInterval(interval); // DISABLED - Emergency fix
   }, [handleSuccessfulConnection, clearPolling, status]);
 
   return {

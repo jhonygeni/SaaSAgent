@@ -1,6 +1,22 @@
 /**
- * Sistema de rastreamento de mensagens para evitar loops de webhook
- * Este sistema mantém um registro de mensagens recentemente processadas e
+ * Sistema de rastreamento de mensagens para evitar loops de we  /**
+   * EMERGENCY FIX: Disable cleanup timer to prevent infinite loops
+   */
+  private startCleanupTimer(): void {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+    }
+    
+    // DISABLED: Auto cleanup causing infinite loops
+    // this.cleanupTimer = setInterval(() => {
+    //   this.cleanupExpiredMessages();
+    // }, TRACKING_CONFIG.CLEANUP_INTERVAL);
+    
+    // // Garantir que o timer não mantenha o processo rodando
+    // if (this.cleanupTimer.unref) {
+    //   this.cleanupTimer.unref();
+    // }
+  }tema mantém um registro de mensagens recentemente processadas e
  * permite detectar padrões de loop.
  */
 
@@ -73,9 +89,10 @@ class MessageTracker {
       clearInterval(this.cleanupTimer);
     }
     
-    this.cleanupTimer = setInterval(() => {
-      this.cleanupExpiredMessages();
-    }, TRACKING_CONFIG.CLEANUP_INTERVAL);
+    // EMERGENCY FIX: Disable cleanup timer completely
+    // this.cleanupTimer = setInterval(() => {
+    //   this.cleanupExpiredMessages();
+    // }, TRACKING_CONFIG.CLEANUP_INTERVAL);
     
     // Garantir que o timer não mantenha o processo rodando
     if (this.cleanupTimer.unref) {

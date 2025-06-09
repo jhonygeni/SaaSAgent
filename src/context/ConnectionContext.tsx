@@ -19,6 +19,7 @@ interface ConnectionContextType {
   validateInstanceName: (name: string) => Promise<{valid: boolean, message?: string}>;
   fetchUserInstances: () => Promise<any[]>;
   clearPolling: () => void; // Add clearPolling function
+  forceCheckConnection: (instanceName: string) => Promise<boolean>; // Add forceCheckConnection function with correct return type
 }
 
 // Create a default context value to prevent errors when used outside provider
@@ -38,6 +39,7 @@ const defaultConnectionContext: ConnectionContextType = {
   validateInstanceName: async () => ({ valid: false, message: "Provider not initialized" }),
   fetchUserInstances: async () => [],
   clearPolling: () => {}, // Add default implementation
+  forceCheckConnection: async () => false, // Add default implementation with correct return type
 };
 
 const ConnectionContext = createContext<ConnectionContextType>(defaultConnectionContext);

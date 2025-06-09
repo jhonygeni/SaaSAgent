@@ -3,16 +3,16 @@ import { supabase } from '@/integrations/supabase/client';
 // Anti-loop: armazenar IDs de mensagens recentes para não processar duplicadas
 const processedMessages = new Map<string, { count: number, timestamp: number }>();
 
-// Limpar mensagens antigas a cada X minutos
-setInterval(() => {
-  const now = Date.now();
-  processedMessages.forEach((data, id) => {
-    // Remover mensagens processadas há mais de 1 hora (3600000ms)
-    if (now - data.timestamp > 3600000) {
-      processedMessages.delete(id);
-    }
-  });
-}, 300000); // Limpar a cada 5 minutos
+// EMERGENCY FIX: Cleanup disabled to prevent infinite loops
+// setInterval(() => {
+//   const now = Date.now();
+//   processedMessages.forEach((data, id) => {
+//     // Remover mensagens processadas há mais de 1 hora (3600000ms)
+//     if (now - data.timestamp > 3600000) {
+//       processedMessages.delete(id);
+//     }
+//   });
+// }, 300000); // DISABLED - Limpar a cada 5 minutos
 
 /**
  * Verifica se uma mensagem já foi processada recentemente

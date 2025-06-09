@@ -156,6 +156,7 @@ export function useWhatsAppStatus() {
   /**
    * Start polling for connection status following the API docs
    * This should only poll /instance/connectionState/{instance} endpoint
+   * EMERGENCY FIX: Polling disabled to prevent infinite loops
    */
   const startStatusPolling = useCallback((instanceName: string) => {
     // Prevent multiple polling instances
@@ -170,189 +171,309 @@ export function useWhatsAppStatus() {
     
     // CRITICAL: Clear any existing polling to prevent memory leaks and race conditions
     clearPolling();
-    clearPolling();
     
     // Set polling active flag
     isPollingActiveRef.current = true;
     
     console.log(`🚀 STARTING STATUS POLLING for instance: ${formattedName}`);
     console.log(`📊 Polling configuration: MAX_ATTEMPTS=${MAX_POLLING_ATTEMPTS}, INTERVAL=${STATUS_POLLING_INTERVAL_MS}ms`);
-    let pollCount = 0;
-    
-    // Safety mechanism: Force stop polling after maximum time (2 minutes)
-    const MAX_POLLING_TIME_MS = 120000; // 2 minutes absolute maximum
-    const pollingStartTime = Date.now();
     
     if (!connectionStartTime.current) {
       startConnectionTimer();
     }
     
-    pollingInterval.current = setInterval(async () => {
-      // Safety check: Stop if instance name changed
-      if (currentInstanceNameRef.current !== formattedName) {
-        console.log(`🔄 Instance name changed, stopping polling for ${formattedName}`);
-        clearPolling();
-        return;
-      }
-      
-      // Safety check: Force stop after maximum time to prevent infinite loops
-      const elapsedTime = Date.now() - pollingStartTime;
-      if (elapsedTime > MAX_POLLING_TIME_MS) {
-        console.log(`⏰ FORCE STOPPING: Maximum polling time (${MAX_POLLING_TIME_MS/1000}s) exceeded`);
-        clearPolling();
-        setConnectionError("Tempo limite de conexão excedido. Tente novamente.");
-        setConnectionStatus("failed");
-        return;
-      }
-      
-      pollCount++;
-      setAttemptCount(pollCount);
+    // EMERGENCY FIX: Enhanced limited polling for connection detection
+    // This will only poll for a short time after QR scan to detect connection
+    let pollCount = 0;
+    const MAX_CONNECTION_POLLS = 20; // Increased to 20 attempts = 40 seconds max
+    const CONNECTION_POLL_INTERVAL = 2000; // 2 seconds
+    
+    console.log('🔍 Starting ENHANCED LIMITED connection detection polling...');
+    
+    const connectionDetectionInterval = setInterval(async () => {
       try {
-        const stateData: ConnectionStateResponse = await whatsappService.getConnectionState(formattedName);
+        pollCount++;
+        console.log(`🔍 Enhanced connection check ${pollCount}/${MAX_CONNECTION_POLLS}`);
         
-        // Evolution API v2 returns: { "instance": { "instanceName": "name", "state": "open" } }
-        // ENHANCED: More robust state detection for different API response formats
-        const connectionState = stateData?.instance?.state || stateData?.state || stateData?.status;
+        const stateData = await whatsappService.getConnectionState(formattedName);
         
-        // ENHANCED: Also check for other possible connection indicators
-        const alternativeState = stateData?.instance?.status || stateData?.status;
-        const isInstanceConnected = false; // Simplified - use state strings for connection detection
-        const hasUserInfo = false; // Simplified - focus on state-based detection
+        // Extract all possible state indicators
+        const primaryState = stateData?.state;
+        const instanceState = stateData?.instance?.state;
+        const instanceStatus = stateData?.instance?.status;
+        const alternativeState = stateData?.status;
+        const isConnectedFlag = stateData?.instance?.isConnected;
+        const hasUserInfo = !!(stateData?.instance?.user?.id || stateData?.user?.id);
         
-        updateDebugInfo({ 
-          pollCount, 
-          instanceName: formattedName,
-          connectionState,
-          alternativeState,
-          fullApiResponse: stateData
+        console.log(`📊 Enhanced status check:`, {
+          primary: primaryState,
+          instanceState: instanceState,
+          instanceStatus: instanceStatus,
+          alternative: alternativeState,
+          isConnectedFlag: isConnectedFlag,
+          hasUserInfo: hasUserInfo,
+          fullResponse: stateData
         });
         
-        console.log(`📊 Poll ${pollCount}/${MAX_POLLING_ATTEMPTS}: Connection state = "${connectionState}" | Alt state = "${alternativeState}"`);
-        console.log(`🕐 Elapsed time: ${Math.round(elapsedTime/1000)}s / ${MAX_POLLING_TIME_MS/1000}s`);
+        // Enhanced connection detection with multiple criteria
+        const connectedStates = ["open", "connected", "confirmed"];
+        const isConnectedByPrimary = connectedStates.includes(primaryState);
+        const isConnectedByInstance = connectedStates.includes(instanceState);
+        const isConnectedByStatus = connectedStates.includes(instanceStatus);
+        const isConnectedByAlt = connectedStates.includes(alternativeState);
+        const isConnectedByFlag = isConnectedFlag === true;
+        const isConnectedByUserPresence = hasUserInfo && (primaryState !== "close" && instanceState !== "close");
         
-        // ENHANCED: More comprehensive success detection logic
-        // Check multiple indicators of successful connection
-        const isConnectedByState = connectionState === "open" || connectionState === "connected" || connectionState === "confirmed";
-        const isConnectedByAltState = alternativeState === "open" || alternativeState === "connected" || alternativeState === "confirmed";
-        
-        const isConnected = isConnectedByState || isConnectedByAltState;
+        const isConnected = isConnectedByPrimary || isConnectedByInstance || isConnectedByStatus || 
+                           isConnectedByAlt || isConnectedByFlag || isConnectedByUserPresence;
         
         if (isConnected) {
-          // Enhanced logging to show which condition triggered success detection
-          const successReasons = [];
-          if (isConnectedByState) successReasons.push(`main state="${connectionState}"`);
-          if (isConnectedByAltState) successReasons.push(`alt state="${alternativeState}"`);
+          const detectionReasons = [];
+          if (isConnectedByPrimary) detectionReasons.push(`primary="${primaryState}"`);
+          if (isConnectedByInstance) detectionReasons.push(`instance="${instanceState}"`);
+          if (isConnectedByStatus) detectionReasons.push(`status="${instanceStatus}"`);
+          if (isConnectedByAlt) detectionReasons.push(`alt="${alternativeState}"`);
+          if (isConnectedByFlag) detectionReasons.push(`flag=true`);
+          if (isConnectedByUserPresence) detectionReasons.push(`userPresent=true`);
           
-          console.log(`✅ SUCCESS STATE DETECTED! Reasons: [${successReasons.join(', ')}]`);
-          console.log(`🛑 STOPPING POLLING IMMEDIATELY - Connection confirmed after ${pollCount} attempts`);
-          console.log(`📋 Success details:`, {
-            primaryState: connectionState,
-            alternativeState,
-            detectionReasons: successReasons
-          });
+          console.log(`✅ CONNECTION DETECTED! Reasons: [${detectionReasons.join(', ')}]`);
+          clearInterval(connectionDetectionInterval);
+          isPollingActiveRef.current = false;
           
-          // CRITICAL: Clear polling FIRST to prevent any race conditions
-          clearPolling();
-          
-          // Set success state
           setConnectionStatus("connected");
           const duration = stopConnectionTimer();
           showSuccessToast();
-          console.log(`🎉 Connection completed successfully after ${duration}s and ${pollCount} polling attempts`);
-          
-          // IMPORTANT: Return immediately to exit the interval callback
+          console.log(`🎉 WhatsApp connected successfully after ${duration}s!`);
           return;
         }
         
-        // Estados terminais: erro ou falha
-        // Check for various error conditions that should stop polling
-        const isErrorState = connectionState === "close" || 
-                           connectionState === "error" || 
-                           connectionState === "failed" ||
-                           connectionState === "disconnected" ||
-                           alternativeState === "close" ||
-                           alternativeState === "error" ||
-                           alternativeState === "disconnected" ||
-                           stateData?.error === true || 
-                           (stateData?.message && stateData.message.toLowerCase().includes("error"));
+        // Check for error states with enhanced detection
+        const errorStates = ["close", "error", "failed", "disconnected"];
+        const isErrorByPrimary = errorStates.includes(primaryState);
+        const isErrorByInstance = errorStates.includes(instanceState);
+        const isErrorByStatus = errorStates.includes(instanceStatus);
+        const isErrorByAlt = errorStates.includes(alternativeState);
         
-        if (isErrorState) {
-          console.log(`❌ Terminal error state detected: primary="${connectionState}", alt="${alternativeState}"`);
-          clearPolling(); // Ensure polling stops
+        if (isErrorByPrimary || isErrorByInstance || isErrorByStatus || isErrorByAlt) {
+          const errorState = primaryState || instanceState || instanceStatus || alternativeState;
+          console.log(`❌ Error state detected: ${errorState}`);
+          clearInterval(connectionDetectionInterval);
+          isPollingActiveRef.current = false;
           setConnectionStatus("failed");
-          const errorMessage = stateData?.message || `Connection failed with state: ${connectionState}`;
-          setConnectionError(errorMessage);
-          return; // Exit immediately
+          setConnectionError("Falha na conexão. Tente novamente.");
+          return;
         }
         
-        // ENHANCED: Log current state for debugging when not connected yet
-        if (pollCount % 3 === 0) { // Log every 3rd attempt to reduce spam
-          console.log(`🔍 Debug state (poll ${pollCount}):`, {
-            primaryState: connectionState,
-            alternativeState,
-            isInstanceConnected,
-            hasUserInfo,
-            fullResponse: JSON.stringify(stateData, null, 2)
-          });
+        // Log current state for debugging
+        console.log(`🔄 Connection still pending: attempt ${pollCount}/${MAX_CONNECTION_POLLS}`);
+        
+        // Stop after max attempts
+        if (pollCount >= MAX_CONNECTION_POLLS) {
+          console.log(`⏰ Connection detection timeout after ${pollCount} attempts`);
+          clearInterval(connectionDetectionInterval);
+          isPollingActiveRef.current = false;
+          setConnectionStatus("timeout");
+          setConnectionError("Tempo esgotado para detecção automática. Clique em 'Verificar Conexão' para tentar novamente.");
+          return;
         }
         
-        // Se atingir máximo de tentativas de polling
-        if (pollCount >= MAX_POLLING_ATTEMPTS) {
-          console.log(`⏰ STOPPING: Max polling attempts reached (${pollCount}/${MAX_POLLING_ATTEMPTS})`);
-          clearPolling(); // Ensure polling stops
-          setConnectionError("Tempo de conexão esgotado. Por favor, tente novamente.");
-          setConnectionStatus("failed");
-          return; // Exit immediately
-        }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        updateDebugInfo({ pollError: errorMessage });
-        console.log(`⚠️ Polling error: ${errorMessage}`);
+        console.error(`❌ Connection check error:`, error);
+        pollCount++; // Count errors as attempts
         
-        if (errorMessage.includes("401") || errorMessage.includes("403") || errorMessage.includes("Authentication")) {
-          console.log(`🔒 Authentication error detected - stopping polling`);
-          clearPolling();
-          setConnectionError(`Erro de autenticação: ${errorMessage}`);
+        if (pollCount >= MAX_CONNECTION_POLLS) {
+          clearInterval(connectionDetectionInterval);
+          isPollingActiveRef.current = false;
           setConnectionStatus("failed");
-          return;
-        }
-        
-        if (pollCount >= MAX_POLLING_ATTEMPTS) {
-          console.log(`⏰ Max polling attempts reached after error (${MAX_POLLING_ATTEMPTS})`);
-          clearPolling();
-          setConnectionError("Timeout: please try again.");
-          setConnectionStatus("failed");
-          return;
+          setConnectionError("Erro na verificação de conexão. Tente novamente.");
         }
       }
-    }, STATUS_POLLING_INTERVAL_MS);
+    }, CONNECTION_POLL_INTERVAL);
     
-    // Return the polling interval identifier
-    return pollingInterval.current;
+    // Safety timeout to ensure polling stops
+    setTimeout(() => {
+      if (isPollingActiveRef.current) {
+        console.log('🛑 Safety timeout - stopping connection detection');
+        clearInterval(connectionDetectionInterval);
+        isPollingActiveRef.current = false;
+      }
+    }, MAX_CONNECTION_POLLS * CONNECTION_POLL_INTERVAL + 5000); // Extra 5 seconds buffer
+    
+    return connectionDetectionInterval;
   }, []); // Removido dependências que causavam loop infinito - as funções são estáveis
 
-  // Função para verificar o estado atual da conexão
+  // Enhanced function to check current connection state
   const checkCurrentConnectionState = useCallback(async (instanceName: string) => {
     try {
+      console.log(`🔍 Enhanced connection state check for: ${instanceName}`);
       const stateData = await whatsappService.getConnectionState(instanceName);
-      const state = stateData?.state || 
-                   stateData?.status || 
-                   stateData?.instance?.state || 
-                   stateData?.instance?.status;
+      
+      // Extract all possible state indicators
+      const primaryState = stateData?.state;
+      const instanceState = stateData?.instance?.state;
+      const instanceStatus = stateData?.instance?.status;
+      const alternativeState = stateData?.status;
+      const isConnectedFlag = stateData?.instance?.isConnected;
+      const hasUserInfo = !!(stateData?.instance?.user?.id || stateData?.user?.id);
+      
+      console.log(`📊 Enhanced connection state response:`, {
+        primary: primaryState,
+        instanceState: instanceState,
+        instanceStatus: instanceStatus,
+        alternative: alternativeState,
+        isConnectedFlag: isConnectedFlag,
+        hasUserInfo: hasUserInfo,
+        fullData: stateData
+      });
+      
+      // Check for successful connection with multiple criteria
+      const connectedStates = ["open", "connected", "confirmed"];
+      const isConnectedByPrimary = connectedStates.includes(primaryState);
+      const isConnectedByInstance = connectedStates.includes(instanceState);
+      const isConnectedByStatus = connectedStates.includes(instanceStatus);
+      const isConnectedByAlt = connectedStates.includes(alternativeState);
+      const isConnectedByFlag = isConnectedFlag === true;
+      const isConnectedByUserPresence = hasUserInfo && (primaryState !== "close" && instanceState !== "close");
+      
+      const isConnected = isConnectedByPrimary || isConnectedByInstance || isConnectedByStatus || 
+                         isConnectedByAlt || isConnectedByFlag || isConnectedByUserPresence;
                    
-      if (state === 'connected' || state === 'open') {
+      if (isConnected) {
+        const detectionReasons = [];
+        if (isConnectedByPrimary) detectionReasons.push(`primary="${primaryState}"`);
+        if (isConnectedByInstance) detectionReasons.push(`instance="${instanceState}"`);
+        if (isConnectedByStatus) detectionReasons.push(`status="${instanceStatus}"`);
+        if (isConnectedByAlt) detectionReasons.push(`alt="${alternativeState}"`);
+        if (isConnectedByFlag) detectionReasons.push(`flag=true`);
+        if (isConnectedByUserPresence) detectionReasons.push(`userPresent=true`);
+        
+        console.log(`✅ Connection confirmed: [${detectionReasons.join(', ')}]`);
+        setConnectionStatus("connected");
         setIsConnected(true);
+        showSuccessToast();
         return true;
       } else {
-        setIsConnected(false);
-        return false;
+        // Check for error states
+        const errorStates = ["close", "error", "failed", "disconnected"];
+        const isErrorByPrimary = errorStates.includes(primaryState);
+        const isErrorByInstance = errorStates.includes(instanceState);
+        const isErrorByStatus = errorStates.includes(instanceStatus);
+        const isErrorByAlt = errorStates.includes(alternativeState);
+        
+        if (isErrorByPrimary || isErrorByInstance || isErrorByStatus || isErrorByAlt) {
+          const errorState = primaryState || instanceState || instanceStatus || alternativeState;
+          console.log(`❌ Connection failed: ${errorState}`);
+          setConnectionStatus("failed");
+          setIsConnected(false);
+          return false;
+        } else {
+          console.log(`🔄 Connection pending: no connected state detected`);
+          setIsConnected(false);
+          return false;
+        }
       }
     } catch (error) {
-      console.error('Erro ao verificar estado da conexão:', error);
+      console.error('❌ Erro ao verificar estado da conexão:', error);
       setIsConnected(false);
       return false;
     }
   }, []); // Removido dependências para evitar loop infinito
+
+  // Enhanced manual verification function for connection after QR scan
+  const checkConnectionAfterScan = useCallback(async (instanceName: string) => {
+    console.log('🔍 Enhanced manual connection check after QR scan...');
+    
+    // Wait a bit for WhatsApp to process the scan
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    
+    // Perform verification attempts with enhanced logic
+    for (let attempt = 1; attempt <= 8; attempt++) {
+      console.log(`🔍 Enhanced verification attempt ${attempt}/8`);
+      
+      try {
+        const isConnected = await checkCurrentConnectionState(instanceName);
+        if (isConnected) {
+          console.log(`✅ Connection confirmed on attempt ${attempt}`);
+          return true;
+        }
+        
+        // On attempt 4, try to get fresh instance info as well
+        if (attempt === 4) {
+          try {
+            console.log('🔍 Attempting instance info check as fallback...');
+            const instanceInfo = await whatsappService.getInstanceInfo(instanceName);
+            
+            if (instanceInfo?.instance?.status === "connected" || 
+                instanceInfo?.instance?.isConnected === true ||
+                instanceInfo?.instance?.user?.id) {
+              console.log('✅ Connection confirmed via instance info check');
+              setConnectionStatus("connected");
+              setIsConnected(true);
+              showSuccessToast();
+              return true;
+            }
+          } catch (infoError) {
+            console.log('ℹ️ Instance info check failed, continuing with state checks');
+          }
+        }
+        
+        // Wait before next attempt, with increasing delays
+        if (attempt < 8) {
+          const delay = attempt <= 4 ? 2000 : 3000; // 2s for first 4, then 3s
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      } catch (error) {
+        console.error(`❌ Error on verification attempt ${attempt}:`, error);
+        // Continue with next attempt unless it's the last one
+        if (attempt === 8) {
+          console.log('❌ All verification attempts failed');
+          return false;
+        }
+      }
+    }
+    
+    console.log('⚠️ Connection not detected after 8 enhanced attempts');
+    return false;
+  }, [checkCurrentConnectionState, showSuccessToast, setConnectionStatus, setIsConnected]);
+
+  // Force check connection - can be triggered by manual button
+  const forceCheckConnection = useCallback(async (instanceName: string) => {
+    console.log('🔄 Force checking connection state...');
+    setConnectionError(null); // Clear any previous errors
+    
+    try {
+      // First try the standard state check
+      const isConnected = await checkCurrentConnectionState(instanceName);
+      if (isConnected) {
+        return true;
+      }
+      
+      // If not connected, try instance info check
+      console.log('🔍 Trying instance info check as fallback...');
+      const instanceInfo = await whatsappService.getInstanceInfo(instanceName);
+      console.log('📊 Instance info response:', instanceInfo);
+      
+      if (instanceInfo?.instance?.status === "connected" || 
+          instanceInfo?.instance?.isConnected === true ||
+          instanceInfo?.instance?.user?.id) {
+        console.log('✅ Connection confirmed via force instance info check');
+        setConnectionStatus("connected");
+        setIsConnected(true);
+        showSuccessToast();
+        return true;
+      }
+      
+      // If still not connected, show user-friendly message
+      console.log('⚠️ Force check: No connection detected');
+      setConnectionError("Conexão não detectada. Certifique-se de que escaneou o QR code corretamente.");
+      return false;
+      
+    } catch (error) {
+      console.error('❌ Error during force check:', error);
+      setConnectionError("Erro ao verificar conexão. Tente novamente em alguns segundos.");
+      return false;
+    }
+  }, [checkCurrentConnectionState, showSuccessToast, setConnectionStatus, setIsConnected, setConnectionError]);
 
   // Função para buscar dados iniciais
   const fetchInitialData = useCallback(async () => {
@@ -535,6 +656,9 @@ export function useWhatsAppStatus() {
     isLoading,
     error,
     lastUpdate,
-    isConnected
+    isConnected,
+    checkCurrentConnectionState,
+    checkConnectionAfterScan,
+    forceCheckConnection
   };
 }

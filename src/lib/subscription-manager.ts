@@ -188,16 +188,17 @@ class SupabaseSubscriptionManager {
   }
 
   /**
-   * Inicia intervalo de limpeza automática
+   * EMERGENCY FIX: Disable cleanup interval to prevent infinite loops
    */
   private startCleanupInterval(): void {
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval);
     }
 
-    this.cleanupInterval = setInterval(() => {
-      this.cleanupInactive();
-    }, this.CLEANUP_INTERVAL);
+    // DISABLED: Auto cleanup causing infinite loops
+    // this.cleanupInterval = setInterval(() => {
+    //   this.cleanupInactive();
+    // }, this.CLEANUP_INTERVAL);
   }
 
   /**
@@ -319,17 +320,21 @@ export function useSupabaseSubscription(
   }, [id, table, event, filter, ...dependencies]);
 }
 
-// Hook para estatísticas de subscriptions
+// EMERGENCY FIX: Hook disabled to prevent infinite loops
 export function useSubscriptionStats() {
   const { useState, useEffect } = require('react');
   const [stats, setStats] = useState(() => subscriptionManager.getStats());
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setStats(subscriptionManager.getStats());
-    }, 5000);
+    // DISABLED: Auto-refresh causing infinite loops
+    // const interval = setInterval(() => {
+    //   setStats(subscriptionManager.getStats());
+    // }, 5000);
 
-    return () => clearInterval(interval);
+    // return () => clearInterval(interval);
+    
+    // Get stats once on mount only
+    setStats(subscriptionManager.getStats());
   }, []);
 
   return stats;

@@ -287,7 +287,7 @@ export function clearOldMetrics(olderThanMs: number = 7 * 24 * 60 * 60 * 1000) {
 // Export the class for testing purposes
 export { WebhookMonitor };
 
-// Auto cleanup a cada hora
-setInterval(() => {
-  webhookMonitor.cleanup();
-}, 60 * 60 * 1000);
+// EMERGENCY FIX: Auto cleanup disabled to prevent infinite loops
+// setInterval(() => {
+//   webhookMonitor.cleanup();
+// }, 60 * 60 * 1000); // DISABLED

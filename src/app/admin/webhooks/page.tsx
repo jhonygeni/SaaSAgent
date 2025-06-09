@@ -19,9 +19,10 @@ export default function WebhookAdminPage() {
 
   useEffect(() => {
     loadData();
-    // Atualizar dados a cada 30 segundos
-    const interval = setInterval(loadData, 30000);
-    return () => clearInterval(interval);
+    // EMERGENCY FIX: Disable auto-refresh to prevent infinite loops
+    // Atualizar dados a cada 30 segundos - DISABLED
+    // const interval = setInterval(loadData, 30000);
+    // return () => clearInterval(interval);
   }, []);
 
   const loadData = async () => {

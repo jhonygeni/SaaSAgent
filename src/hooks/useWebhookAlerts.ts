@@ -115,11 +115,13 @@ export function useWebhookAlerts(): UseWebhookAlertsReturn {
       }
     };
 
-    // Check for alerts initially and then every 30 seconds
+    // EMERGENCY FIX: Disable auto-refresh to prevent infinite loops
+    // Check for alerts initially only, no auto-refresh
     checkForAlerts();
-    const interval = setInterval(checkForAlerts, 30000);
-
-    return () => clearInterval(interval);
+    // const interval = setInterval(checkForAlerts, 30000); // DISABLED
+    
+    // return () => clearInterval(interval); // DISABLED
+    return () => {}; // No cleanup needed
   }, [generateAlertsFromStats]);
 
   const acknowledgeAlert = useCallback((alertId: string) => {

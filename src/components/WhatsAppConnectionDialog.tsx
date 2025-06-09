@@ -65,7 +65,8 @@ function WhatsAppConnectionDialogInternal({
     fetchUserInstances,
     debugInfo,
     attemptCount,
-    clearPolling
+    clearPolling,
+    forceCheckConnection
   } = useConnection();
   
   // Debug: Log quando qrCodeData muda
@@ -358,11 +359,14 @@ function WhatsAppConnectionDialogInternal({
     // FIXED: Removed setState call from render function to prevent React #301 error
     if (qrCodeData && connectionStatus !== "connected" && connectionStatus !== "failed") {
       console.log("QR code available - showing QR code display");
+      const currentInstanceName = initialInstanceName || customInstanceName || "";
       return (
         <QrCodeState 
           qrCodeData={qrCodeData}
           pairingCode={pairingCode}
-          attemptCount={attemptCount} 
+          attemptCount={attemptCount}
+          onManualCheck={forceCheckConnection}
+          instanceName={currentInstanceName}
         />
       );
     }

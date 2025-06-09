@@ -54,15 +54,15 @@ interface WebhookPayload {
 const instanceCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutos
 
-// Função para limpar cache expirado periodicamente
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of instanceCache.entries()) {
-    if (now - value.timestamp > CACHE_TTL) {
-      instanceCache.delete(key);
-    }
-  }
-}, CACHE_TTL);
+// EMERGENCY FIX: Cache cleanup disabled to prevent infinite loops
+// setInterval(() => {
+//   const now = Date.now();
+//   for (const [key, value] of instanceCache.entries()) {
+//     if (now - value.timestamp > CACHE_TTL) {
+//       instanceCache.delete(key);
+//     }
+//   }
+// }, CACHE_TTL); // DISABLED
 
 // Função otimizada para buscar todos os dados necessários em uma única query
 async function buscarDadosCompletos(instanceName: string) {
