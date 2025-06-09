@@ -215,48 +215,39 @@ export function useWhatsAppStatus() {
         const connectionState = stateData?.instance?.state || stateData?.state || stateData?.status;
         
         // ENHANCED: Also check for other possible connection indicators
-        const alternativeState = stateData?.instance?.status || stateData?.connectionStatus || stateData?.connection?.state;
-        const isInstanceConnected = stateData?.instance?.isConnected === true;
-        const hasUserInfo = !!(stateData?.instance?.user?.id || stateData?.user?.id);
+        const alternativeState = stateData?.instance?.status || stateData?.status;
+        const isInstanceConnected = false; // Simplified - use state strings for connection detection
+        const hasUserInfo = false; // Simplified - focus on state-based detection
         
         updateDebugInfo({ 
           pollCount, 
           instanceName: formattedName,
           connectionState,
           alternativeState,
-          isInstanceConnected,
-          hasUserInfo,
           fullApiResponse: stateData
         });
         
         console.log(`📊 Poll ${pollCount}/${MAX_POLLING_ATTEMPTS}: Connection state = "${connectionState}" | Alt state = "${alternativeState}"`);
         console.log(`🕐 Elapsed time: ${Math.round(elapsedTime/1000)}s / ${MAX_POLLING_TIME_MS/1000}s`);
-        console.log(`🔍 Debug: isConnected=${isInstanceConnected}, hasUser=${hasUserInfo}`);
         
         // ENHANCED: More comprehensive success detection logic
         // Check multiple indicators of successful connection
         const isConnectedByState = connectionState === "open" || connectionState === "connected" || connectionState === "confirmed";
         const isConnectedByAltState = alternativeState === "open" || alternativeState === "connected" || alternativeState === "confirmed";
-        const isConnectedByFlag = isInstanceConnected === true;
-        const isConnectedByUserPresence = hasUserInfo && (connectionState !== "close" && connectionState !== "disconnected");
         
-        const isConnected = isConnectedByState || isConnectedByAltState || isConnectedByFlag || isConnectedByUserPresence;
+        const isConnected = isConnectedByState || isConnectedByAltState;
         
         if (isConnected) {
           // Enhanced logging to show which condition triggered success detection
           const successReasons = [];
           if (isConnectedByState) successReasons.push(`main state="${connectionState}"`);
           if (isConnectedByAltState) successReasons.push(`alt state="${alternativeState}"`);
-          if (isConnectedByFlag) successReasons.push(`isConnected flag=true`);
-          if (isConnectedByUserPresence) successReasons.push(`user info present`);
           
           console.log(`✅ SUCCESS STATE DETECTED! Reasons: [${successReasons.join(', ')}]`);
           console.log(`🛑 STOPPING POLLING IMMEDIATELY - Connection confirmed after ${pollCount} attempts`);
           console.log(`📋 Success details:`, {
             primaryState: connectionState,
             alternativeState,
-            isInstanceConnected,
-            hasUserInfo,
             detectionReasons: successReasons
           });
           
@@ -338,7 +329,7 @@ export function useWhatsAppStatus() {
     
     // Return the polling interval identifier
     return pollingInterval.current;
-  }, [clearPolling, showSuccessToast, startConnectionTimer, stopConnectionTimer, updateDebugInfo]);
+  }, []); // Removido dependências que causavam loop infinito - as funções são estáveis
 
   // Função para verificar o estado atual da conexão
   const checkCurrentConnectionState = useCallback(async (instanceName: string) => {
@@ -361,7 +352,7 @@ export function useWhatsAppStatus() {
       setIsConnected(false);
       return false;
     }
-  }, []);
+  }, []); // Removido dependências para evitar loop infinito
 
   // Função para buscar dados iniciais
   const fetchInitialData = useCallback(async () => {
@@ -374,13 +365,16 @@ export function useWhatsAppStatus() {
       console.log('📊 [REALTIME] Carregando dados iniciais...');
 
       // Primeiro, buscar instâncias do usuário para verificar conexão
-      const { data: instances } = await supabase
+      // Fix para 406 error: buscar todas as instâncias do usuário e filtrar por status no cliente
+      const { data: allInstances } = await supabase
         .from('whatsapp_instances')
         .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'connected'); // Removido .single() e corrigido filtro para não usar :1
+        .eq('user_id', user.id);
 
-      if (instances && Array.isArray(instances) && instances.length > 0) {
+      // Filtrar instâncias conectadas no lado do cliente para evitar 406 error
+      const instances = allInstances?.filter(instance => instance.status === 'connected') || [];
+
+      if (instances && instances.length > 0) {
         await checkCurrentConnectionState(instances[0].name);
       }
 
@@ -445,7 +439,7 @@ export function useWhatsAppStatus() {
     } finally {
       setIsLoading(false);
     }
-  }, [user?.id, checkCurrentConnectionState]);
+  }, [user?.id]); // Removido checkCurrentConnectionState das dependências para evitar loop
 
   // Configurar subscription para atualizações em tempo real
   useEffect(() => {
@@ -455,18 +449,27 @@ export function useWhatsAppStatus() {
 
     // Primeiro, buscar instância atual
     const fetchCurrentInstance = async () => {
-      const { data: instance } = await supabase
-        .from('whatsapp_instances')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'connected')
-        .single();
+      try {
+        // Fix para 406 error: buscar todas as instâncias do usuário e filtrar por status no cliente
+        const { data: allInstances } = await supabase
+          .from('whatsapp_instances')
+          .select('*')
+          .eq('user_id', user.id);
 
-      if (instance) {
-        await checkCurrentConnectionState(instance.name);
+        // Filtrar instâncias conectadas no lado do cliente para evitar 406 error
+        const connectedInstances = allInstances?.filter(instance => instance.status === 'connected') || [];
+        const instance = connectedInstances.length > 0 ? connectedInstances[0] : null;
+
+        if (instance) {
+          await checkCurrentConnectionState(instance.name);
+        }
+      } catch (error) {
+        console.error('❌ [REALTIME] Erro ao buscar instância atual:', error);
       }
     };
 
+    // Carregar dados iniciais uma vez
+    fetchInitialData();
     fetchCurrentInstance();
 
     // Inscrever-se para atualizações na tabela usage_stats
@@ -484,8 +487,12 @@ export function useWhatsAppStatus() {
           console.log('📨 [REALTIME] Recebida atualização:', payload);
           setLastUpdate(new Date());
           
-          // Recarregar dados após qualquer mudança
-          await fetchInitialData();
+          // Recarregar dados após qualquer mudança (sem causar loop)
+          try {
+            await fetchInitialData();
+          } catch (error) {
+            console.error('❌ [REALTIME] Erro ao recarregar dados:', error);
+          }
         }
       )
       .subscribe((status) => {
@@ -493,16 +500,13 @@ export function useWhatsAppStatus() {
         setIsConnected(status === 'SUBSCRIBED');
       });
 
-    // Carregar dados iniciais
-    fetchInitialData();
-
     // Cleanup
     return () => {
       console.log('🔌 [REALTIME] Limpando subscription...');
       subscription.unsubscribe();
       setIsConnected(false);
     };
-  }, [user?.id, fetchInitialData, checkCurrentConnectionState]);
+  }, [user?.id]); // Removido fetchInitialData e checkCurrentConnectionState das dependências para evitar loop
 
   return {
     connectionStatus,

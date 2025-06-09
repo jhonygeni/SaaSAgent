@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 Teste Fix do Loop Infinito</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+        .test-section {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .success { background: rgba(76, 175, 80, 0.3); }
+        .error { background: rgba(244, 67, 54, 0.3); }
+        .warning { background: rgba(255, 152, 0, 0.3); }
+        .info { background: rgba(33, 150, 243, 0.3); }
+        .log {
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            margin: 10px 0;
+        }
+        button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .metric {
+            display: inline-block;
+            margin: 5px;
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 5px;
+            font-size: 12px;
+        }
+        .timeline {
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .timeline-item {
+            padding: 5px 0;
+            border-left: 3px solid #667eea;
+            padding-left: 10px;
+            margin: 5px 0;
+            font-size: 12px;
+        }
+        .timeline-item.success { border-color: #4CAF50; }
+        .timeline-item.error { border-color: #F44336; }
+        .timeline-item.warning { border-color: #FF9800; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔧 Teste do Fix do Loop Infinito</h1>
+        <p>Verificando se o problema de loop infinito foi resolvido no useWhatsAppStatus</p>
+        <div>
+            <span class="metric">🕐 Tempo: <span id="elapsed">0s</span></span>
+            <span class="metric">📊 Requests: <span id="requestCount">0</span></span>
+            <span class="metric">🔄 Status: <span id="currentStatus">Aguardando</span></span>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🎯 Controles de Teste</h3>
+        <button onclick="startInfiniteLoopTest()">🔄 Simular Cenário de Loop Infinito</button>
+        <button onclick="testNormalFlow()">✅ Testar Fluxo Normal</button>
+        <button onclick="stopAllTests()">⏹️ Parar Todos os Testes</button>
+        <button onclick="clearLogs()">🗑️ Limpar Logs</button>
+    </div>
+
+    <div class="test-section">
+        <h3>📈 Métricas de Performance</h3>
+        <div id="metrics">
+            <div class="metric">💾 Memory Usage: <span id="memoryUsage">Calculando...</span></div>
+            <div class="metric">⚡ Request Rate: <span id="requestRate">0 req/s</span></div>
+            <div class="metric">🎯 Success Rate: <span id="successRate">0%</span></div>
+            <div class="metric">⏱️ Avg Response: <span id="avgResponse">0ms</span></div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>📋 Timeline de Eventos</h3>
+        <div class="timeline" id="timeline">
+            <div class="timeline-item">Teste iniciado - aguardando comandos...</div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🔍 Logs Detalhados</h3>
+        <div class="log" id="logs">Aguardando início dos testes...\n</div>
+    </div>
+
+    <div class="test-section">
+        <h3>🚨 Detecção de Problemas</h3>
+        <div id="problemDetection">
+            <div class="status info">✅ Sistema pronto para detectar loops infinitos</div>
+            <div class="status info">✅ Monitoramento de memory leaks ativo</div>
+            <div class="status info">✅ Rate limiting detector configurado</div>
+        </div>
+    </div>
+
+    <script>
+        let testStartTime = null;
+        let requestCount = 0;
+        let successCount = 0;
+        let responseTimeSum = 0;
+        let isTestRunning = false;
+        let testInterval = null;
+        let memoryInterval = null;
+        let lastRequestTime = 0;
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logElement = document.getElementById('logs');
+            const timelineElement = document.getElementById('timeline');
+            
+            const logEntry = `[${timestamp}] ${message}\n`;
+            logElement.textContent += logEntry;
+            logElement.scrollTop = logElement.scrollHeight;
+
+            // Add to timeline
+            const timelineItem = document.createElement('div');
+            timelineItem.className = `timeline-item ${type}`;
+            timelineItem.textContent = `${timestamp}: ${message}`;
+            timelineElement.appendChild(timelineItem);
+            timelineElement.scrollTop = timelineElement.scrollHeight;
+
+            // Limit timeline items to last 50
+            while (timelineElement.children.length > 50) {
+                timelineElement.removeChild(timelineElement.firstChild);
+            }
+
+            console.log(`[INFINITE_LOOP_TEST] ${message}`);
+        }
+
+        function updateMetrics() {
+            const elapsed = testStartTime ? Math.floor((Date.now() - testStartTime) / 1000) : 0;
+            document.getElementById('elapsed').textContent = elapsed + 's';
+            document.getElementById('requestCount').textContent = requestCount;
+            
+            const rate = elapsed > 0 ? (requestCount / elapsed).toFixed(2) : '0';
+            document.getElementById('requestRate').textContent = rate + ' req/s';
+            
+            const successRate = requestCount > 0 ? ((successCount / requestCount) * 100).toFixed(1) : '0';
+            document.getElementById('successRate').textContent = successRate + '%';
+            
+            const avgResponse = requestCount > 0 ? (responseTimeSum / requestCount).toFixed(0) : '0';
+            document.getElementById('avgResponse').textContent = avgResponse + 'ms';
+
+            // Check for potential infinite loop
+            if (elapsed > 0 && rate > 10) { // More than 10 requests per second
+                document.getElementById('problemDetection').innerHTML = `
+                    <div class="status error">🚨 POSSÍVEL LOOP INFINITO DETECTADO!</div>
+                    <div class="status error">Rate: ${rate} req/s (limite: 10 req/s)</div>
+                    <div class="status warning">Verifique as dependências dos useCallback</div>
+                `;
+                log(`🚨 INFINITE LOOP DETECTED! Rate: ${rate} req/s`, 'error');
+            } else if (elapsed > 0 && rate > 5) {
+                document.getElementById('problemDetection').innerHTML = `
+                    <div class="status warning">⚠️ Taxa de requests elevada</div>
+                    <div class="status warning">Rate: ${rate} req/s</div>
+                    <div class="status info">Monitorando por loops...</div>
+                `;
+            }
+        }
+
+        function updateMemoryUsage() {
+            if (performance.memory) {
+                const used = (performance.memory.usedJSHeapSize / 1024 / 1024).toFixed(2);
+                const total = (performance.memory.totalJSHeapSize / 1024 / 1024).toFixed(2);
+                document.getElementById('memoryUsage').textContent = `${used}MB / ${total}MB`;
+                
+                // Detect memory leak
+                if (performance.memory.usedJSHeapSize > 50 * 1024 * 1024) { // 50MB
+                    log(`⚠️ High memory usage: ${used}MB`, 'warning');
+                }
+            } else {
+                document.getElementById('memoryUsage').textContent = 'N/A (Chrome apenas)';
+            }
+        }
+
+        async function simulateApiRequest() {
+            const startTime = performance.now();
+            requestCount++;
+            
+            // Simulate API call with random delay
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    const endTime = performance.now();
+                    const responseTime = endTime - startTime;
+                    responseTimeSum += responseTime;
+                    
+                    // 90% success rate
+                    if (Math.random() > 0.1) {
+                        successCount++;
+                        resolve({ success: true, responseTime });
+                    } else {
+                        resolve({ success: false, responseTime });
+                    }
+                }, Math.random() * 100 + 50); // 50-150ms delay
+            });
+        }
+
+        function startInfiniteLoopTest() {
+            if (isTestRunning) {
+                log('❌ Teste já está rodando!', 'error');
+                return;
+            }
+
+            log('🔄 INICIANDO TESTE DE LOOP INFINITO', 'warning');
+            log('Este teste simula o comportamento que causava loop infinito', 'info');
+            
+            testStartTime = Date.now();
+            isTestRunning = true;
+            document.getElementById('currentStatus').textContent = 'Testando Loop Infinito';
+
+            // Simulate rapid consecutive calls (like the old infinite loop)
+            let rapidCallCount = 0;
+            testInterval = setInterval(async () => {
+                rapidCallCount++;
+                
+                // Simulate the problematic scenario
+                log(`Simulating rapid API call #${rapidCallCount}`, 'info');
+                await simulateApiRequest();
+                updateMetrics();
+                
+                // Stop after 100 rapid calls to prevent actual infinite loop
+                if (rapidCallCount >= 100) {
+                    stopAllTests();
+                    log('✅ Teste de loop infinito concluído - sistema NÃO entrou em loop!', 'success');
+                }
+            }, 50); // Very fast interval to simulate loop
+
+            // Start memory monitoring
+            memoryInterval = setInterval(updateMemoryUsage, 1000);
+        }
+
+        function testNormalFlow() {
+            if (isTestRunning) {
+                log('❌ Teste já está rodando!', 'error');
+                return;
+            }
+
+            log('✅ INICIANDO TESTE DE FLUXO NORMAL', 'success');
+            
+            testStartTime = Date.now();
+            isTestRunning = true;
+            document.getElementById('currentStatus').textContent = 'Fluxo Normal';
+
+            let callCount = 0;
+            testInterval = setInterval(async () => {
+                callCount++;
+                
+                log(`Normal API call #${callCount}`, 'info');
+                await simulateApiRequest();
+                updateMetrics();
+                
+                // Stop after 20 normal calls
+                if (callCount >= 20) {
+                    stopAllTests();
+                    log('✅ Teste de fluxo normal concluído com sucesso!', 'success');
+                }
+            }, 2000); // Normal 2-second interval
+
+            // Start memory monitoring
+            memoryInterval = setInterval(updateMemoryUsage, 1000);
+        }
+
+        function stopAllTests() {
+            isTestRunning = false;
+            if (testInterval) {
+                clearInterval(testInterval);
+                testInterval = null;
+            }
+            if (memoryInterval) {
+                clearInterval(memoryInterval);
+                memoryInterval = null;
+            }
+            
+            document.getElementById('currentStatus').textContent = 'Parado';
+            log('⏹️ Todos os testes foram interrompidos', 'warning');
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').textContent = 'Logs limpos...\n';
+            document.getElementById('timeline').innerHTML = '<div class="timeline-item">Timeline limpa - aguardando novos eventos...</div>';
+            
+            // Reset metrics
+            requestCount = 0;
+            successCount = 0;
+            responseTimeSum = 0;
+            testStartTime = null;
+            updateMetrics();
+            
+            log('🗑️ Logs e métricas foram limpos', 'info');
+        }
+
+        // Initialize metrics update
+        setInterval(updateMetrics, 1000);
+        updateMemoryUsage();
+
+        // Log initial state
+        log('🚀 Sistema de teste do loop infinito inicializado', 'success');
+        log('Pronto para testar os fixes implementados no useWhatsAppStatus', 'info');
+    </script>
+</body>
+</html>

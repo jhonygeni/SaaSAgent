@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teste de Persistência de Instâncias WhatsApp</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .log { background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .success { color: green; }
+        .error { color: red; }
+        .warning { color: orange; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Diagnóstico de Persistência de Instâncias WhatsApp</h1>
+    
+    <div id="controls">
+        <button onclick="testDatabaseConnection()">Testar Conexão DB</button>
+        <button onclick="testReadInstances()">Ler Instâncias</button>
+        <button onclick="testCreateInstance()">Criar Instância Teste</button>
+        <button onclick="testRLSPolicies()">Testar RLS</button>
+        <button onclick="runFullDiagnostic()">Diagnóstico Completo</button>
+        <button onclick="clearLogs()">Limpar Logs</button>
+    </div>
+    
+    <div id="logs"></div>
+
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script>
+        const supabaseUrl = 'https://hpovwcaskorzzrpphgkc.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhwb3Z3Y2Fza29yenpycHBoZ2tjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc4MjYzODYsImV4cCI6MjA2MzQwMjM4Nn0.3Gx3Gc5xlFKwoMvd0Zk9vELzNbrf0ar4gaM92n9dtDc';
+        
+        const { createClient } = supabase;
+        const client = createClient(supabaseUrl, supabaseKey);
+        
+        function log(message, type = 'info') {
+            const logs = document.getElementById('logs');
+            const logDiv = document.createElement('div');
+            logDiv.className = `log ${type}`;
+            logDiv.innerHTML = `<strong>[${new Date().toLocaleTimeString()}]</strong> ${message}`;
+            logs.appendChild(logDiv);
+            logs.scrollTop = logs.scrollHeight;
+            console.log(message);
+        }
+        
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+        }
+        
+        async function testDatabaseConnection() {
+            log('🔍 Testando conexão com o banco de dados...', 'info');
+            
+            try {
+                const { count, error } = await client
+                    .from('whatsapp_instances')
+                    .select('*', { count: 'exact', head: true });
+                
+                if (error) {
+                    log(`❌ Erro na conexão: ${error.message}`, 'error');
+                    log(`Detalhes: ${JSON.stringify(error, null, 2)}`, 'error');
+                    return false;
+                }
+                
+                log(`✅ Conexão bem-sucedida! Total de registros: ${count}`, 'success');
+                return true;
+            } catch (error) {
+                log(`❌ Erro na conexão: ${error.message}`, 'error');
+                return false;
+            }
+        }
+        
+        async function testReadInstances() {
+            log('📋 Testando leitura das instâncias existentes...', 'info');
+            
+            try {
+                const { data: instances, error } = await client
+                    .from('whatsapp_instances')
+                    .select('*')
+                    .limit(10);
+                
+                if (error) {
+                    log(`❌ Erro ao ler instâncias: ${error.message}`, 'error');
+                    log(`Código do erro: ${error.code}`, 'error');
+                    log(`Detalhes: ${error.details}`, 'error');
+                    return;
+                }
+                
+                log(`✅ Instâncias encontradas: ${instances.length}`, 'success');
+                if (instances.length > 0) {
+                    log(`📊 Primeira instância: ${JSON.stringify(instances[0], null, 2)}`, 'info');
+                }
+                
+                return instances;
+            } catch (error) {
+                log(`❌ Erro ao ler instâncias: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testCreateInstance() {
+            log('✏️ Testando criação de instância de teste...', 'info');
+            
+            try {
+                const testUserId = '00000000-0000-0000-0000-000000000001';
+                const testInstanceName = `test_persistence_${Date.now()}`;
+                
+                const { data: newInstance, error } = await client
+                    .from('whatsapp_instances')
+                    .insert({
+                        user_id: testUserId,
+                        name: testInstanceName,
+                        status: 'testing',
+                        evolution_instance_id: `test_evo_${Date.now()}`,
+                        session_data: {
+                            test: true,
+                            created_at: new Date().toISOString()
+                        }
+                    })
+                    .select()
+                    .single();
+                
+                if (error) {
+                    log(`❌ Erro ao criar instância: ${error.message}`, 'error');
+                    log(`Código: ${error.code}`, 'error');
+                    log(`Detalhes: ${error.details}`, 'error');
+                    log(`Hint: ${error.hint}`, 'error');
+                    return null;
+                }
+                
+                log(`✅ Instância criada com sucesso: ${JSON.stringify(newInstance, null, 2)}`, 'success');
+                
+                // Limpar a instância de teste
+                await client
+                    .from('whatsapp_instances')
+                    .delete()
+                    .eq('id', newInstance.id);
+                
+                log('✅ Instância de teste removida', 'success');
+                return newInstance;
+            } catch (error) {
+                log(`❌ Erro ao criar instância: ${error.message}`, 'error');
+                return null;
+            }
+        }
+        
+        async function testRLSPolicies() {
+            log('🔒 Testando políticas RLS (Row Level Security)...', 'info');
+            
+            try {
+                // Testar sem autenticação
+                const { data: publicData, error: publicError } = await client
+                    .from('whatsapp_instances')
+                    .select('*')
+                    .limit(1);
+                
+                if (publicError) {
+                    log(`⚠️ Acesso público negado (RLS pode estar ativo): ${publicError.message}`, 'warning');
+                    return { rlsActive: true, error: publicError };
+                } else {
+                    log('⚠️ Acesso público permitido (RLS pode estar desativado)', 'warning');
+                    return { rlsActive: false, data: publicData };
+                }
+            } catch (error) {
+                log(`❌ Erro ao testar RLS: ${error.message}`, 'error');
+                return { error };
+            }
+        }
+        
+        async function runFullDiagnostic() {
+            log('🚀 Iniciando diagnóstico completo...', 'info');
+            
+            const connectionOk = await testDatabaseConnection();
+            if (!connectionOk) {
+                log('❌ Falha na conexão básica - interrompendo testes', 'error');
+                return;
+            }
+            
+            await testRLSPolicies();
+            await testReadInstances();
+            await testCreateInstance();
+            
+            log('🎯 Diagnóstico completo concluído!', 'success');
+            log('📝 Próximos passos recomendados:', 'info');
+            log('1. Verificar se o user_id está sendo passado corretamente', 'info');
+            log('2. Confirmar se as políticas RLS permitem inserção/leitura', 'info');
+            log('3. Validar se a Evolution API está retornando os dados esperados', 'info');
+            log('4. Testar a função createAndConfigureInstance com dados reais', 'info');
+        }
+        
+        // Executar teste inicial
+        log('🔧 Interface de diagnóstico carregada', 'success');
+        log('👆 Use os botões acima para executar testes específicos', 'info');
+    </script>
+</body>
+</html>

@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚨 VALIDAÇÃO EMERGENCIAL - Verificação de Requisições HTTP</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .status-card {
+            background: rgba(255,255,255,0.15);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 15px 0;
+            border-left: 4px solid #00ff88;
+            backdrop-filter: blur(10px);
+        }
+        
+        .error-card {
+            border-left-color: #ff4757;
+            background: rgba(255,71,87,0.2);
+        }
+        
+        .warning-card {
+            border-left-color: #ffa502;
+            background: rgba(255,165,2,0.2);
+        }
+        
+        .success-card {
+            border-left-color: #00ff88;
+            background: rgba(0,255,136,0.2);
+        }
+        
+        .request-monitor {
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .log-entry {
+            margin: 5px 0;
+            padding: 8px;
+            border-radius: 6px;
+            background: rgba(255,255,255,0.1);
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 12px;
+        }
+        
+        .log-404 { background: rgba(255,71,87,0.3); }
+        .log-200 { background: rgba(0,255,136,0.3); }
+        .log-warning { background: rgba(255,165,2,0.3); }
+        
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .metric-box {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .metric-number {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            margin: 10px 5px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+        
+        .btn-danger {
+            background: rgba(255,71,87,0.6);
+        }
+        
+        .btn-success {
+            background: rgba(0,255,136,0.6);
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff88, #00d4ff);
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚨 VALIDAÇÃO EMERGENCIAL</h1>
+        <h2>Verificação de Requisições HTTP 404 - Correção Aplicada</h2>
+        <p>Monitorando tráfego de rede para validar se as correções pararam as requisições excessivas</p>
+    </div>
+
+    <div class="status-card success-card">
+        <h3>✅ Correções Aplicadas</h3>
+        <ul>
+            <li><strong>useUsageStats.ts</strong> - Hook substituído por versão segura sem requisições HTTP</li>
+            <li><strong>useRealTimeUsageStats.ts</strong> - Hook desabilitado completamente</li>
+            <li><strong>Dados mockados</strong> - Sistema usando dados estáticos para evitar requisições</li>
+        </ul>
+    </div>
+
+    <div class="metrics">
+        <div class="metric-box">
+            <div>Requisições HTTP 404</div>
+            <div class="metric-number" id="http404Count">0</div>
+            <div>Total detectadas</div>
+        </div>
+        <div class="metric-box">
+            <div>Requisições/Minuto</div>
+            <div class="metric-number" id="requestsPerMinute">0</div>
+            <div>Taxa atual</div>
+        </div>
+        <div class="metric-box">
+            <div>Tempo de Monitoramento</div>
+            <div class="metric-number" id="monitorTime">0s</div>
+            <div>Tempo ativo</div>
+        </div>
+        <div class="metric-box">
+            <div>Status do Sistema</div>
+            <div class="metric-number" id="systemStatus">🔧</div>
+            <div id="statusText">Inicializando...</div>
+        </div>
+    </div>
+
+    <div class="progress-bar">
+        <div class="progress-fill" id="progressBar" style="width: 0%"></div>
+    </div>
+
+    <div class="status-card" id="mainStatus">
+        <h3>🔍 Iniciando Monitoramento...</h3>
+        <p>Verificando se as correções eliminaram as requisições HTTP 404 excessivas</p>
+    </div>
+
+    <div style="text-align: center;">
+        <button class="btn btn-success" onclick="startValidation()">🚀 Iniciar Validação</button>
+        <button class="btn" onclick="stopValidation()">⏹️ Parar Monitoramento</button>
+        <button class="btn" onclick="clearLogs()">🗑️ Limpar Logs</button>
+        <button class="btn btn-danger" onclick="testOriginalHook()">⚠️ Testar Hook Original (CUIDADO)</button>
+    </div>
+
+    <div class="request-monitor">
+        <h3>📋 Log de Requisições de Rede</h3>
+        <div id="networkLogs">
+            <div class="log-entry">🔄 Monitor de rede inicializado - aguardando atividade...</div>
+        </div>
+    </div>
+
+    <script>
+        let isMonitoring = false;
+        let startTime = null;
+        let http404Count = 0;
+        let totalRequests = 0;
+        let requestTimes = [];
+        let monitorInterval = null;
+
+        // Interceptar fetch para monitorar requisições
+        const originalFetch = window.fetch;
+        window.fetch = function(...args) {
+            if (isMonitoring) {
+                logRequest('FETCH', args[0], 'INITIATED');
+            }
+            
+            return originalFetch.apply(this, args)
+                .then(response => {
+                    if (isMonitoring) {
+                        const status = response.status;
+                        const url = args[0];
+                        
+                        if (status === 404) {
+                            http404Count++;
+                            logRequest('FETCH', url, `❌ HTTP 404 - ${url}`, 'error');
+                        } else {
+                            logRequest('FETCH', url, `✅ HTTP ${status} - ${url}`, 'success');
+                        }
+                        
+                        totalRequests++;
+                        requestTimes.push(Date.now());
+                        updateMetrics();
+                    }
+                    return response;
+                })
+                .catch(error => {
+                    if (isMonitoring) {
+                        logRequest('FETCH', args[0], `🚨 ERROR - ${error.message}`, 'error');
+                    }
+                    throw error;
+                });
+        };
+
+        // Interceptar XMLHttpRequest também
+        const originalXHROpen = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function(method, url, ...args) {
+            if (isMonitoring) {
+                this._monitoredURL = url;
+                this.addEventListener('load', () => {
+                    if (this.status === 404) {
+                        http404Count++;
+                        logRequest('XHR', url, `❌ HTTP 404 - ${url}`, 'error');
+                    } else {
+                        logRequest('XHR', url, `✅ HTTP ${this.status} - ${url}`, 'success');
+                    }
+                    totalRequests++;
+                    requestTimes.push(Date.now());
+                    updateMetrics();
+                });
+
+                this.addEventListener('error', () => {
+                    logRequest('XHR', url, `🚨 XHR ERROR - ${url}`, 'error');
+                });
+            }
+            
+            return originalXHROpen.call(this, method, url, ...args);
+        };
+
+        function logRequest(type, url, message, level = 'info') {
+            const logsContainer = document.getElementById('networkLogs');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            let cssClass = 'log-entry';
+            if (level === 'error') cssClass += ' log-404';
+            else if (level === 'success') cssClass += ' log-200';
+            else if (level === 'warning') cssClass += ' log-warning';
+            
+            const logEntry = document.createElement('div');
+            logEntry.className = cssClass;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            
+            logsContainer.appendChild(logEntry);
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
+
+        function updateMetrics() {
+            document.getElementById('http404Count').textContent = http404Count;
+            
+            const currentTime = Date.now();
+            const timeElapsed = startTime ? (currentTime - startTime) / 1000 : 0;
+            document.getElementById('monitorTime').textContent = `${Math.floor(timeElapsed)}s`;
+            
+            // Calcular requests por minuto baseado nos últimos 60 segundos
+            const oneMinuteAgo = currentTime - 60000;
+            const recentRequests = requestTimes.filter(time => time > oneMinuteAgo);
+            document.getElementById('requestsPerMinute').textContent = recentRequests.length;
+            
+            // Atualizar status do sistema
+            let status, statusText, statusClass;
+            if (http404Count === 0 && timeElapsed > 30) {
+                status = '✅';
+                statusText = 'Sistema Estável';
+                statusClass = 'success-card';
+            } else if (http404Count > 0 && http404Count < 5) {
+                status = '⚠️';
+                statusText = 'Alerta Baixo';
+                statusClass = 'warning-card';
+            } else if (http404Count >= 5) {
+                status = '🚨';
+                statusText = 'CRÍTICO';
+                statusClass = 'error-card';
+            } else {
+                status = '🔄';
+                statusText = 'Monitorando...';
+                statusClass = '';
+            }
+            
+            document.getElementById('systemStatus').textContent = status;
+            document.getElementById('statusText').textContent = statusText;
+            
+            const mainStatus = document.getElementById('mainStatus');
+            mainStatus.className = `status-card ${statusClass}`;
+            
+            if (http404Count === 0 && timeElapsed > 30) {
+                mainStatus.innerHTML = `
+                    <h3>✅ CORREÇÃO BEM-SUCEDIDA!</h3>
+                    <p>Nenhuma requisição HTTP 404 detectada em ${Math.floor(timeElapsed)} segundos de monitoramento.</p>
+                    <p><strong>As correções emergenciais funcionaram!</strong> O sistema está estável.</p>
+                `;
+            } else if (http404Count > 0) {
+                mainStatus.innerHTML = `
+                    <h3>⚠️ REQUISIÇÕES 404 DETECTADAS</h3>
+                    <p>${http404Count} requisições HTTP 404 encontradas em ${Math.floor(timeElapsed)} segundos.</p>
+                    <p>Pode ser necessário investigação adicional ou rollback completo.</p>
+                `;
+            }
+            
+            // Atualizar barra de progresso
+            const progressPercent = Math.min((timeElapsed / 120) * 100, 100); // 2 minutos = 100%
+            document.getElementById('progressBar').style.width = `${progressPercent}%`;
+        }
+
+        function startValidation() {
+            if (isMonitoring) return;
+            
+            isMonitoring = true;
+            startTime = Date.now();
+            http404Count = 0;
+            totalRequests = 0;
+            requestTimes = [];
+            
+            logRequest('SYSTEM', '', '🚀 VALIDAÇÃO INICIADA - Monitorando requisições HTTP...', 'success');
+            
+            monitorInterval = setInterval(updateMetrics, 1000);
+            
+            // Simular navegação básica para ativar hooks
+            setTimeout(() => {
+                logRequest('TEST', '', '🔍 Iniciando testes básicos de navegação...', 'info');
+                
+                // Tentar acionar qualquer código que possa fazer requisições
+                if (window.location.hash !== '#dashboard') {
+                    window.location.hash = '#dashboard';
+                }
+                
+                // Triggering common React events
+                window.dispatchEvent(new Event('resize'));
+                window.dispatchEvent(new Event('focus'));
+            }, 2000);
+        }
+
+        function stopValidation() {
+            isMonitoring = false;
+            if (monitorInterval) {
+                clearInterval(monitorInterval);
+                monitorInterval = null;
+            }
+            
+            logRequest('SYSTEM', '', '⏹️ MONITORAMENTO PARADO', 'warning');
+        }
+
+        function clearLogs() {
+            const logsContainer = document.getElementById('networkLogs');
+            logsContainer.innerHTML = '<div class="log-entry">🔄 Logs limpos - aguardando nova atividade...</div>';
+        }
+
+        function testOriginalHook() {
+            if (!confirm('⚠️ ATENÇÃO: Isso pode reativar as requisições HTTP 404 excessivas. Continuar?')) {
+                return;
+            }
+            
+            logRequest('WARNING', '', '⚠️ TESTE PERIGOSO: Tentando simular hook original...', 'warning');
+            
+            // Simular algumas requisições que podem causar 404
+            const testUrls = [
+                '/api/stats/usage',
+                '/api/realtime/stats', 
+                '/supabase/rest/v1/usage_stats',
+                '/api/usage_stats'
+            ];
+            
+            testUrls.forEach((url, index) => {
+                setTimeout(() => {
+                    fetch(url)
+                        .catch(error => {
+                            logRequest('TEST', url, `Teste de requisição: ${error.message}`, 'warning');
+                        });
+                }, index * 500);
+            });
+        }
+
+        // Auto-start monitoring when page loads
+        setTimeout(() => {
+            document.querySelector('.btn-success').click();
+        }, 1000);
+
+        // Detectar se estamos em uma aplicação React
+        setTimeout(() => {
+            if (window.React || document.querySelector('[data-reactroot]')) {
+                logRequest('DETECT', '', '⚛️ Aplicação React detectada - monitorando hooks...', 'info');
+            }
+        }, 3000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚨 Live Debug - WhatsApp Infinite Loop Investigation</title>
+    <style>
+        body { 
+            font-family: 'Courier New', monospace; 
+            background: #1e1e1e; 
+            color: #d4d4d4; 
+            padding: 20px; 
+            margin: 0;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { color: #f44336; text-align: center; margin-bottom: 30px; }
+        .status { 
+            background: #2d2d30; 
+            padding: 15px; 
+            border-radius: 8px; 
+            margin: 10px 0; 
+            border-left: 4px solid #f44336;
+        }
+        .log { 
+            background: #262626; 
+            padding: 8px 12px; 
+            margin: 5px 0; 
+            border-radius: 4px; 
+            border-left: 3px solid #4caf50;
+            font-size: 12px;
+            word-break: break-all;
+        }
+        .error { border-left-color: #f44336; background: #3d1a1a; }
+        .warning { border-left-color: #ff9800; background: #3d2e1a; }
+        .critical { border-left-color: #e91e63; background: #3d1a2e; color: #ff6b9d; font-weight: bold; }
+        .counter { 
+            display: inline-block; 
+            background: #1565c0; 
+            color: white; 
+            padding: 4px 8px; 
+            border-radius: 12px; 
+            margin: 0 5px;
+            font-weight: bold;
+        }
+        .button { 
+            background: #2196f3; 
+            color: white; 
+            border: none; 
+            padding: 10px 20px; 
+            border-radius: 6px; 
+            margin: 5px; 
+            cursor: pointer; 
+        }
+        .button:hover { background: #1976d2; }
+        .button.danger { background: #f44336; }
+        .button.danger:hover { background: #d32f2f; }
+        .stats { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+            gap: 15px; 
+            margin: 20px 0; 
+        }
+        .stat { 
+            background: #2d2d30; 
+            padding: 15px; 
+            border-radius: 8px; 
+            text-align: center; 
+        }
+        .stat h3 { margin: 0 0 10px 0; color: #81c784; }
+        .stat .value { font-size: 24px; font-weight: bold; color: #fff; }
+        #logs { 
+            max-height: 500px; 
+            overflow-y: auto; 
+            background: #1e1e1e; 
+            border: 1px solid #444; 
+            padding: 10px; 
+            border-radius: 6px; 
+        }
+        .controls { 
+            background: #2d2d30; 
+            padding: 15px; 
+            border-radius: 8px; 
+            margin: 15px 0; 
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚨 LIVE DEBUG: WhatsApp Infinite Loop Investigation</h1>
+        
+        <div class="status">
+            <strong>STATUS:</strong> <span id="systemStatus">Monitoring Console Activity...</span>
+        </div>
+
+        <div class="stats">
+            <div class="stat">
+                <h3>Polling Requests</h3>
+                <div class="value" id="pollingCount">0</div>
+            </div>
+            <div class="stat">
+                <h3>startStatusPolling Calls</h3>
+                <div class="value" id="startPollingCalls">0</div>
+            </div>
+            <div class="stat">
+                <h3>clearPolling Calls</h3>
+                <div class="value" id="clearPollingCalls">0</div>
+            </div>
+            <div class="stat">
+                <h3>Success Detected</h3>
+                <div class="value" id="successCount">0</div>
+            </div>
+            <div class="stat">
+                <h3>Active Time</h3>
+                <div class="value" id="activeTime">0s</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="button" onclick="testWhatsAppFlow()">🧪 Trigger WhatsApp Connection</button>
+            <button class="button" onclick="monitorConsole()">👁️ Start Console Monitor</button>
+            <button class="button danger" onclick="stopMonitoring()">🛑 Stop Monitoring</button>
+            <button class="button" onclick="clearLogs()">🧹 Clear Logs</button>
+            <button class="button" onclick="exportLogs()">📋 Export Debug Data</button>
+        </div>
+
+        <div id="logs"></div>
+    </div>
+
+    <script>
+        let monitoringActive = false;
+        let startTime = Date.now();
+        let consoleInterceptor = null;
+        
+        // Statistics
+        let stats = {
+            pollingRequests: 0,
+            startPollingCalls: 0,
+            clearPollingCalls: 0,
+            successDetections: 0,
+            errors: 0,
+            warnings: 0
+        };
+
+        function updateStats() {
+            document.getElementById('pollingCount').textContent = stats.pollingRequests;
+            document.getElementById('startPollingCalls').textContent = stats.startPollingCalls;
+            document.getElementById('clearPollingCalls').textContent = stats.clearPollingCalls;
+            document.getElementById('successCount').textContent = stats.successDetections;
+            
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            document.getElementById('activeTime').textContent = elapsed + 's';
+        }
+
+        function log(message, type = 'info', raw = false) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logs = document.getElementById('logs');
+            const div = document.createElement('div');
+            div.className = `log ${type}`;
+            
+            if (!raw) {
+                div.innerHTML = `<span style="color: #666;">[${timestamp}]</span> ${message}`;
+            } else {
+                div.textContent = `[${timestamp}] ${message}`;
+            }
+            
+            logs.appendChild(div);
+            logs.scrollTop = logs.scrollHeight;
+            
+            // Update stats based on log content
+            const lowerMessage = message.toLowerCase();
+            if (lowerMessage.includes('polling') && lowerMessage.includes('poll')) {
+                stats.pollingRequests++;
+            }
+            if (lowerMessage.includes('starting status polling')) {
+                stats.startPollingCalls++;
+            }
+            if (lowerMessage.includes('clearing polling') || lowerMessage.includes('polling cleared')) {
+                stats.clearPollingCalls++;
+            }
+            if (lowerMessage.includes('success state detected') || lowerMessage.includes('connection confirmed')) {
+                stats.successDetections++;
+            }
+            
+            updateStats();
+        }
+
+        function monitorConsole() {
+            if (monitoringActive) {
+                log('⚠️ Console monitoring already active', 'warning');
+                return;
+            }
+            
+            monitoringActive = true;
+            document.getElementById('systemStatus').textContent = 'ACTIVE - Intercepting Console Logs';
+            log('🚀 Console monitoring started - intercepting all console.log calls', 'critical');
+            
+            // Intercept console methods
+            const originalLog = console.log;
+            const originalError = console.error;
+            const originalWarn = console.warn;
+            
+            console.log = function(...args) {
+                originalLog.apply(console, args);
+                const message = args.map(arg => 
+                    typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+                ).join(' ');
+                
+                // Filter for WhatsApp related logs
+                if (message.toLowerCase().includes('polling') || 
+                    message.toLowerCase().includes('whatsapp') ||
+                    message.toLowerCase().includes('qr') ||
+                    message.toLowerCase().includes('status') ||
+                    message.toLowerCase().includes('connection')) {
+                    log(`📊 LOG: ${message}`, 'info', true);
+                }
+            };
+            
+            console.error = function(...args) {
+                originalError.apply(console, args);
+                const message = args.map(arg => 
+                    typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+                ).join(' ');
+                log(`❌ ERROR: ${message}`, 'error', true);
+            };
+            
+            console.warn = function(...args) {
+                originalWarn.apply(console, args);
+                const message = args.map(arg => 
+                    typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+                ).join(' ');
+                log(`⚠️ WARN: ${message}`, 'warning', true);
+            };
+            
+            // Store references for cleanup
+            consoleInterceptor = {
+                originalLog,
+                originalError,
+                originalWarn
+            };
+        }
+
+        function stopMonitoring() {
+            if (!monitoringActive) {
+                log('ℹ️ Console monitoring not active', 'info');
+                return;
+            }
+            
+            monitoringActive = false;
+            document.getElementById('systemStatus').textContent = 'STOPPED - No longer monitoring';
+            log('🛑 Console monitoring stopped', 'warning');
+            
+            // Restore original console methods
+            if (consoleInterceptor) {
+                console.log = consoleInterceptor.originalLog;
+                console.error = consoleInterceptor.originalError;
+                console.warn = consoleInterceptor.originalWarn;
+                consoleInterceptor = null;
+            }
+        }
+
+        async function testWhatsAppFlow() {
+            log('🧪 Triggering WhatsApp connection test...', 'critical');
+            
+            try {
+                // Try to trigger a connection by simulating the button click
+                const connectButton = document.querySelector('button[type="submit"]');
+                if (connectButton) {
+                    log('🔘 Found connect button, clicking...', 'info');
+                    connectButton.click();
+                } else {
+                    log('❌ Connect button not found - trying alternative methods', 'warning');
+                    
+                    // Try to find WhatsApp related buttons
+                    const buttons = document.querySelectorAll('button');
+                    for (let button of buttons) {
+                        if (button.textContent.toLowerCase().includes('conectar') || 
+                            button.textContent.toLowerCase().includes('whatsapp')) {
+                            log(`🔘 Found potential button: "${button.textContent.trim()}"`, 'info');
+                            button.click();
+                            break;
+                        }
+                    }
+                }
+                
+                // Also try to monitor network requests
+                const observer = new PerformanceObserver((list) => {
+                    for (const entry of list.getEntries()) {
+                        if (entry.name.includes('evolution') || 
+                            entry.name.includes('status') || 
+                            entry.name.includes('qrcode')) {
+                            log(`🌐 Network: ${entry.name}`, 'info');
+                        }
+                    }
+                });
+                observer.observe({entryTypes: ['resource']});
+                
+            } catch (error) {
+                log(`❌ Test error: ${error.message}`, 'error');
+            }
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+            stats = {
+                pollingRequests: 0,
+                startPollingCalls: 0,
+                clearPollingCalls: 0,
+                successDetections: 0,
+                errors: 0,
+                warnings: 0
+            };
+            updateStats();
+            log('🧹 Logs cleared', 'info');
+        }
+
+        function exportLogs() {
+            const logs = document.getElementById('logs').textContent;
+            const data = {
+                timestamp: new Date().toISOString(),
+                stats: stats,
+                logs: logs,
+                url: window.location.href
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `whatsapp-debug-${Date.now()}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            log('📋 Debug data exported', 'info');
+        }
+
+        // Auto-start monitoring
+        setTimeout(() => {
+            monitorConsole();
+            log('🚀 Debug session started - monitoring WhatsApp infinite loop issue', 'critical');
+            log('📍 Current Issue: Loop returned despite fixes being in place', 'critical');
+            log('🎯 Looking for: startStatusPolling calls, clearPolling calls, success detection', 'info');
+        }, 1000);
+
+        // Update timer
+        setInterval(updateStats, 1000);
+    </script>
+</body>
+</html>

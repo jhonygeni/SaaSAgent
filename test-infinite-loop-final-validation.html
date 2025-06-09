@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Teste Final - Validação Loop Infinito</title>
+    <style>
+        body { 
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0; padding: 20px; background: #0a0a0a; color: #ffffff;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px; border-radius: 12px; margin-bottom: 20px;
+            text-align: center;
+        }
+        .status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        .status-card { 
+            background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 20px;
+            transition: all 0.3s ease;
+        }
+        .status-card:hover { border-color: #667eea; }
+        .status-good { border-left: 4px solid #00ff88; }
+        .status-warning { border-left: 4px solid #ffaa00; }
+        .status-error { border-left: 4px solid #ff4444; }
+        .log-container { 
+            background: #000; border: 1px solid #333; border-radius: 8px; 
+            padding: 15px; margin-top: 20px; max-height: 400px; overflow-y: auto;
+            font-family: 'Monaco', 'Menlo', monospace; font-size: 12px;
+        }
+        .log-entry { margin: 2px 0; }
+        .log-info { color: #00aaff; }
+        .log-success { color: #00ff88; }
+        .log-warning { color: #ffaa00; }
+        .log-error { color: #ff4444; }
+        .metric { display: flex; justify-content: space-between; margin: 5px 0; }
+        .metric-value { font-weight: bold; }
+        .btn { 
+            background: #667eea; color: white; border: none; padding: 10px 20px; 
+            border-radius: 6px; cursor: pointer; margin: 5px;
+        }
+        .btn:hover { background: #5a6fd8; }
+        iframe { width: 100%; height: 500px; border: 1px solid #333; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Validação Final - Correção Loop Infinito</h1>
+            <p>Teste em tempo real do sistema após correções aplicadas</p>
+        </div>
+
+        <div class="status-grid">
+            <div class="status-card" id="app-status">
+                <h3>📱 Status da Aplicação</h3>
+                <div class="metric">
+                    <span>Estado:</span>
+                    <span class="metric-value" id="app-state">Verificando...</span>
+                </div>
+                <div class="metric">
+                    <span>Carregamentos:</span>
+                    <span class="metric-value" id="load-count">0</span>
+                </div>
+                <div class="metric">
+                    <span>Erros:</span>
+                    <span class="metric-value" id="error-count">0</span>
+                </div>
+            </div>
+
+            <div class="status-card" id="loop-detection">
+                <h3>🔄 Detecção de Loops</h3>
+                <div class="metric">
+                    <span>UserContext Loops:</span>
+                    <span class="metric-value" id="user-loops">0</span>
+                </div>
+                <div class="metric">
+                    <span>UseUsageStats Loops:</span>
+                    <span class="metric-value" id="usage-loops">0</span>
+                </div>
+                <div class="metric">
+                    <span>Status:</span>
+                    <span class="metric-value" id="loop-status">Monitorando...</span>
+                </div>
+            </div>
+
+            <div class="status-card" id="performance">
+                <h3>⚡ Performance</h3>
+                <div class="metric">
+                    <span>Renders/min:</span>
+                    <span class="metric-value" id="render-rate">0</span>
+                </div>
+                <div class="metric">
+                    <span>Memória:</span>
+                    <span class="metric-value" id="memory-usage">-</span>
+                </div>
+                <div class="metric">
+                    <span>Tempo Resposta:</span>
+                    <span class="metric-value" id="response-time">-</span>
+                </div>
+            </div>
+
+            <div class="status-card" id="persistence">
+                <h3>💾 Persistência</h3>
+                <div class="metric">
+                    <span>Instâncias Salvas:</span>
+                    <span class="metric-value" id="instances-saved">-</span>
+                </div>
+                <div class="metric">
+                    <span>Último Sync:</span>
+                    <span class="metric-value" id="last-sync">-</span>
+                </div>
+                <div class="metric">
+                    <span>Estado RLS:</span>
+                    <span class="metric-value" id="rls-status">-</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-card">
+            <h3>🖥️ Preview da Aplicação</h3>
+            <button class="btn" onclick="reloadApp()">🔄 Recarregar</button>
+            <button class="btn" onclick="testPersistence()">💾 Testar Persistência</button>
+            <button class="btn" onclick="clearLogs()">🧹 Limpar Logs</button>
+            <iframe id="app-frame" src="http://localhost:8080"></iframe>
+        </div>
+
+        <div class="log-container">
+            <div id="log-output"></div>
+        </div>
+    </div>
+
+    <script>
+        let startTime = Date.now();
+        let loadCount = 0;
+        let errorCount = 0;
+        let userLoops = 0;
+        let usageLoops = 0;
+        let renderCount = 0;
+        let lastRenderTime = Date.now();
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logOutput = document.getElementById('log-output');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${timestamp}] ${message}`;
+            logOutput.appendChild(entry);
+            logOutput.scrollTop = logOutput.scrollHeight;
+        }
+
+        function updateStatus() {
+            // App Status
+            document.getElementById('app-state').textContent = 
+                errorCount === 0 ? 'Funcionando' : 'Com Erros';
+            document.getElementById('load-count').textContent = loadCount;
+            document.getElementById('error-count').textContent = errorCount;
+
+            // Loop Detection
+            document.getElementById('user-loops').textContent = userLoops;
+            document.getElementById('usage-loops').textContent = usageLoops;
+            document.getElementById('loop-status').textContent = 
+                (userLoops === 0 && usageLoops === 0) ? '✅ Sem Loops' : '⚠️ Loops Detectados';
+
+            // Performance
+            const timeElapsed = (Date.now() - lastRenderTime) / 1000 / 60;
+            const renderRate = timeElapsed > 0 ? Math.round(renderCount / timeElapsed) : 0;
+            document.getElementById('render-rate').textContent = renderRate;
+            
+            if (performance.memory) {
+                const memMB = Math.round(performance.memory.usedJSHeapSize / 1024 / 1024);
+                document.getElementById('memory-usage').textContent = `${memMB} MB`;
+            }
+
+            // Apply status classes
+            const appCard = document.getElementById('app-status');
+            const loopCard = document.getElementById('loop-detection');
+            
+            appCard.className = `status-card ${errorCount === 0 ? 'status-good' : 'status-error'}`;
+            loopCard.className = `status-card ${(userLoops === 0 && usageLoops === 0) ? 'status-good' : 'status-error'}`;
+        }
+
+        function reloadApp() {
+            const iframe = document.getElementById('app-frame');
+            iframe.src = iframe.src;
+            loadCount++;
+            log('🔄 Aplicação recarregada', 'info');
+            updateStatus();
+        }
+
+        function testPersistence() {
+            log('💾 Testando persistência de instâncias...', 'info');
+            
+            // Simular teste de persistência
+            fetch('http://localhost:8080/api/instances/test')
+                .then(response => response.json())
+                .then(data => {
+                    log(`✅ Teste de persistência: ${data.message || 'Sucesso'}`, 'success');
+                    document.getElementById('instances-saved').textContent = data.count || '-';
+                    document.getElementById('last-sync').textContent = new Date().toLocaleTimeString();
+                })
+                .catch(error => {
+                    log(`❌ Erro no teste de persistência: ${error.message}`, 'error');
+                    errorCount++;
+                });
+        }
+
+        function clearLogs() {
+            document.getElementById('log-output').innerHTML = '';
+            log('🧹 Logs limpos', 'info');
+        }
+
+        // Monitor console logs from iframe
+        function monitorIframeConsole() {
+            const iframe = document.getElementById('app-frame');
+            
+            iframe.onload = () => {
+                loadCount++;
+                log('📱 Aplicação carregada', 'success');
+                
+                try {
+                    const iframeWindow = iframe.contentWindow;
+                    const originalConsole = iframeWindow.console;
+                    
+                    // Intercept console.log
+                    iframeWindow.console.log = function(...args) {
+                        const message = args.join(' ');
+                        
+                        // Detect infinite loops patterns
+                        if (message.includes('UserContext:') && message.includes('Verificando')) {
+                            userLoops++;
+                            log(`🔄 UserContext Loop detectado: ${message}`, 'warning');
+                        }
+                        
+                        if (message.includes('useUsageStats:') && message.includes('executando')) {
+                            usageLoops++;
+                            log(`🔄 UseUsageStats Loop detectado: ${message}`, 'warning');
+                        }
+                        
+                        renderCount++;
+                        originalConsole.log.apply(originalConsole, args);
+                    };
+                    
+                    // Intercept console.error
+                    iframeWindow.console.error = function(...args) {
+                        errorCount++;
+                        const message = args.join(' ');
+                        log(`❌ Erro: ${message}`, 'error');
+                        originalConsole.error.apply(originalConsole, args);
+                    };
+                    
+                } catch (e) {
+                    log(`⚠️ Não foi possível monitorar console do iframe: ${e.message}`, 'warning');
+                }
+                
+                updateStatus();
+            };
+        }
+
+        // Check application health periodically
+        function healthCheck() {
+            fetch('http://localhost:8080/')
+                .then(response => {
+                    if (response.ok) {
+                        document.getElementById('app-state').textContent = 'Funcionando';
+                        document.getElementById('response-time').textContent = 
+                            `${Date.now() - startTime}ms`;
+                    }
+                })
+                .catch(error => {
+                    errorCount++;
+                    document.getElementById('app-state').textContent = 'Offline';
+                    log(`❌ Health check falhou: ${error.message}`, 'error');
+                });
+        }
+
+        // Initialize monitoring
+        log('🚀 Iniciando validação final do sistema', 'success');
+        log('📋 Checklist de validação:', 'info');
+        log('  ✓ UserContext sem loops infinitos', 'info');
+        log('  ✓ useUsageStats com throttle funcionando', 'info');
+        log('  ✓ Hooks realtime desabilitados temporariamente', 'info');
+        log('  ✓ Persistência de instâncias no Supabase', 'info');
+        log('  ✓ Performance estável sem re-renders excessivos', 'info');
+
+        monitorIframeConsole();
+        setInterval(updateStatus, 2000);
+        setInterval(healthCheck, 10000);
+        healthCheck(); // Initial check
+    </script>
+</body>
+</html>

@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { ConnectionStatus } from './whatsapp/types';
 import { whatsappService } from '../services/whatsappService';
 import { useToast } from './use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   USE_MOCK_DATA,
   PREVENT_CREDIT_CONSUMPTION_ON_FAILURE, 
@@ -101,7 +102,11 @@ export function useWhatsAppConnection() {
       
       // 2. Create the instance (with webhook included in the payload)
       console.log(`Creating new instance with name: ${instanceName}`);
-      const instanceData = await createAndConfigureInstance(instanceName);
+      // CORREÇÃO: Buscar userId atual para salvar no Supabase
+      const { data: userData } = await supabase.auth.getUser();
+      const currentUserId = userData?.user?.id;
+      
+      const instanceData = await createAndConfigureInstance(instanceName, currentUserId);
       console.log("Instance created successfully:", instanceData);
       
       // Store for later use

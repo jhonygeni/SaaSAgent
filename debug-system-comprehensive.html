@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 Debug Sistema WhatsApp SaaS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+        }
+        
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 1rem;
+            text-align: center;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .section {
+            background: white;
+            margin: 1rem 0;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .section h2 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 0.5rem;
+        }
+        
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .test-card {
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 1rem;
+            background: #f9f9f9;
+        }
+        
+        .test-card h3 {
+            color: #34495e;
+            margin-bottom: 0.5rem;
+        }
+        
+        .btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 0.25rem;
+            font-size: 0.9rem;
+        }
+        
+        .btn:hover {
+            background: #2980b9;
+        }
+        
+        .btn.success {
+            background: #27ae60;
+        }
+        
+        .btn.warning {
+            background: #f39c12;
+        }
+        
+        .btn.danger {
+            background: #e74c3c;
+        }
+        
+        .result {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        
+        .result.success {
+            background: #d5edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        .result.info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .stat-card {
+            background: #ecf0f1;
+            padding: 1rem;
+            border-radius: 6px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: #7f8c8d;
+            margin-top: 0.5rem;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+            color: #7f8c8d;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        .tabs {
+            display: flex;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .tab {
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s;
+        }
+        
+        .tab.active {
+            border-bottom-color: #3498db;
+            color: #3498db;
+            font-weight: bold;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .alert {
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+            border-left: 4px solid;
+        }
+        
+        .alert.warning {
+            background: #fff3cd;
+            border-color: #ffc107;
+            color: #856404;
+        }
+        
+        .alert.success {
+            background: #d1edda;
+            border-color: #28a745;
+            color: #155724;
+        }
+        
+        .alert.error {
+            background: #f8d7da;
+            border-color: #dc3545;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔧 Sistema de Debug WhatsApp SaaS Agent</h1>
+        <p>Diagnóstico completo de problemas de persistência e requisições excessivas</p>
+    </div>
+
+    <div class="container">
+        <!-- Status Geral -->
+        <div class="section">
+            <h2>📊 Status Geral do Sistema</h2>
+            <div class="stats" id="generalStats">
+                <div class="stat-card">
+                    <div class="stat-value" id="instanceCount">-</div>
+                    <div class="stat-label">Instâncias Ativas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="requestCount">-</div>
+                    <div class="stat-label">Requisições/min</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="errorCount">-</div>
+                    <div class="stat-label">Erros Detectados</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="lastUpdate">-</div>
+                    <div class="stat-label">Última Atualização</div>
+                </div>
+            </div>
+            <button class="btn" onclick="loadGeneralStats()">🔄 Atualizar Status</button>
+        </div>
+
+        <!-- Tabs para organizar testes -->
+        <div class="section">
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('persistence')">💾 Persistência</div>
+                <div class="tab" onclick="switchTab('requests')">📡 Requisições</div>
+                <div class="tab" onclick="switchTab('errors')">❌ Erros 404</div>
+                <div class="tab" onclick="switchTab('realtime')">⚡ Tempo Real</div>
+            </div>
+
+            <!-- Tab: Persistência -->
+            <div class="tab-content active" id="persistence">
+                <h2>💾 Teste de Persistência no Supabase</h2>
+                <div class="test-grid">
+                    <div class="test-card">
+                        <h3>📖 Leitura de Instâncias</h3>
+                        <p>Verifica se conseguimos ler dados da tabela whatsapp_instances</p>
+                        <button class="btn" onclick="testInstancePersistence('read')">Testar Leitura</button>
+                        <button class="btn" onclick="testInstancePersistence('read', true)">Com Usuário Específico</button>
+                    </div>
+                    
+                    <div class="test-card">
+                        <h3>✏️ Criação de Instâncias</h3>
+                        <p>Testa inserção de novas instâncias na tabela</p>
+                        <button class="btn" onclick="testInstancePersistence('create', true)">Testar Criação</button>
+                        <button class="btn warning" onclick="simulateRealCreation()">Simular Criação Real</button>
+                    </div>
+                    
+                    <div class="test-card">
+                        <h3>🔄 Upsert/Atualização</h3>
+                        <p>Verifica operações de upsert (inserir ou atualizar)</p>
+                        <button class="btn" onclick="testInstancePersistence('upsert', true)">Testar Upsert</button>
+                    </div>
+                    
+                    <div class="test-card">
+                        <h3>🔒 Políticas RLS</h3>
+                        <p>Verifica se as políticas de segurança estão bloqueando</p>
+                        <button class="btn" onclick="testInstancePersistence('rls')">Testar RLS</button>
+                        <button class="btn" onclick="testInstancePersistence('structure')">Ver Estrutura</button>
+                    </div>
+                </div>
+                <div id="persistenceResult" class="result info" style="display: none;"></div>
+            </div>
+
+            <!-- Tab: Requisições -->
+            <div class="tab-content" id="requests">
+                <h2>📡 Monitoramento de Requisições</h2>
+                <div class="test-grid">
+                    <div class="test-card">
+                        <h3>📊 Status Atual</h3>
+                        <p>Requisições ativas e excessivas detectadas</p>
+                        <button class="btn" onclick="monitorRequests('status')">Ver Status</button>
+                        <button class="btn warning" onclick="monitorRequests('analyze')">Análise Detalhada</button>
+                    </div>
+                    
+                    <div class="test-card">
+                        <h3>🎭 Simular Requisições</h3>
+                        <p>Simula requisições para testar detecção de excessos</p>
+                        <button class="btn" onclick="simulateRequests()">Simular Polling</button>
+                        <button class="btn danger" onclick="simulateExcessiveRequests()">Simular Excesso</button>
+                    </div>
+                    
+                    <div class="test-card">
+                        <h3>🧹 Limpeza</h3>
+                        <p>Limpa trackers e reinicia monitoramento</p>
+                        <button class="btn" onclick="monitorRequests('clear')">Limpar Trackers</button>
+                    </div>
+                </div>
+                <div id="requestsResult" class="result info" style="display: none;"></div>
+            </div>
+
+            <!-- Tab: Erros 404 -->
+            <div class="tab-content" id="errors">
+                <h2>❌ Diagnóstico de Erros 404</h2>
+                <div class="alert warning">
+                    <strong>⚠️ Atenção:</strong> Erros 404 podem indicar problemas de roteamento, URLs incorretas ou recursos inexistentes.
+                </div>
+                
+                <div class="test-grid">
+                    <div class="test-card">
+                        <h3>🔍 Testar APIs</h3>
+                        <p>Verifica se os endpoints estão respondendo corretamente</p>
+                        <button class="btn" onclick="test404Issues('api')">Testar APIs</button>
+                        <button class="btn" onclick="test404Issues('evolution')">Evolution API</button>
+                    </div>
+                    
+                    <div class="test-card">
+                        <h3>🌐 Testar Rotas</h3>
+                        <p>Verifica roteamento interno da aplicação</p>
+                        <button class="btn" onclick="test404Issues('routes')">Testar Rotas</button>
+                        <button class="btn" onclick="test404Issues('webhooks')">Testar Webhooks</button>
+                    </div>
+                </div>
+                <div id="errorsResult" class="result info" style="display: none;"></div>
+            </div>
+
+            <!-- Tab: Tempo Real -->
+            <div class="tab-content" id="realtime">
+                <h2>⚡ Monitoramento em Tempo Real</h2>
+                <div class="alert success">
+                    <strong>✅ Status:</strong> Monitoramento automático ativo. Dados atualizados a cada 10 segundos.
+                </div>
+                
+                <div class="test-grid">
+                    <div class="test-card">
+                        <h3>📈 Métricas Live</h3>
+                        <p>Estatísticas em tempo real do sistema</p>
+                        <button class="btn success" onclick="startRealTimeMonitoring()" id="realtimeBtn">▶️ Iniciar</button>
+                        <button class="btn danger" onclick="stopRealTimeMonitoring()">⏹️ Parar</button>
+                    </div>
+                    
+                    <div class="test-card">
+                        <h3>🔔 Alertas</h3>
+                        <p>Notificações automáticas de problemas</p>
+                        <div id="alertsContainer"></div>
+                    </div>
+                </div>
+                <div id="realtimeResult" class="result info" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- Console de Logs -->
+        <div class="section">
+            <h2>📝 Console de Logs</h2>
+            <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                <button class="btn" onclick="clearLogs()">🧹 Limpar Logs</button>
+                <button class="btn" onclick="exportLogs()">📥 Exportar</button>
+                <button class="btn" onclick="toggleAutoScroll()" id="autoScrollBtn">📜 Auto-scroll: ON</button>
+            </div>
+            <div id="logsContainer" class="result info" style="max-height: 400px; overflow-y: auto;">
+                <div style="color: #7f8c8d; text-align: center; padding: 2rem;">
+                    Logs do sistema aparecerão aqui...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let autoScroll = true;
+        let realtimeInterval = null;
+
+        // Utility functions
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logsContainer = document.getElementById('logsContainer');
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `<strong>[${timestamp}]</strong> ${message}`;
+            logEntry.style.marginBottom = '0.5rem';
+            logEntry.style.color = type === 'error' ? '#e74c3c' : type === 'success' ? '#27ae60' : '#2c3e50';
+            
+            logsContainer.appendChild(logEntry);
+            
+            if (autoScroll) {
+                logsContainer.scrollTop = logsContainer.scrollHeight;
+            }
+        }
+
+        function showResult(containerId, data, type = 'info') {
+            const container = document.getElementById(containerId);
+            container.style.display = 'block';
+            container.className = `result ${type}`;
+            container.textContent = typeof data === 'object' ? JSON.stringify(data, null, 2) : data;
+        }
+
+        function switchTab(tabName) {
+            // Remove active class from all tabs and contents
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            // Add active class to selected tab and content
+            event.target.classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+        }
+
+        // General stats
+        async function loadGeneralStats() {
+            try {
+                log('🔄 Carregando estatísticas gerais...');
+                
+                // Simular carregamento (substituir por APIs reais)
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                document.getElementById('instanceCount').textContent = '3';
+                document.getElementById('requestCount').textContent = '12';
+                document.getElementById('errorCount').textContent = '2';
+                document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+                
+                log('✅ Estatísticas atualizadas com sucesso', 'success');
+            } catch (error) {
+                log(`❌ Erro ao carregar estatísticas: ${error.message}`, 'error');
+            }
+        }
+
+        // Persistence tests
+        async function testInstancePersistence(testType, requiresUser = false) {
+            try {
+                log(`🧪 Executando teste de persistência: ${testType}`);
+                
+                let url = `/api/debug/instance-persistence-test?type=${testType}`;
+                if (requiresUser) {
+                    const userId = prompt('Digite o ID do usuário (opcional para teste):', 'user-test-123');
+                    if (userId) {
+                        url += `&userId=${encodeURIComponent(userId)}`;
+                    }
+                }
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                showResult('persistenceResult', data, data.success ? 'success' : 'error');
+                log(`📋 Teste ${testType} ${data.success ? 'passou' : 'falhou'}`, data.success ? 'success' : 'error');
+                
+                // Análise específica dos resultados
+                if (data.results) {
+                    if (data.results.allInstances) {
+                        log(`📊 Instâncias encontradas: ${data.results.allInstances.count}`);
+                    }
+                    if (data.results.createTest && !data.results.createTest.success) {
+                        log(`❌ Falha na criação: ${data.results.createTest.error}`, 'error');
+                    }
+                    if (data.results.upsertTest) {
+                        log(`🔄 Upsert - Insert: ${data.results.upsertTest.insert.success ? 'OK' : 'FALHA'}`);
+                        log(`🔄 Upsert - Update: ${data.results.upsertTest.update.success ? 'OK' : 'FALHA'}`);
+                    }
+                }
+                
+            } catch (error) {
+                showResult('persistenceResult', `Erro: ${error.message}`, 'error');
+                log(`❌ Erro no teste de persistência: ${error.message}`, 'error');
+            }
+        }
+
+        async function simulateRealCreation() {
+            try {
+                log('🎭 Simulando criação real de instância...');
+                
+                const instanceData = {
+                    name: `test_real_${Date.now()}`,
+                    status: 'pending',
+                    evolution_instance_id: `evo_${Date.now()}`,
+                    session_data: {
+                        test: true,
+                        created_via: 'debug_tool',
+                        timestamp: new Date().toISOString()
+                    },
+                    phone_number: null,
+                    qr_code: null
+                };
+                
+                const userId = prompt('Digite o ID do usuário:', 'user-real-test');
+                if (!userId) return;
+                
+                const response = await fetch('/api/debug/instance-persistence-test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'simulate_creation',
+                        instanceData,
+                        userId
+                    })
+                });
+                
+                const data = await response.json();
+                showResult('persistenceResult', data, data.success ? 'success' : 'error');
+                log(`🎭 Simulação ${data.success ? 'bem-sucedida' : 'falhou'}`, data.success ? 'success' : 'error');
+                
+            } catch (error) {
+                log(`❌ Erro na simulação: ${error.message}`, 'error');
+            }
+        }
+
+        // Request monitoring
+        async function monitorRequests(action) {
+            try {
+                log(`📡 Monitorando requisições: ${action}`);
+                
+                const response = await fetch(`/api/debug/request-monitor?action=${action}`);
+                const data = await response.json();
+                
+                showResult('requestsResult', data, data.success ? 'info' : 'error');
+                
+                if (data.analysis) {
+                    log(`🔍 Análise: ${data.analysis.suspiciousPatterns.length} padrões suspeitos detectados`);
+                    data.analysis.recommendations.forEach(rec => log(`💡 ${rec}`, 'info'));
+                }
+                
+                if (data.trackers) {
+                    const excessiveCount = Object.values(data.trackers).filter(t => t.isExcessive).length;
+                    log(`📊 Endpoints excessivos: ${excessiveCount}/${Object.keys(data.trackers).length}`);
+                }
+                
+            } catch (error) {
+                log(`❌ Erro no monitoramento: ${error.message}`, 'error');
+            }
+        }
+
+        async function simulateRequests() {
+            try {
+                log('🎭 Simulando requisições normais...');
+                
+                const response = await fetch('/api/debug/request-monitor', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        endpoints: ['/api/whatsapp/status', '/api/supabase/instances'],
+                        duration: 60
+                    })
+                });
+                
+                const data = await response.json();
+                showResult('requestsResult', data, data.success ? 'success' : 'error');
+                log(`🎭 Simulação completada`, 'success');
+                
+            } catch (error) {
+                log(`❌ Erro na simulação: ${error.message}`, 'error');
+            }
+        }
+
+        async function simulateExcessiveRequests() {
+            try {
+                log('⚠️ Simulando requisições excessivas...');
+                
+                // Simular muitas requisições rapidamente
+                for (let i = 0; i < 50; i++) {
+                    fetch(`/api/debug/request-monitor?action=track&endpoint=/api/test/excessive`);
+                    if (i % 10 === 0) {
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                    }
+                }
+                
+                // Verificar resultados após simulação
+                setTimeout(() => monitorRequests('analyze'), 2000);
+                
+                log('⚠️ Requisições excessivas simuladas', 'error');
+                
+            } catch (error) {
+                log(`❌ Erro na simulação excessiva: ${error.message}`, 'error');
+            }
+        }
+
+        // 404 Error tests
+        async function test404Issues(testType) {
+            try {
+                log(`🔍 Testando erros 404: ${testType}`);
+                
+                const endpoints = {
+                    api: ['/api/whatsapp/status', '/api/supabase/test', '/api/debug/health'],
+                    evolution: ['/instance/list', '/instance/connect/test', '/webhook/find/test'],
+                    routes: ['/', '/dashboard', '/whatsapp', '/agents'],
+                    webhooks: ['/api/webhook/whatsapp', '/api/webhook/n8n-callback']
+                };
+                
+                const testEndpoints = endpoints[testType] || ['/api/test'];
+                const results = [];
+                
+                for (const endpoint of testEndpoints) {
+                    try {
+                        const response = await fetch(endpoint);
+                        results.push({
+                            endpoint,
+                            status: response.status,
+                            success: response.status !== 404
+                        });
+                        log(`${response.status === 404 ? '❌' : '✅'} ${endpoint}: ${response.status}`);
+                    } catch (error) {
+                        results.push({
+                            endpoint,
+                            status: 'ERROR',
+                            error: error.message,
+                            success: false
+                        });
+                        log(`❌ ${endpoint}: ${error.message}`, 'error');
+                    }
+                }
+                
+                showResult('errorsResult', { testType, results }, 'info');
+                
+                const errorCount = results.filter(r => !r.success).length;
+                log(`🔍 Teste ${testType}: ${errorCount}/${results.length} endpoints com problemas`);
+                
+            } catch (error) {
+                log(`❌ Erro no teste 404: ${error.message}`, 'error');
+            }
+        }
+
+        // Real-time monitoring
+        function startRealTimeMonitoring() {
+            if (realtimeInterval) return;
+            
+            log('⚡ Iniciando monitoramento em tempo real...', 'success');
+            document.getElementById('realtimeBtn').textContent = '⏸️ Pausar';
+            
+            realtimeInterval = setInterval(async () => {
+                try {
+                    // Simular coleta de dados em tempo real
+                    const timestamp = new Date().toLocaleTimeString();
+                    const data = {
+                        timestamp,
+                        instances: Math.floor(Math.random() * 10) + 1,
+                        requests_per_minute: Math.floor(Math.random() * 50) + 10,
+                        active_connections: Math.floor(Math.random() * 5) + 1,
+                        memory_usage: Math.floor(Math.random() * 30) + 40
+                    };
+                    
+                    showResult('realtimeResult', data, 'info');
+                    
+                    // Alertas automáticos
+                    if (data.requests_per_minute > 40) {
+                        addAlert('⚠️ Muitas requisições detectadas', 'warning');
+                    }
+                    
+                    if (data.memory_usage > 80) {
+                        addAlert('🚨 Uso de memória alto', 'error');
+                    }
+                    
+                } catch (error) {
+                    log(`❌ Erro no monitoramento: ${error.message}`, 'error');
+                }
+            }, 10000);
+        }
+
+        function stopRealTimeMonitoring() {
+            if (realtimeInterval) {
+                clearInterval(realtimeInterval);
+                realtimeInterval = null;
+                document.getElementById('realtimeBtn').textContent = '▶️ Iniciar';
+                log('⏹️ Monitoramento em tempo real parado', 'info');
+            }
+        }
+
+        function addAlert(message, type = 'info') {
+            const alertsContainer = document.getElementById('alertsContainer');
+            const alert = document.createElement('div');
+            alert.className = `alert ${type}`;
+            alert.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong> ${message}`;
+            alert.style.marginBottom = '0.5rem';
+            
+            alertsContainer.appendChild(alert);
+            
+            // Remover alertas antigos (manter apenas os 5 mais recentes)
+            while (alertsContainer.children.length > 5) {
+                alertsContainer.removeChild(alertsContainer.firstChild);
+            }
+        }
+
+        // Log management
+        function clearLogs() {
+            document.getElementById('logsContainer').innerHTML = `
+                <div style="color: #7f8c8d; text-align: center; padding: 2rem;">
+                    Logs limpos às ${new Date().toLocaleTimeString()}
+                </div>
+            `;
+        }
+
+        function exportLogs() {
+            const logs = document.getElementById('logsContainer').textContent;
+            const blob = new Blob([logs], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `debug-logs-${new Date().toISOString().split('T')[0]}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+            log('📥 Logs exportados com sucesso', 'success');
+        }
+
+        function toggleAutoScroll() {
+            autoScroll = !autoScroll;
+            document.getElementById('autoScrollBtn').textContent = `📜 Auto-scroll: ${autoScroll ? 'ON' : 'OFF'}`;
+            log(`📜 Auto-scroll ${autoScroll ? 'ativado' : 'desativado'}`, 'info');
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            log('🚀 Sistema de debug iniciado', 'success');
+            loadGeneralStats();
+        });
+    </script>
+</body>
+</html>

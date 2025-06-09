@@ -35,28 +35,49 @@ console.log(`   Mode: ${isProduction ? 'PRODUCTION' : 'DEVELOPMENT'}`);
 console.log(`   Domain: ${urlDomain}`);
 console.log(`   Key: ${SUPABASE_ANON_KEY.substring(0, 20)}...`);
 
-// 🏗️ Create Supabase client with optimized configuration
-const supabaseClient = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
-    storage: typeof window !== 'undefined' ? localStorage : undefined,
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-  },
-  global: {
-    headers: {
-      'X-Client-Info': 'conversa-ai-brasil@1.0.0',
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-    },
-  },
-});
+// 🛡️ SINGLETON PATTERN - Evita múltiplas instâncias que causam loops infinitos
+let supabaseClientInstance: ReturnType<typeof createClient<Database>> | null = null;
 
-// 🐛 TEMPORARY DEBUG: Expor cliente para debug no console
-if (typeof window !== 'undefined') {
-  (window as any).supabase = supabaseClient;
+function getSupabaseClient() {
+  if (supabaseClientInstance) {
+    console.log('♻️ Supabase: Reutilizando instância existente');
+    return supabaseClientInstance;
+  }
+
+  console.log('🏗️ Supabase: Criando nova instância do cliente');
+  
+  supabaseClientInstance = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: {
+      storage: typeof window !== 'undefined' ? localStorage : undefined,
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+    global: {
+      headers: {
+        'X-Client-Info': 'conversa-ai-brasil@1.0.0',
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+    },
+    // 🚀 PERFORMANCE: Configurações otimizadas para reduzir overhead
+    realtime: {
+      params: {
+        eventsPerSecond: 10, // Limite de eventos para evitar sobrecarga
+      },
+    },
+  });
+
+  return supabaseClientInstance;
+}
+// 🏗️ Criar cliente Supabase singleton
+const supabase = getSupabaseClient();
+
+// 🐛 TEMPORARY DEBUG: Expor cliente para debug no console (apenas desenvolvimento)
+if (typeof window !== 'undefined' && !import.meta.env.PROD) {
+  (window as any).supabase = supabase;
   (window as any).debugUserAuth = async () => {
-    const { data: { user }, error } = await supabaseClient.auth.getUser();
+    const { data: { user }, error } = await supabase.auth.getUser();
     console.log('🔍 DEBUG - User Authentication:');
     console.log('User:', user);
     console.log('Error:', error);
@@ -64,6 +85,14 @@ if (typeof window !== 'undefined') {
     console.log('User Email:', user?.email);
     return { user, error };
   };
+  
+  // Debug para detectar múltiplas instâncias
+  (window as any).checkSupabaseInstances = () => {
+    const instances = [];
+    if ((window as any).supabase) instances.push('main');
+    console.log('🔍 Instâncias Supabase detectadas:', instances);
+    return instances;
+  };
 }
 
-export const supabase = supabaseClient;
+export { supabase };

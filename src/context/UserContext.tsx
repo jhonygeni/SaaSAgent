@@ -2,7 +2,6 @@ import { createContext, useContext, useState, ReactNode, useEffect, useCallback,
 import { User, SubscriptionPlan } from '../types';
 import { getMessageLimitByPlan } from '../lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { subscriptionManager } from '@/lib/subscription-manager';
 
 interface UserContextType {
   user: User | null;
@@ -20,36 +19,34 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   
-  // Refs para controle de throttling e estado
+  // Refs para controle rigoroso - EVITA LOOPS INFINITOS
   const isMounted = useRef(true);
   const lastCheckTime = useRef(0);
-  const checkTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isCheckingRef = useRef(false);
+  const checkTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Throttle de 5 segundos para evitar loops infinitos
-  const CHECK_THROTTLE_DELAY = 5000;
+  // Throttle de 10 segundos para evitar loops infinitos
+  const CHECK_THROTTLE_DELAY = 10000;
   
   // Cleanup ao desmontar
   useEffect(() => {
     isMounted.current = true;
     
     return () => {
+      console.log('🧹 UserProvider: Limpando recursos no desmonte');
       isMounted.current = false;
       isCheckingRef.current = false;
       
-      // Limpar todos os timeouts
       if (checkTimeoutRef.current) {
         clearTimeout(checkTimeoutRef.current);
         checkTimeoutRef.current = null;
       }
-      
-      console.log("UserProvider desmontado, recursos limpos");
     };
   }, []);
   
-  // Função auxiliar para criar um usuário com plano padrão (NÃO altera state diretamente)
-  const createUserWithDefaultPlan = (supabaseUser: any, defaultPlan: SubscriptionPlan = 'free'): User => {
-    const newUser: User = {
+  // Função auxiliar para criar usuário (NÃO altera state diretamente)
+  const createUserWithDefaultPlan = useCallback((supabaseUser: any, defaultPlan: SubscriptionPlan = 'free'): User => {
+    return {
       id: supabaseUser.id,
       email: supabaseUser.email || '',
       name: supabaseUser.user_metadata?.name || supabaseUser.email || '',
@@ -58,28 +55,26 @@ export function UserProvider({ children }: { children: ReactNode }) {
       messageLimit: getMessageLimitByPlan(defaultPlan),
       agents: [],
     };
-    console.log("Criando novo usuário com plano padrão:", newUser);
-    return newUser;
-  };
+  }, []);
   
-  // Check subscription status com throttling robusto
+  // Check subscription com controle rigoroso
   const checkSubscriptionStatus = useCallback(async () => {
-    // Verificar se já está executando para evitar múltiplas chamadas simultâneas
+    // PROTEÇÃO 1: Verificar se já está executando
     if (isCheckingRef.current) {
-      console.log("checkSubscriptionStatus já está executando, ignorando nova chamada");
+      console.log('⏸️ UserContext: checkSubscriptionStatus já executando, ignorando');
       return;
     }
     
-    // Verificar throttling baseado no tempo
+    // PROTEÇÃO 2: Throttle baseado no tempo
     const now = Date.now();
     if (now - lastCheckTime.current < CHECK_THROTTLE_DELAY) {
-      console.log("checkSubscriptionStatus throttled, aguardando cooldown");
+      console.log(`⏱️ UserContext: Throttle ativo (${Math.round((CHECK_THROTTLE_DELAY - (now - lastCheckTime.current)) / 1000)}s restantes)`);
       return;
     }
     
-    // Verificar se o componente ainda está montado
+    // PROTEÇÃO 3: Verificar se componente está montado
     if (!isMounted.current) {
-      console.log("Componente desmontado, cancelando verificação de assinatura");
+      console.log('🚫 UserContext: Componente desmontado, cancelando verificação');
       return;
     }
     
@@ -87,63 +82,44 @@ export function UserProvider({ children }: { children: ReactNode }) {
     lastCheckTime.current = now;
     
     try {
-      console.log("Verificando status da assinatura...");
+      console.log('🔍 UserContext: Verificando status da assinatura...');
       
-      // Get current session
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        console.log("Sem sessão ativa, não é possível verificar assinatura");
+      if (!session?.user) {
+        console.log('👤 UserContext: Sem sessão ativa');
         return;
       }
       
       const supabaseUser = session.user;
-      if (!supabaseUser) {
-        console.log("Sem usuário na sessão");
-        return;
-      }
-      
-      console.log("Chamando edge function check-subscription");
       
       try {
-        // Call check-subscription edge function
         const { data, error } = await supabase.functions.invoke('check-subscription');
         
         if (error) {
-          console.error('Error checking subscription:', error);
+          console.warn('⚠️ UserContext: Erro na verificação, usando plano padrão:', error.message);
           
-          // Se há erro, mas o usuário está autenticado, garantimos que ele tenha um plano
-          // IMPORTANTE: Usar state callback para evitar dependência de user
+          // Usar callback para evitar dependência de user
           setUser(currentUser => {
-            if (!currentUser && supabaseUser) {
-              return createUserWithDefaultPlan(supabaseUser);
+            if (!currentUser) {
+              const newUser = createUserWithDefaultPlan(supabaseUser);
+              console.log('✅ UserContext: Usuário criado com plano padrão (erro):', newUser.email);
+              return newUser;
             }
             return currentUser;
           });
           return;
         }
         
-        console.log("Resposta de check-subscription:", data);
+        console.log('📊 UserContext: Resposta da verificação:', data);
         
         if (data) {
-          // Usar state callback para evitar dependência de user
           setUser(currentUser => {
-            // If we have a user but no data in context yet, create it
-            if (!currentUser && supabaseUser) {
-              const newUser: User = {
-                id: supabaseUser.id,
-                email: supabaseUser.email || '',
-                name: supabaseUser.user_metadata?.name || supabaseUser.email || '',
-                plan: (data.plan || 'free') as SubscriptionPlan,
-                messageCount: 0,
-                messageLimit: getMessageLimitByPlan(data.plan || 'free'),
-                agents: [],
-              };
-              console.log("Criando novo usuário no contexto:", newUser);
+            if (!currentUser) {
+              const newUser = createUserWithDefaultPlan(supabaseUser, data.plan || 'free');
+              console.log('✅ UserContext: Usuário criado com plano da API:', newUser.email, newUser.plan);
               return newUser;
-            }
-            // If we already have user data, just update the plan
-            else if (currentUser && data.plan && data.plan !== currentUser.plan) {
-              console.log(`Atualizando plano de ${currentUser.plan} para ${data.plan}`);
+            } else if (data.plan && data.plan !== currentUser.plan) {
+              console.log(`🔄 UserContext: Atualizando plano de ${currentUser.plan} para ${data.plan}`);
               return {
                 ...currentUser,
                 plan: data.plan as SubscriptionPlan,
@@ -154,76 +130,56 @@ export function UserProvider({ children }: { children: ReactNode }) {
           });
         }
       } catch (invokeError) {
-        console.error('Failed to invoke check-subscription function:', invokeError);
+        console.error('🚨 UserContext: Erro na invocação da function:', invokeError);
         
-        // Em caso de erro na invocação, garantimos que o usuário tenha um plano básico
-        // IMPORTANTE: Usar state callback para evitar dependência de user
         setUser(currentUser => {
-          if (!currentUser && supabaseUser) {
-            return createUserWithDefaultPlan(supabaseUser);
+          if (!currentUser) {
+            const newUser = createUserWithDefaultPlan(supabaseUser);
+            console.log('✅ UserContext: Usuário criado após erro de invocação:', newUser.email);
+            return newUser;
           }
           return currentUser;
         });
       }
     } catch (err) {
-      console.error('Failed to check subscription status:', err);
-      
-      // Tentamos obter uma sessão para criar um usuário básico mesmo com erro
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          setUser(currentUser => {
-            if (!currentUser) {
-              return createUserWithDefaultPlan(session.user);
-            }
-            return currentUser;
-          });
-        }
-      } catch (sessionErr) {
-        console.error('Failed to get session after subscription error:', sessionErr);
-      }
+      console.error('🚨 UserContext: Erro geral na verificação:', err);
     } finally {
       isCheckingRef.current = false;
     }
-  }, []); // IMPORTANTE: Array vazio remove dependência de user que causava loop infinito
+  }, [createUserWithDefaultPlan]);
   
-  // Listen for auth state changes
+  // Listen for auth state changes - SEM DEPENDÊNCIAS PROBLEMÁTICAS
   useEffect(() => {
+    console.log('🔐 UserContext: Configurando listener de autenticação');
     setIsLoading(true);
-    console.log("Configurando listener de autenticação");
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log("Evento de autenticação:", event, session ? "com sessão" : "sem sessão");
+        console.log(`🔐 UserContext: Evento de auth: ${event}`, session ? 'com sessão' : 'sem sessão');
         
-        if (event === 'SIGNED_IN' && session) {
-          // Get user data from session
+        if (event === 'SIGNED_IN' && session?.user) {
           const supabaseUser = session.user;
-          if (!supabaseUser) return;
-          
-          console.log("Usuário logado:", supabaseUser);
-          
-          // Create new user object with default free plan
           const newUser = createUserWithDefaultPlan(supabaseUser);
+          
+          console.log('✅ UserContext: Usuário logado, criando contexto:', newUser.email);
           setUser(newUser);
           
-          // Check subscription status after delay to ensure auth is complete
-          // IMPORTANTE: Usar timeout para evitar execução imediata que causa loops
+          // Verificar subscription após delay controlado
           if (checkTimeoutRef.current) {
             clearTimeout(checkTimeoutRef.current);
           }
+          
           checkTimeoutRef.current = setTimeout(() => {
             if (isMounted.current) {
               checkSubscriptionStatus();
             }
-          }, 2000); // Aumentado para 2 segundos
+          }, 3000); // 3 segundos de delay
         }
         
         if (event === 'SIGNED_OUT') {
-          console.log("Usuário deslogado");
+          console.log('👋 UserContext: Usuário deslogado');
           setUser(null);
           
-          // Limpar timeouts pendentes
           if (checkTimeoutRef.current) {
             clearTimeout(checkTimeoutRef.current);
             checkTimeoutRef.current = null;
@@ -234,63 +190,58 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
     );
     
-    // Check initial session
-    const checkSession = async () => {
-      console.log("Verificando sessão inicial");
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        console.log("Sessão existente encontrada");
-        const supabaseUser = session.user;
+    // Verificar sessão inicial
+    const checkInitialSession = async () => {
+      try {
+        console.log('🔍 UserContext: Verificando sessão inicial');
+        const { data: { session } } = await supabase.auth.getSession();
         
-        // Create new user object with default free plan
-        const newUser = createUserWithDefaultPlan(supabaseUser);
-        setUser(newUser);
-        
-        // Check subscription status after delay
-        // IMPORTANTE: Usar timeout para evitar execução imediata que causa loops
-        if (checkTimeoutRef.current) {
-          clearTimeout(checkTimeoutRef.current);
-        }
-        checkTimeoutRef.current = setTimeout(() => {
-          if (isMounted.current) {
-            checkSubscriptionStatus();
+        if (session?.user) {
+          const newUser = createUserWithDefaultPlan(session.user);
+          console.log('✅ UserContext: Sessão inicial encontrada:', newUser.email);
+          setUser(newUser);
+          
+          // Verificar subscription após delay
+          if (checkTimeoutRef.current) {
+            clearTimeout(checkTimeoutRef.current);
           }
-        }, 2000); // Aumentado para 2 segundos
-      } else {
-        console.log("Nenhuma sessão existente encontrada");
+          
+          checkTimeoutRef.current = setTimeout(() => {
+            if (isMounted.current) {
+              checkSubscriptionStatus();
+            }
+          }, 3000);
+        } else {
+          console.log('ℹ️ UserContext: Nenhuma sessão inicial encontrada');
+        }
+      } catch (err) {
+        console.error('🚨 UserContext: Erro ao verificar sessão inicial:', err);
       }
       
       setIsLoading(false);
     };
     
-    checkSession();
+    checkInitialSession();
     
     return () => {
-      console.log("Removendo listener de autenticação");
+      console.log('🧹 UserContext: Removendo listener de autenticação');
       subscription.unsubscribe();
       
-      // Cleanup timeouts e refs
       if (checkTimeoutRef.current) {
         clearTimeout(checkTimeoutRef.current);
         checkTimeoutRef.current = null;
       }
-      isMounted.current = false;
     };
-  }, []); // IMPORTANTE: Array vazio remove dependência de checkSubscriptionStatus
+  }, []); // IMPORTANTE: Array vazio - sem dependências
 
-  const updateUser = (updatedUser: Partial<User>) => {
-    if (!user) return;
-    
+  const updateUser = useCallback((updatedUser: Partial<User>) => {
     setUser(prev => {
       if (!prev) return null;
-      return {
-        ...prev,
-        ...updatedUser
-      };
+      return { ...prev, ...updatedUser };
     });
-  };
+  }, []);
 
-  const login = async (email: string, name: string) => {
+  const login = useCallback(async (email: string, name: string) => {
     const newUser: User = {
       id: `user-${Date.now()}`,
       email,
@@ -303,26 +254,24 @@ export function UserProvider({ children }: { children: ReactNode }) {
     
     setUser(newUser);
     
-    // Check subscription status after login with delay
-    // IMPORTANTE: Usar timeout controlado para evitar loops
+    // Check subscription com delay controlado
     if (checkTimeoutRef.current) {
       clearTimeout(checkTimeoutRef.current);
     }
+    
     checkTimeoutRef.current = setTimeout(() => {
       if (isMounted.current) {
         checkSubscriptionStatus();
       }
-    }, 2000); // Aumentado para 2 segundos
-  };
+    }, 3000);
+  }, [checkSubscriptionStatus]);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     await supabase.auth.signOut();
     setUser(null);
-  };
+  }, []);
 
-  const setPlan = (plan: SubscriptionPlan) => {
-    if (!user) return;
-    
+  const setPlan = useCallback((plan: SubscriptionPlan) => {
     setUser(prev => {
       if (!prev) return null;
       return {
@@ -331,7 +280,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         messageLimit: getMessageLimitByPlan(plan)
       };
     });
-  };
+  }, []);
 
   return (
     <UserContext.Provider 

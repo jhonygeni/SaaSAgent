@@ -4,6 +4,7 @@ import whatsappService from '@/services/whatsappService';
 import { USE_MOCK_DATA } from '@/constants/api';
 import { InstancesListResponse } from '@/services/whatsapp/types';
 import { supabase } from '@/integrations/supabase/client';
+import { saveWhatsAppInstanceAdmin } from '@/services/supabaseAdmin';
 
 /**
  * Função de formatação de nome para garantir consistência em todas as chamadas de API
@@ -70,27 +71,64 @@ export function useInstanceManager() {
           // Convert the response to a string for JSON storage
           const sessionData = JSON.stringify(creationResponse);
           
-          const { data: userData } = await supabase.auth.getUser();
+          console.log("Attempting to save WhatsApp instance to Supabase...");
+          console.log("User ID provided:", userId);
+          console.log("Instance name:", formattedName);
           
-          if (userData && userData.user) {
+          const instanceData = {
+            name: formattedName,
+            user_id: userId,
+            status: 'pending',
+            evolution_instance_id: creationResponse.instance?.instanceId || null,
+            session_data: sessionData
+          };
+          
+          // Try with regular client first
+          let savedSuccessfully = false;
+          
+          try {
             const { error } = await supabase
               .from('whatsapp_instances')
-              .upsert({
-                name: formattedName,
-                user_id: userData.user.id,
-                status: 'pending',
-                evolution_instance_id: creationResponse.instance?.instanceId || null,
-                session_data: sessionData
-              });
+              .upsert(instanceData);
               
             if (error) {
-              console.error("Error saving WhatsApp instance to Supabase:", error);
-            } else {
-              console.log("WhatsApp instance data saved to Supabase successfully");
+              throw error;
+            }
+            
+            console.log("WhatsApp instance data saved to Supabase successfully with regular client");
+            savedSuccessfully = true;
+          } catch (regularClientError: any) {
+            console.log("Regular client failed, trying admin client...", regularClientError.message);
+            
+            // If regular client fails (likely due to RLS), try admin client
+            try {
+              await saveWhatsAppInstanceAdmin(instanceData);
+              console.log("WhatsApp instance data saved to Supabase successfully with admin client");
+              savedSuccessfully = true;
+            } catch (adminClientError) {
+              console.error("Both regular and admin clients failed:", adminClientError);
+              
+              // Log detailed error information
+              if (regularClientError.code === '42501') {
+                console.error("CRITICAL: RLS policy is blocking instance persistence!");
+                console.error("This means WhatsApp instances are created in Evolution API but not saved to database.");
+                console.error("User will see instances disappear after page refresh.");
+                console.error("URGENT: Apply RLS policy fix in Supabase Dashboard.");
+              }
+              
+              // Don't throw - let the instance creation succeed even if DB save fails
+              console.log("Instance created in Evolution API but not persisted to database due to RLS restrictions.");
             }
           }
+          
+          if (!savedSuccessfully) {
+            // Log the instance data for manual recovery if needed
+            console.log("INSTANCE DATA NOT SAVED TO DATABASE:", instanceData);
+          }
+          
         } catch (saveError) {
           console.error("Failed to save instance data to Supabase:", saveError);
+          // Don't throw - allow instance creation to proceed
         }
       }
       

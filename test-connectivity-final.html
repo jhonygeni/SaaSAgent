@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Conectividade - Evolution API</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #fafafa;
+        }
+        .test-section h2 {
+            color: #555;
+            margin-top: 0;
+        }
+        button {
+            background-color: #007cba;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #005a87;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .result.success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .result.error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .result.info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-indicator.online {
+            background-color: #28a745;
+        }
+        .status-indicator.offline {
+            background-color: #dc3545;
+        }
+        .status-indicator.unknown {
+            background-color: #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Teste de Conectividade - Evolution API & Webhook</h1>
+        
+        <div class="test-section">
+            <h2>1. Teste de Ambiente</h2>
+            <button onclick="testEnvironment()">Verificar Configuração do Ambiente</button>
+            <div id="env-result" class="result info" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>2. Teste da Evolution API</h2>
+            <button onclick="testEvolutionAPI()">Testar Conectividade Evolution API</button>
+            <button onclick="testEvolutionInstances()">Listar Instâncias</button>
+            <div id="evolution-result" class="result info" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>3. Teste do Webhook</h2>
+            <button onclick="testWebhook()">Testar Webhook Principal</button>
+            <button onclick="testWebhookCORS()">Testar CORS do Webhook</button>
+            <div id="webhook-result" class="result info" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>4. Teste de Proxy (Desenvolvimento)</h2>
+            <button onclick="testProxy()">Testar Proxy Local</button>
+            <div id="proxy-result" class="result info" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>5. Status Geral</h2>
+            <div id="status-summary">
+                <p><span class="status-indicator unknown"></span> Ambiente: <span id="env-status">Não testado</span></p>
+                <p><span class="status-indicator unknown"></span> Evolution API: <span id="evolution-status">Não testado</span></p>
+                <p><span class="status-indicator unknown"></span> Webhook: <span id="webhook-status">Não testado</span></p>
+                <p><span class="status-indicator unknown"></span> Proxy: <span id="proxy-status">Não testado</span></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuração baseada no ambiente
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const baseUrl = isLocal ? 'http://localhost:8080' : window.location.origin;
+        
+        console.log('Environment detected:', { isLocal, baseUrl });
+
+        function updateStatus(component, status, text) {
+            const indicator = document.querySelector(`#status-summary .status-indicator:nth-of-type(${component})`);
+            const statusText = document.getElementById(`${['env', 'evolution', 'webhook', 'proxy'][component - 1]}-status`);
+            
+            indicator.className = `status-indicator ${status}`;
+            statusText.textContent = text;
+        }
+
+        function showResult(elementId, content, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.className = `result ${type}`;
+            element.textContent = JSON.stringify(content, null, 2);
+            element.style.display = 'block';
+        }
+
+        async function testEnvironment() {
+            try {
+                const config = {
+                    isLocal: isLocal,
+                    baseUrl: baseUrl,
+                    userAgent: navigator.userAgent,
+                    timestamp: new Date().toISOString(),
+                    location: window.location.href,
+                    origin: window.location.origin
+                };
+
+                showResult('env-result', config, 'success');
+                updateStatus(1, 'online', 'Configurado');
+            } catch (error) {
+                showResult('env-result', { error: error.message }, 'error');
+                updateStatus(1, 'offline', 'Erro');
+            }
+        }
+
+        async function testEvolutionAPI() {
+            try {
+                console.log('Testing Evolution API...');
+                
+                const testUrl = `${baseUrl}/api/test-evolution`;
+                console.log('Making request to:', testUrl);
+                
+                const response = await fetch(testUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+                console.log('Evolution API test result:', data);
+
+                if (response.ok && data.success) {
+                    showResult('evolution-result', data, 'success');
+                    updateStatus(2, 'online', 'Conectado');
+                } else {
+                    showResult('evolution-result', data, 'error');
+                    updateStatus(2, 'offline', 'Falha na conexão');
+                }
+            } catch (error) {
+                console.error('Evolution API test error:', error);
+                showResult('evolution-result', { error: error.message }, 'error');
+                updateStatus(2, 'offline', 'Erro de rede');
+            }
+        }
+
+        async function testEvolutionInstances() {
+            try {
+                const response = await fetch(`${baseUrl}/api/evolution/instances`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showResult('evolution-result', { instances: data }, 'success');
+                    updateStatus(2, 'online', `${data.length || 0} instâncias`);
+                } else {
+                    showResult('evolution-result', data, 'error');
+                    updateStatus(2, 'offline', 'Erro ao listar');
+                }
+            } catch (error) {
+                showResult('evolution-result', { error: error.message }, 'error');
+                updateStatus(2, 'offline', 'Erro de rede');
+            }
+        }
+
+        async function testWebhook() {
+            try {
+                const webhookUrl = 'https://webhooksaas.geni.chat/webhook/principal';
+                
+                const testPayload = {
+                    test: true,
+                    timestamp: new Date().toISOString(),
+                    source: 'connectivity-test'
+                };
+
+                const response = await fetch(webhookUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Origin': window.location.origin
+                    },
+                    body: JSON.stringify(testPayload)
+                });
+
+                const data = await response.text();
+
+                if (response.ok) {
+                    showResult('webhook-result', { 
+                        status: response.status, 
+                        statusText: response.statusText,
+                        data: data 
+                    }, 'success');
+                    updateStatus(3, 'online', 'Funcionando');
+                } else {
+                    showResult('webhook-result', { 
+                        status: response.status, 
+                        statusText: response.statusText,
+                        error: data 
+                    }, 'error');
+                    updateStatus(3, 'offline', `HTTP ${response.status}`);
+                }
+            } catch (error) {
+                showResult('webhook-result', { error: error.message }, 'error');
+                updateStatus(3, 'offline', 'CORS/Network Error');
+            }
+        }
+
+        async function testWebhookCORS() {
+            try {
+                const webhookUrl = 'https://webhooksaas.geni.chat/webhook/principal';
+                
+                // Test CORS preflight
+                const response = await fetch(webhookUrl, {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Origin': window.location.origin,
+                        'Access-Control-Request-Method': 'POST',
+                        'Access-Control-Request-Headers': 'Content-Type'
+                    }
+                });
+
+                const corsHeaders = {
+                    'Access-Control-Allow-Origin': response.headers.get('Access-Control-Allow-Origin'),
+                    'Access-Control-Allow-Methods': response.headers.get('Access-Control-Allow-Methods'),
+                    'Access-Control-Allow-Headers': response.headers.get('Access-Control-Allow-Headers'),
+                };
+
+                showResult('webhook-result', { 
+                    status: response.status,
+                    corsHeaders: corsHeaders
+                }, response.ok ? 'success' : 'error');
+                
+                updateStatus(3, response.ok ? 'online' : 'offline', 
+                    response.ok ? 'CORS OK' : 'CORS Blocked');
+            } catch (error) {
+                showResult('webhook-result', { error: error.message }, 'error');
+                updateStatus(3, 'offline', 'CORS Error');
+            }
+        }
+
+        async function testProxy() {
+            if (!isLocal) {
+                showResult('proxy-result', { 
+                    message: 'Proxy apenas disponível em desenvolvimento local' 
+                }, 'info');
+                updateStatus(4, 'unknown', 'N/A (Produção)');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/evolution/instances', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showResult('proxy-result', data, 'success');
+                    updateStatus(4, 'online', 'Funcionando');
+                } else {
+                    showResult('proxy-result', data, 'error');
+                    updateStatus(4, 'offline', 'Erro no proxy');
+                }
+            } catch (error) {
+                showResult('proxy-result', { error: error.message }, 'error');
+                updateStatus(4, 'offline', 'Proxy indisponível');
+            }
+        }
+
+        // Auto-test on load
+        window.addEventListener('load', () => {
+            testEnvironment();
+        });
+    </script>
+</body>
+</html>
