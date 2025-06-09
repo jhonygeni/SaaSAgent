@@ -54,6 +54,27 @@ clean_temp_files() {
     done
 }
 
+# Verificar imports problemáticos (Next.js em projeto Vite)
+check_problematic_imports() {
+    echo "🔍 Verificando imports problemáticos..."
+    
+    # Procurar por imports do Next.js em projeto Vite
+    if grep -r "next/server" api/ 2>/dev/null; then
+        echo "   ⚠️  Encontrados imports do Next.js na pasta api/"
+        echo "   Estes podem causar erro de build em projeto Vite"
+        return 1
+    fi
+    
+    if grep -r "import.*NextRequest\|import.*NextResponse" api/ 2>/dev/null; then
+        echo "   ⚠️  Encontrados imports NextRequest/NextResponse na pasta api/"
+        echo "   Estes devem ser removidos em projeto Vite"
+        return 1
+    fi
+    
+    echo "   ✅ Nenhum import problemático encontrado"
+    return 0
+}
+
 # Verificar estrutura da pasta api
 check_api_structure() {
     echo "📁 Verificando estrutura da pasta api..."
@@ -96,14 +117,20 @@ main() {
     clean_temp_files
     echo ""
     
-    if check_conflicts; then
+    local imports_ok=true
+    if ! check_problematic_imports; then
+        imports_ok=false
+    fi
+    echo ""
+    
+    if check_conflicts && $imports_ok; then
         echo ""
         echo "✅ Projeto pronto para deploy na Vercel!"
         echo "   Pode executar: vercel --prod"
         exit 0
     else
         echo ""
-        echo "❌ Conflitos encontrados! Resolva antes do deploy."
+        echo "❌ Problemas encontrados! Resolva antes do deploy."
         echo "   Execute este script novamente após resolver."
         exit 1
     fi
