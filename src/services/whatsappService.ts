@@ -176,15 +176,16 @@ const whatsappService = {
         };
       }
 
-      // Exact format as specified in the curl command
+      // Exact format discovered through testing with Evolution API
       const webhookConfig = {
         url: "https://webhooksaas.geni.chat/webhook/principal",
-        webhookByEvents: true,
-        webhookBase64: true,
-        events: [
-          "MESSAGES_UPSERT"
-        ],
-        enabled: true
+        webhook: {
+          url: "https://webhooksaas.geni.chat/webhook/principal",
+          enabled: true,
+          webhookByEvents: true,
+          webhookBase64: true,
+          events: ["MESSAGES_UPSERT"]
+        }
       };
 
       // Use secure API client for N8N webhook configuration
@@ -205,15 +206,16 @@ const whatsappService = {
     try {
       console.log(`[NON-BLOCKING] Configuring N8N webhook for instance: ${instanceName}`);
       
-      // Fire and forget - don't wait for response
+      // Fire and forget - don't wait for response - format descoberto em testes
       const webhookConfig = {
         url: "https://webhooksaas.geni.chat/webhook/principal",
-        webhookByEvents: true,
-        webhookBase64: true,
-        events: [
-          "MESSAGES_UPSERT"
-        ],
-        enabled: true
+        webhook: {
+          url: "https://webhooksaas.geni.chat/webhook/principal",
+          enabled: true,
+          webhookByEvents: true,
+          webhookBase64: true,
+          events: ["MESSAGES_UPSERT"]
+        }
       };
 
       secureApiClient.setWebhook(instanceName, webhookConfig).catch(error => {
