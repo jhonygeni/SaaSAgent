@@ -15,7 +15,6 @@ import { AgentList } from "@/components/AgentList";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { DashboardAnalytics } from "@/components/DashboardAnalytics";
 import { InterestedClients } from "@/components/InterestedClients";
-import { ContactsDebug } from "@/components/ContactsDebug";
 import { useEffect, useState, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useSearchParams } from "react-router-dom";
@@ -204,9 +203,6 @@ export function Dashboard() {
           />
         ) : (
           <>
-            {/* Debug component - temporary */}
-            <ContactsDebug />
-            
             <div className="grid grid-cols-1 gap-6">
               <div className="w-full">
                 <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Visão Geral</h2>
