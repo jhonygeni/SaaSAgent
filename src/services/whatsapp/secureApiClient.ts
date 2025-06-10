@@ -234,12 +234,8 @@ export const secureApiClient = {
    * Set webhook for instance
    */
   async setWebhook(instanceName: string, webhookData: any): Promise<any> {
-    // Garante que o campo 'webhook' está presente, pois Evolution API exige isso
-    const payload = {
-      ...webhookData,
-      webhook: webhookData.webhook || webhookData.url // Prioriza 'webhook', senão usa 'url'
-    };
-    return this.callEvolutionAPI(`/webhook/set/${encodeURIComponent(instanceName)}`, 'POST', payload);
+    // Send webhook data exactly as provided - Evolution API expects specific format
+    return this.callEvolutionAPI(`/webhook/set/${encodeURIComponent(instanceName)}`, 'POST', webhookData);
   },
 
   /**
