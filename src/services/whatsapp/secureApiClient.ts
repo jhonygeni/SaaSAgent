@@ -150,6 +150,15 @@ export const secureApiClient = {
       url = `/api/evolution/delete`;
       fetchOptions.method = 'DELETE';
       fetchOptions.body = JSON.stringify({ instance: instanceName });
+    } else if (endpoint.startsWith('/webhook/set/')) {
+      const instanceName = endpoint.split('/')[3];
+      url = `/api/evolution/webhook?instance=${instanceName}`;
+      fetchOptions.method = 'POST';
+      fetchOptions.body = JSON.stringify(data);
+    } else if (endpoint.startsWith('/webhook/find/')) {
+      const instanceName = endpoint.split('/')[3];
+      url = `/api/evolution/webhook?instance=${instanceName}`;
+      fetchOptions.method = 'GET';
     } else {
       throw new Error(`Endpoint não mapeado: ${endpoint}`);
     }
