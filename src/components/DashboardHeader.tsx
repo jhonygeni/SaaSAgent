@@ -1,6 +1,7 @@
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/context/UserContext";
+import { useAgent } from "@/context/AgentContext";
 import { getAgentLimitByPlan, getMessageLimitByPlan } from "@/lib/utils";
 import { ChevronRight, Plus, Menu, UserCircle } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -15,12 +16,13 @@ import {
 
 export function DashboardHeader() {
   const { user, logout } = useUser();
+  const { agents } = useAgent();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   const agentLimit = user ? getAgentLimitByPlan(user.plan) : 1;
   const messageLimit = user ? getMessageLimitByPlan(user.plan) : 100;
-  const hasReachedAgentLimit = user?.agents?.length >= agentLimit;
+  const hasReachedAgentLimit = agents.length >= agentLimit;
   
   return (
     <div className="border-b">

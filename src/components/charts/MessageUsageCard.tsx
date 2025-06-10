@@ -54,13 +54,6 @@ export function MessageUsageCard({ messageCount, messageLimit }: MessageUsageCar
                 : "Uso dentro do esperado para seu plano."}
           </div>
         </div>
-        
-        <div className="p-4 bg-secondary/20 rounded-lg">
-          <h4 className="font-medium mb-2">Dica de Uso</h4>
-          <p className="text-sm text-muted-foreground">
-            Otimize suas mensagens configurando respostas automáticas para perguntas frequentes e utilize templates pré-definidos.
-          </p>
-        </div>
       </CardContent>
     </Card>
   );
