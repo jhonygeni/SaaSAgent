@@ -183,7 +183,8 @@ const whatsappService = {
         webhookBase64: true,
         events: [
           "MESSAGES_UPSERT"
-        ]
+        ],
+        enabled: true
       };
 
       // Use secure API client for N8N webhook configuration
@@ -211,7 +212,8 @@ const whatsappService = {
         webhookBase64: true,
         events: [
           "MESSAGES_UPSERT"
-        ]
+        ],
+        enabled: true
       };
 
       secureApiClient.setWebhook(instanceName, webhookConfig).catch(error => {
