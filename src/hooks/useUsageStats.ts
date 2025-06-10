@@ -51,25 +51,6 @@ export function useUsageStats(): UsageStatsResponse {
     };
   }, []);
 
-  // Função para gerar dados de fallback
-  const generateFallbackData = useMemo(() => {
-    const getDateString = (daysFromToday: number): string => {
-      const date = new Date();
-      date.setDate(date.getDate() + daysFromToday);
-      return date.toISOString().split('T')[0];
-    };
-
-    return (): UsageStatsData[] => [
-      { dia: 'Dom', enviadas: 18, recebidas: 15, date: getDateString(-6) },
-      { dia: 'Seg', enviadas: 35, recebidas: 32, date: getDateString(-5) },
-      { dia: 'Ter', enviadas: 28, recebidas: 25, date: getDateString(-4) },
-      { dia: 'Qua', enviadas: 42, recebidas: 38, date: getDateString(-3) },
-      { dia: 'Qui', enviadas: 39, recebidas: 33, date: getDateString(-2) },
-      { dia: 'Sex', enviadas: 47, recebidas: 41, date: getDateString(-1) },
-      { dia: 'Sáb', enviadas: 25, recebidas: 21, date: getDateString(0) }
-    ];
-  }, []);
-
   // Função principal de busca com controle rigoroso
   const fetchUsageStats = useCallback(async (forceRefetch = false) => {
     // Verificações de segurança para evitar múltiplas execuções
@@ -106,65 +87,114 @@ export function useUsageStats(): UsageStatsResponse {
       setIsLoading(true);
       setError(null);
 
-      console.log('🔍 useUsageStats: Iniciando busca de dados para usuário:', currentUserId || 'mock');
+      console.log('🔍 useUsageStats: Iniciando busca de dados para usuário:', currentUserId || 'sem usuário');
 
-      // Usar ID do usuário atual ou fallback
-      const userId = currentUserId || '123e4567-e89b-12d3-a456-426614174000';
+      // TEMPORARY DEBUG: Log do user ID específico
+      console.log('🔍 DEBUG: USER ID COMPLETO:', currentUserId);
+      console.log('🔍 DEBUG: USER OBJECT:', user);
 
-      // Calcular datas dos últimos 7 dias
-      const today = new Date();
-      const sevenDaysAgo = new Date(today);
-      sevenDaysAgo.setDate(today.getDate() - 6);
-
-      // Busca principal
-      const { data: usageData, error: usageError } = await supabase
-        .from('usage_stats')
-        .select('date, messages_sent, messages_received')
-        .eq('user_id', userId)
-        .gte('date', sevenDaysAgo.toISOString().split('T')[0])
-        .lte('date', today.toISOString().split('T')[0])
-        .order('date', { ascending: true });
-
-      if (!isMounted.current) return;
-
-      // Se houve erro ou sem dados, usar fallback
-      if (usageError || !usageData || usageData.length === 0) {
-        console.log('⚠️ useUsageStats: Usando dados de demonstração (erro ou sem dados reais)');
-        
-        const fallbackData = generateFallbackData();
-        const total = fallbackData.reduce((sum, day) => sum + day.enviadas + day.recebidas, 0);
-        
+      // Se não há usuário logado, retornar dados vazios em vez de fallback
+      if (!currentUserId) {
+        console.log('⚠️ useUsageStats: Usuário não logado, retornando dados vazios');
         if (isMounted.current) {
-          setData(fallbackData);
-          setTotalMessages(total);
-          setError(usageError ? `Erro: ${usageError.message}` : 'Usando dados de demonstração');
+          setData([]);
+          setTotalMessages(0);
+          setError(null);
         }
         return;
       }
 
-      // Processar dados reais
-      console.log('✅ useUsageStats: Processando dados reais do Supabase');
-      const last7Days: string[] = [];
-      const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-      
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date(today);
-        date.setDate(today.getDate() - i);
-        last7Days.push(date.toISOString().split('T')[0]);
+      // Calcular datas dos últimos 30 dias para garantir que pegamos dados existentes
+      const today = new Date();
+      const thirtyDaysAgo = new Date(today);
+      thirtyDaysAgo.setDate(today.getDate() - 29);
+
+      console.log('📅 DEBUG: Buscando dados entre', thirtyDaysAgo.toISOString().split('T')[0], 'e', today.toISOString().split('T')[0]);
+
+      // Busca principal - expandida para 30 dias
+      const { data: usageData, error: usageError } = await supabase
+        .from('usage_stats')
+        .select('date, messages_sent, messages_received')
+        .eq('user_id', currentUserId)
+        .gte('date', thirtyDaysAgo.toISOString().split('T')[0])
+        .lte('date', today.toISOString().split('T')[0])
+        .order('date', { ascending: true });
+
+      console.log('📊 DEBUG: Resultado da consulta:', { usageData, usageError, length: usageData?.length });
+
+      if (!isMounted.current) return;
+
+      // Se houve erro real, reportar
+      if (usageError) {
+        console.error('❌ useUsageStats: Erro real do Supabase:', usageError);
+        if (isMounted.current) {
+          setData([]);
+          setTotalMessages(0);
+          setError(`Erro ao carregar dados: ${usageError.message}`);
+        }
+        return;
       }
 
-      const processedData: UsageStatsData[] = last7Days.map((dateString) => {
-        const date = new Date(dateString);
-        const dayName = dayNames[date.getDay()];
-        const realData = usageData.find(item => item.date === dateString);
+      // Processar dados (mesmo que seja array vazio)
+      console.log('✅ useUsageStats: Processando dados reais do Supabase, registros encontrados:', usageData?.length || 0);
+      
+      // Se há dados reais, usar os últimos 7 dias de dados disponíveis
+      // Se não há dados, mostrar os últimos 7 dias com zeros
+      let processedData: UsageStatsData[];
+      
+      if (usageData && usageData.length > 0) {
+        // Pegar os últimos 7 registros de dados reais
+        const recentData = usageData.slice(-7);
+        const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
         
-        return {
-          dia: dayName,
-          enviadas: realData?.messages_sent || 0,
-          recebidas: realData?.messages_received || 0,
-          date: dateString
-        };
-      });
+        processedData = recentData.map((record) => {
+          const date = new Date(record.date);
+          const dayName = dayNames[date.getDay()];
+          
+          return {
+            dia: dayName,
+            enviadas: record.messages_sent || 0,
+            recebidas: record.messages_received || 0,
+            date: record.date
+          };
+        });
+        
+        // Se temos menos de 7 registros, completar com zeros para os dias anteriores
+        while (processedData.length < 7) {
+          const lastDate = processedData.length > 0 ? new Date(processedData[0].date) : new Date();
+          lastDate.setDate(lastDate.getDate() - 1);
+          const dayName = dayNames[lastDate.getDay()];
+          
+          processedData.unshift({
+            dia: dayName,
+            enviadas: 0,
+            recebidas: 0,
+            date: lastDate.toISOString().split('T')[0]
+          });
+        }
+      } else {
+        // Não há dados, mostrar últimos 7 dias com zeros
+        const last7Days: string[] = [];
+        const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+        
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date(today);
+          date.setDate(today.getDate() - i);
+          last7Days.push(date.toISOString().split('T')[0]);
+        }
+
+        processedData = last7Days.map((dateString) => {
+          const date = new Date(dateString);
+          const dayName = dayNames[date.getDay()];
+          
+          return {
+            dia: dayName,
+            enviadas: 0,
+            recebidas: 0,
+            date: dateString
+          };
+        });
+      }
 
       if (!isMounted.current) return;
 
@@ -187,12 +217,9 @@ export function useUsageStats(): UsageStatsResponse {
       
       if (!isMounted.current) return;
       
-      // Em caso de erro, usar dados de fallback
-      const fallbackData = generateFallbackData();
-      const total = fallbackData.reduce((sum, day) => sum + day.enviadas + day.recebidas, 0);
-      
-      setData(fallbackData);
-      setTotalMessages(total);
+      // Em caso de erro, reportar erro real (sem fallback)
+      setData([]);
+      setTotalMessages(0);
       setError(err instanceof Error ? err.message : 'Erro desconhecido');
     } finally {
       isFetching.current = false;
@@ -200,7 +227,7 @@ export function useUsageStats(): UsageStatsResponse {
         setIsLoading(false);
       }
     }
-  }, [user?.id, data.length, generateFallbackData]);
+  }, [user?.id, data.length]);
 
   // Função de refetch manual
   const refetch = useCallback(() => {

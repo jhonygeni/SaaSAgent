@@ -160,8 +160,8 @@ export function OverviewTab({
       <div className="grid grid-cols-1 gap-6">
         {user && (
           <MessageUsageCard 
-            messageCount={user.messageCount}
-            messageLimit={user.messageLimit}
+            messageCount={totalMessages}
+            messageLimit={user.messageLimit || 100}
           />
         )}
       </div>
