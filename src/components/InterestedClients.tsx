@@ -1,9 +1,8 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button-extensions";
-import { Search, ChevronRight, ChevronLeft, Edit, DollarSign, TrendingUp } from "lucide-react";
+import { Search, ChevronRight, ChevronLeft, Edit, DollarSign, TrendingUp, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -23,82 +22,22 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
+import { useContacts, type Contact, type ClientStatus } from "@/hooks/useContacts";
+import { supabase } from "@/integrations/supabase/client";
 
-// Client status type
-type ClientStatus = "Contacted" | "Negotiating" | "Purchased" | "Lost";
-
-// Enhanced client type with status and purchase amount
-interface InterestedClient {
-  id: string;
-  name: string;
-  phoneNumber: string;
-  summary: string;
-  date: string;
-  status: ClientStatus;
-  purchaseAmount?: number;
-}
-
-// Mock data for demonstration
-const mockInterestedClients: InterestedClient[] = [
-  {
-    id: "1",
-    name: "João Silva",
-    phoneNumber: "+55 11 99876-5432",
-    summary: "Interessado em apartamentos de 2 quartos na zona sul. Perguntou sobre financiamento.",
-    date: "2025-05-15T14:30:00Z",
-    status: "Contacted"
-  },
-  {
-    id: "2",
-    name: "Maria Oliveira",
-    phoneNumber: "+55 11 98765-4321",
-    summary: "Procurando casa com quintal para comprar. Orçamento de R$ 500 mil.",
-    date: "2025-05-16T10:15:00Z",
-    status: "Negotiating"
-  },
-  {
-    id: "3",
-    name: "Carlos Ferreira",
-    phoneNumber: "+55 21 99876-1234",
-    summary: "Interessado em imóveis comerciais para locação no centro.",
-    date: "2025-05-17T16:45:00Z",
-    status: "Purchased",
-    purchaseAmount: 450000
-  },
-  {
-    id: "4",
-    name: "Ana Costa",
-    phoneNumber: "+55 11 97654-3210",
-    summary: "Procura apartamento para alugar próximo ao metrô. Orçamento R$ 2.500/mês.",
-    date: "2025-05-18T09:20:00Z",
-    status: "Contacted"
-  },
-  {
-    id: "5",
-    name: "Roberto Almeida",
-    phoneNumber: "+55 11 95432-1098",
-    summary: "Interessado em investimentos imobiliários. Procura imóveis para renda.",
-    date: "2025-05-19T11:30:00Z",
-    status: "Lost"
-  },
-  {
-    id: "6",
-    name: "Juliana Santos",
-    phoneNumber: "+55 11 98765-0987",
-    summary: "Comprou apartamento de 3 quartos na zona oeste. Cliente satisfeito.",
-    date: "2025-05-12T13:45:00Z",
-    status: "Purchased",
-    purchaseAmount: 680000
-  }
-];
+// Enhanced client type with status and purchase amount (using Contact from hook)
+interface InterestedClient extends Contact {}
 
 export function InterestedClients() {
+  const { contacts, isLoading, error, refetch } = useContacts();
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [clients, setClients] = useState<InterestedClient[]>(mockInterestedClients);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [currentClient, setCurrentClient] = useState<InterestedClient | null>(null);
   const itemsPerPage = 4;
+
+  // Use dados reais dos contatos vindos do Supabase
+  const clients = contacts;
 
   const filteredClients = clients.filter(
     client => 
@@ -150,20 +89,44 @@ export function InterestedClients() {
     setEditModalOpen(true);
   };
 
-  const handleSaveClient = () => {
+  const handleSaveClient = async () => {
     if (!currentClient) return;
     
-    setClients(prevClients => 
-      prevClients.map(client => 
-        client.id === currentClient.id ? currentClient : client
-      )
-    );
-    
-    setEditModalOpen(false);
-    toast({
-      title: "Cliente atualizado",
-      description: "As informações do cliente foram atualizadas com sucesso.",
-    });
+    try {
+      // Atualizar no Supabase usando os campos corretos da tabela
+      const { error } = await supabase
+        .from('contacts')
+        .update({
+          name: currentClient.name,
+          phone_number: currentClient.phoneNumber,
+          email: currentClient.email,
+          resume: currentClient.summary,           // Campo resume da tabela
+          status: currentClient.status,            // Campo status da tabela
+          valor: currentClient.purchaseAmount,     // Campo valor da tabela
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', currentClient.id);
+
+      if (error) {
+        throw error;
+      }
+
+      // Atualizar estado local e recarregar dados
+      setEditModalOpen(false);
+      refetch(); // Recarregar dados do Supabase
+      
+      toast({
+        title: "Cliente atualizado",
+        description: "As informações do cliente foram atualizadas com sucesso.",
+      });
+    } catch (error) {
+      console.error('Erro ao salvar cliente:', error);
+      toast({
+        title: "Erro ao salvar",
+        description: "Não foi possível salvar as alterações. Tente novamente.",
+        variant: "destructive"
+      });
+    }
   };
 
   // Calculate sales metrics
@@ -207,7 +170,7 @@ export function InterestedClients() {
               </Badge>
             </div>
             <h3 className="text-lg font-medium text-muted-foreground mb-1">Total de Vendas</h3>
-            <p className="text-4xl font-bold">{totalSales}</p>
+            <p className="text-4xl font-bold">{isLoading ? "..." : totalSales}</p>
             <div className="mt-2 flex items-center text-sm text-muted-foreground">
               <TrendingUp className="h-4 w-4 mr-1 text-green-500" />
               <span className="text-green-500 font-medium">12%</span>
@@ -227,7 +190,7 @@ export function InterestedClients() {
               </Badge>
             </div>
             <h3 className="text-lg font-medium text-muted-foreground mb-1">Valor Total</h3>
-            <p className="text-4xl font-bold">{formatCurrency(totalSalesAmount)}</p>
+            <p className="text-4xl font-bold">{isLoading ? "..." : formatCurrency(totalSalesAmount)}</p>
             <div className="mt-2 flex items-center text-sm text-muted-foreground">
               <TrendingUp className="h-4 w-4 mr-1 text-green-500" />
               <span className="text-green-500 font-medium">8%</span>
@@ -237,8 +200,32 @@ export function InterestedClients() {
         </Card>
       </div>
 
+      {/* Error State */}
+      {error && (
+        <Card className="border-destructive/50 bg-destructive/10">
+          <CardContent className="p-4">
+            <div className="flex gap-2 items-center text-destructive">
+              <AlertCircle className="h-5 w-5" />
+              <span className="font-medium">Erro ao carregar clientes:</span>
+            </div>
+            <p className="text-sm text-destructive mt-1">{error}</p>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="mt-2"
+              onClick={refetch}
+            >
+              Tentar novamente
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Header with search */}
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h2 className="text-2xl font-bold">Clientes</h2>
+        <h2 className="text-2xl font-bold">
+          Clientes {isLoading ? "(Carregando...)" : `(${clients.length})`}
+        </h2>
         <div className="relative w-full sm:w-64">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
@@ -246,6 +233,7 @@ export function InterestedClients() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-8"
+            disabled={isLoading}
           />
         </div>
       </div>
@@ -253,7 +241,19 @@ export function InterestedClients() {
       {paginatedClients.length === 0 ? (
         <Card className="bg-card dark:bg-card border-border">
           <CardContent className="py-10 text-center text-muted-foreground">
-            <p>Nenhum cliente encontrado.</p>
+            {isLoading ? (
+              <div className="flex flex-col items-center gap-2">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                <p>Carregando clientes...</p>
+              </div>
+            ) : filteredClients.length === 0 && clients.length > 0 ? (
+              <p>Nenhum cliente corresponde aos critérios de busca.</p>
+            ) : (
+              <div className="flex flex-col items-center gap-2">
+                <p>Nenhum cliente encontrado.</p>
+                <p className="text-xs">Os clientes aparecerão aqui conforme forem sendo adicionados à sua base de contatos.</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       ) : (

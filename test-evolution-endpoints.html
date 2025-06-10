@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 Test Evolution API Endpoints</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #cce5ff; color: #004085; border: 1px solid #b3d7ff; }
+        .log { background: #f8f9fa; padding: 15px; border-radius: 4px; font-family: monospace; overflow-x: auto; max-height: 300px; overflow-y: auto; }
+        button { padding: 10px 15px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Evolution API Endpoints Test</h1>
+        
+        <div class="status info">
+            <strong>Environment:</strong> <span id="environment">Detecting...</span><br>
+            <strong>Base URL:</strong> <span id="baseUrl">Loading...</span>
+        </div>
+
+        <div style="margin: 20px 0;">
+            <button class="btn-primary" onclick="testInstancesEndpoint()">🔍 Test /api/evolution/instances</button>
+            <button class="btn-primary" onclick="testInstancesSimpleEndpoint()">🔍 Test /api/evolution/instances-simple</button>
+            <button class="btn-primary" onclick="testAllEndpoints()">🧪 Test All Endpoints</button>
+            <button class="btn-secondary" onclick="clearLog()">🗑️ Clear Log</button>
+        </div>
+
+        <div id="status" class="status info">Ready to test...</div>
+        
+        <div class="log" id="log">
+            Waiting for tests...\n
+        </div>
+    </div>
+
+    <script>
+        // Detect environment
+        const isLocal = window.location.hostname === 'localhost';
+        const baseUrl = isLocal ? 'http://localhost:5173' : window.location.origin;
+        
+        document.getElementById('environment').textContent = isLocal ? 'Local Development' : 'Production';
+        document.getElementById('baseUrl').textContent = baseUrl;
+
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.textContent += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function setStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+        }
+
+        function clearLog() {
+            document.getElementById('log').textContent = 'Log cleared...\n';
+        }
+
+        async function testInstancesEndpoint() {
+            log('🔍 Testing /api/evolution/instances...');
+            setStatus('Testing instances endpoint...', 'info');
+            
+            try {
+                const response = await fetch(`${baseUrl}/api/evolution/instances`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                log(`Response status: ${response.status} ${response.statusText}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Success! Response: ${JSON.stringify(data, null, 2)}`);
+                    setStatus('✅ /api/evolution/instances working!', 'success');
+                } else {
+                    const errorText = await response.text();
+                    log(`❌ Error response: ${errorText}`);
+                    setStatus(`❌ Failed: ${response.status} - ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Network error: ${error.message}`);
+                setStatus(`❌ Network error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testInstancesSimpleEndpoint() {
+            log('🔍 Testing /api/evolution/instances-simple...');
+            setStatus('Testing instances-simple endpoint...', 'info');
+            
+            try {
+                const response = await fetch(`${baseUrl}/api/evolution/instances-simple`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                log(`Response status: ${response.status} ${response.statusText}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Success! Response: ${JSON.stringify(data, null, 2)}`);
+                    setStatus('✅ /api/evolution/instances-simple working!', 'success');
+                } else {
+                    const errorText = await response.text();
+                    log(`❌ Error response: ${errorText}`);
+                    setStatus(`❌ Failed: ${response.status} - ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Network error: ${error.message}`);
+                setStatus(`❌ Network error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testAllEndpoints() {
+            log('🧪 Testing all Evolution API endpoints...');
+            setStatus('Testing all endpoints...', 'info');
+            
+            const endpoints = [
+                '/api/evolution/instances',
+                '/api/evolution/instances-simple',
+                '/api/evolution/status',
+                '/api/evolution/info',
+                '/api/evolution/connect',
+                '/api/evolution/qrcode',
+                '/api/evolution/settings',
+                '/api/evolution/delete',
+                '/api/evolution/create-instance'
+            ];
+            
+            let successCount = 0;
+            
+            for (const endpoint of endpoints) {
+                try {
+                    log(`Testing ${endpoint}...`);
+                    const response = await fetch(`${baseUrl}${endpoint}`, {
+                        method: 'GET',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    
+                    if (response.status !== 404) {
+                        log(`✅ ${endpoint}: ${response.status} ${response.statusText}`);
+                        successCount++;
+                    } else {
+                        log(`❌ ${endpoint}: 404 Not Found`);
+                    }
+                } catch (error) {
+                    log(`❌ ${endpoint}: ${error.message}`);
+                }
+                
+                // Small delay between requests
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            
+            const message = `Testing complete: ${successCount}/${endpoints.length} endpoints available`;
+            log(`🎯 ${message}`);
+            
+            if (successCount >= endpoints.length - 2) {
+                setStatus('✅ ' + message, 'success');
+            } else {
+                setStatus('❌ ' + message, 'error');
+            }
+        }
+
+        // Auto-test instances endpoint when page loads
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                log('🚀 Auto-testing instances endpoint...');
+                testInstancesEndpoint();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

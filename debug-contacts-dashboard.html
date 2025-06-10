@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Debug Dashboard - Contatos</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #007bff;
+        }
+        .success { border-left-color: #28a745; background: #d4edda; }
+        .error { border-left-color: #dc3545; background: #f8d7da; }
+        .warning { border-left-color: #ffc107; background: #fff3cd; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Debug Dashboard - Contatos</h1>
+        <p>Diagnóstico completo dos dados de contatos no dashboard</p>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="userStatus">❓</div>
+                <div>Status do Usuário</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="contactsCount">0</div>
+                <div>Total de Contatos</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="errorCount">0</div>
+                <div>Erros Detectados</div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔐 Verificação de Autenticação</h3>
+            <button onclick="checkAuth()">Verificar Usuário Logado</button>
+            <div id="auth-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📋 Teste de Acesso aos Contatos</h3>
+            <button onclick="testContactsAccess()">Buscar Contatos</button>
+            <div id="contacts-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔄 Teste do Hook useContacts (Simulação)</h3>
+            <button onclick="simulateHook()">Simular Hook</button>
+            <div id="hook-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🛠️ Teste de Criação de Contato</h3>
+            <button onclick="testCreateContact()">Criar Contato de Teste</button>
+            <div id="create-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 Logs do Sistema</h3>
+            <div id="system-logs"></div>
+        </div>
+    </div>
+
+    <script>
+        // Configuração do Supabase
+        const supabaseUrl = 'https://hpovwcaskorzzrpphgkc.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhwb3Z3Y2Fza29yenpycHBoZ2tjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM2NTYxMjAsImV4cCI6MjA0OTIzMjEyMH0.WrYqnftZOEX1FzLG0a4OEqgANOr9-dNxtQ-3R9hqJ50';
+        
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+        let currentUser = null;
+        let errorCount = 0;
+
+        function log(message, type = 'info') {
+            const logs = document.getElementById('system-logs');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.style.marginBottom = '5px';
+            logEntry.style.padding = '5px';
+            logEntry.style.backgroundColor = type === 'error' ? '#ffe6e6' : '#e6f3ff';
+            logEntry.style.borderRadius = '3px';
+            logEntry.innerHTML = `<small>${timestamp}</small> ${message}`;
+            logs.appendChild(logEntry);
+            logs.scrollTop = logs.scrollHeight;
+            
+            if (type === 'error') {
+                errorCount++;
+                document.getElementById('errorCount').textContent = errorCount;
+            }
+        }
+
+        async function checkAuth() {
+            const resultDiv = document.getElementById('auth-result');
+            resultDiv.innerHTML = '<p>🔄 Verificando autenticação...</p>';
+            
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                
+                if (error) {
+                    throw error;
+                }
+                
+                if (session?.user) {
+                    currentUser = session.user;
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h4>✅ Usuário Autenticado</h4>
+                            <p><strong>ID:</strong> ${session.user.id}</p>
+                            <p><strong>Email:</strong> ${session.user.email}</p>
+                            <p><strong>Criado em:</strong> ${new Date(session.user.created_at).toLocaleString()}</p>
+                        </div>
+                    `;
+                    document.getElementById('userStatus').textContent = '✅';
+                    log('✅ Usuário autenticado com sucesso');
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <h4>❌ Usuário não autenticado</h4>
+                            <p>É necessário fazer login no sistema</p>
+                        </div>
+                    `;
+                    document.getElementById('userStatus').textContent = '❌';
+                    log('❌ Usuário não autenticado', 'error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>💥 Erro na verificação</h4>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+                log(`💥 Erro na autenticação: ${error.message}`, 'error');
+            }
+        }
+
+        async function testContactsAccess() {
+            const resultDiv = document.getElementById('contacts-result');
+            resultDiv.innerHTML = '<p>🔄 Buscando contatos...</p>';
+            
+            if (!currentUser) {
+                resultDiv.innerHTML = `
+                    <div class="warning">
+                        <h4>⚠️ Primeiro verifique a autenticação</h4>
+                        <p>Execute o teste de autenticação primeiro</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            try {
+                log(`🔍 Buscando contatos para user_id: ${currentUser.id}`);
+                
+                const { data, error } = await supabase
+                    .from('contacts')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .order('created_at', { ascending: false });
+                
+                if (error) {
+                    throw error;
+                }
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <h4>✅ Contatos carregados com sucesso</h4>
+                        <p><strong>Total encontrado:</strong> ${data.length} contatos</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </div>
+                `;
+                
+                document.getElementById('contactsCount').textContent = data.length;
+                log(`✅ ${data.length} contatos encontrados`);
+                
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>💥 Erro ao buscar contatos</h4>
+                        <p><strong>Erro:</strong> ${error.message}</p>
+                        <p><strong>Código:</strong> ${error.code || 'N/A'}</p>
+                        <p><strong>Detalhes:</strong> ${error.details || 'N/A'}</p>
+                    </div>
+                `;
+                log(`💥 Erro ao buscar contatos: ${error.message}`, 'error');
+            }
+        }
+
+        function mapSupabaseContact(supabaseContact) {
+            let summary = 'Cliente interessado em nossos serviços.';
+            
+            if (supabaseContact.custom_fields) {
+                try {
+                    const customFields = typeof supabaseContact.custom_fields === 'string' 
+                        ? JSON.parse(supabaseContact.custom_fields) 
+                        : supabaseContact.custom_fields;
+                    
+                    if (customFields.summary) {
+                        summary = customFields.summary;
+                    } else if (customFields.resume) {
+                        summary = customFields.resume;
+                    } else if (customFields.interest) {
+                        summary = `Interessado em: ${customFields.interest}`;
+                    }
+                } catch (e) {
+                    log(`⚠️ Erro ao processar custom_fields: ${e.message}`, 'error');
+                }
+            }
+
+            let status = 'Contacted';
+            let purchaseAmount = undefined;
+            
+            if (supabaseContact.custom_fields) {
+                try {
+                    const customFields = typeof supabaseContact.custom_fields === 'string' 
+                        ? JSON.parse(supabaseContact.custom_fields) 
+                        : supabaseContact.custom_fields;
+                    
+                    if (customFields.status && ['Contacted', 'Negotiating', 'Purchased', 'Lost'].includes(customFields.status)) {
+                        status = customFields.status;
+                    }
+                    
+                    if (customFields.purchaseAmount && !isNaN(Number(customFields.purchaseAmount))) {
+                        purchaseAmount = Number(customFields.purchaseAmount);
+                    }
+                } catch (e) {
+                    log(`⚠️ Erro ao processar status: ${e.message}`, 'error');
+                }
+            }
+
+            return {
+                id: supabaseContact.id,
+                name: supabaseContact.name || 'Nome não informado',
+                phoneNumber: supabaseContact.phone_number,
+                summary,
+                date: supabaseContact.created_at || new Date().toISOString(),
+                status,
+                purchaseAmount,
+                tags: supabaseContact.tags,
+                customFields: supabaseContact.custom_fields
+            };
+        }
+
+        async function simulateHook() {
+            const resultDiv = document.getElementById('hook-result');
+            resultDiv.innerHTML = '<p>🔄 Simulando hook useContacts...</p>';
+            
+            if (!currentUser) {
+                resultDiv.innerHTML = `
+                    <div class="warning">
+                        <h4>⚠️ Primeiro verifique a autenticação</h4>
+                    </div>
+                `;
+                return;
+            }
+            
+            try {
+                log('🎯 Simulando hook useContacts...');
+                
+                // Simular o que o hook faz
+                const { data, error } = await supabase
+                    .from('contacts')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .order('created_at', { ascending: false });
+                
+                if (error) throw error;
+                
+                log(`📊 Dados brutos recebidos: ${data.length} registros`);
+                
+                // Mapear dados como o hook faz
+                const mappedContacts = data.map(mapSupabaseContact);
+                
+                log(`🔄 Dados mapeados: ${mappedContacts.length} contatos`);
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <h4>✅ Hook simulado com sucesso</h4>
+                        <p><strong>Dados brutos:</strong> ${data.length} registros</p>
+                        <p><strong>Dados mapeados:</strong> ${mappedContacts.length} contatos</p>
+                        <h5>Contatos Mapeados:</h5>
+                        <pre>${JSON.stringify(mappedContacts, null, 2)}</pre>
+                    </div>
+                `;
+                
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>💥 Erro na simulação do hook</h4>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+                log(`💥 Erro na simulação: ${error.message}`, 'error');
+            }
+        }
+
+        async function testCreateContact() {
+            const resultDiv = document.getElementById('create-result');
+            resultDiv.innerHTML = '<p>🔄 Criando contato de teste...</p>';
+            
+            if (!currentUser) {
+                resultDiv.innerHTML = `
+                    <div class="warning">
+                        <h4>⚠️ Primeiro verifique a autenticação</h4>
+                    </div>
+                `;
+                return;
+            }
+            
+            try {
+                const testContact = {
+                    name: `Teste ${Date.now()}`,
+                    phone_number: `+55119${String(Date.now()).slice(-8)}`,
+                    user_id: currentUser.id,
+                    custom_fields: {
+                        summary: 'Contato criado via debug',
+                        status: 'Contacted',
+                        purchaseAmount: 150
+                    }
+                };
+                
+                log('🔨 Criando contato de teste...');
+                
+                const { data, error } = await supabase
+                    .from('contacts')
+                    .insert([testContact])
+                    .select();
+                
+                if (error) throw error;
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <h4>✅ Contato criado com sucesso</h4>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </div>
+                `;
+                
+                log('✅ Contato de teste criado com sucesso');
+                
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>💥 Erro ao criar contato</h4>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+                log(`💥 Erro ao criar contato: ${error.message}`, 'error');
+            }
+        }
+
+        // Executar verificação inicial
+        window.onload = function() {
+            log('🚀 Sistema de debug iniciado');
+            checkAuth();
+        };
+    </script>
+</body>
+</html>
