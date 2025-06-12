@@ -10,6 +10,8 @@ import {
   WhatsAppInstanceResponse
 } from '@/services/whatsapp/types';
 import { secureApiClient } from '@/services/whatsapp/secureApiClient';
+import { logger } from '@/lib/logging';
+import { APILogger, withAPILogging } from '@/lib/logging/api-logger';
 
 /**
  * Service for WhatsApp API interactions using secure Edge Functions
@@ -20,43 +22,51 @@ const whatsappService = {
    * Must be called immediately after successful instance creation
    */
   configureWebhook: async (instanceName: string): Promise<WebhookConfigResponse> => {
-    try {
-      console.log(`Configuring webhook for instance: ${instanceName}`);
-      
-      if (USE_MOCK_DATA) {
-        console.warn("MOCK MODE IS ACTIVE - This should never be used in production!");
-        return {
-          status: "success",
-          message: "Webhook configured successfully (mock)",
-          webhook: {
-            enabled: true,
-            url: "https://webhooksaas.geni.chat/webhook/principal",
-            events: ["MESSAGES_UPSERT"]
-          }
-        };
+    return withAPILogging(
+      async () => {
+        if (USE_MOCK_DATA) {
+          logger.warn("MOCK MODE IS ACTIVE - This should never be used in production!", {
+            operation: 'configureWebhook',
+            instanceName
+          });
+          return {
+            status: "success",
+            message: "Webhook configured successfully (mock)",
+            webhook: {
+              enabled: true,
+              url: "https://webhooksaas.geni.chat/webhook/principal",
+              events: ["MESSAGES_UPSERT"]
+            }
+          };
+        }
+        
+        // Use secure API client for webhook configuration
+        const data = await secureApiClient.setWebhook(instanceName, {
+          url: "https://webhooksaas.geni.chat/webhook/principal",
+          webhook_by_events: false,
+          webhook_base64: false,
+          events: [
+            "QRCODE_UPDATED",
+            "MESSAGES_UPSERT",
+            "MESSAGES_UPDATE",
+            "MESSAGES_DELETE",
+            "SEND_MESSAGE",
+            "CONNECTION_UPDATE"
+          ]
+        });
+        
+        logger.info("Webhook configuration successful", {
+          operation: 'configureWebhook',
+          instanceName
+        });
+        return data;
+      },
+      {
+        method: 'POST',
+        endpoint: `configureWebhook/${instanceName}`,
+        service: 'whatsappService'
       }
-      
-      // Use secure API client for webhook configuration
-      const data = await secureApiClient.setWebhook(instanceName, {
-        url: "https://webhooksaas.geni.chat/webhook/principal",
-        webhook_by_events: false,
-        webhook_base64: false,
-        events: [
-          "QRCODE_UPDATED",
-          "MESSAGES_UPSERT",
-          "MESSAGES_UPDATE",
-          "MESSAGES_DELETE",
-          "SEND_MESSAGE",
-          "CONNECTION_UPDATE"
-        ]
-      });
-      
-      console.log("Webhook configuration successful:", data);
-      return data;
-    } catch (error) {
-      console.error("Error configuring webhook:", error);
-      throw error;
-    }
+    );
   },
 
   /**

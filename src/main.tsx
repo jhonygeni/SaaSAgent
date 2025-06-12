@@ -4,6 +4,9 @@ import App from './App.tsx'
 import './index.css'
 import { Toaster } from '@/components/ui/toaster'
 
+// Inicializa o sistema de logging (configuração adaptativa para navegador/servidor)
+import './logging-init'
+
 const rootElement = document.getElementById('root')
 if (!rootElement) {
   throw new Error('Root element not found')

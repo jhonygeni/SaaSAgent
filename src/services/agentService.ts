@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Agent, BusinessSector, FAQ } from "@/types";
 import { nanoid } from "nanoid";
 import { getAutomaticInstanceName } from "@/utils/automaticInstanceNameGenerator";
+import { logger } from "@/lib/logging";
+import { APILogger, withAPILogging } from "@/lib/logging/api-logger";
 
 /**
  * Service for agent data management in Supabase
@@ -12,7 +14,16 @@ const agentService = {
    * Create a new agent in Supabase
    */
   createAgent: async (agent: Agent): Promise<Agent | null> => {
+    const apiLogger = new APILogger('agentService');
+    
     try {
+      // Log the operation start
+      apiLogger.request({ 
+        method: 'POST', 
+        endpoint: 'createAgent', 
+        requestData: { agentName: agent.name, agentType: agent.type }
+      });
+      
       // Set timeout for the operation
       const timeoutPromise = new Promise<null>((_, reject) => {
         setTimeout(() => reject(new Error("Tempo limite excedido - createAgent")), 5000); // Optimized from 8000ms
@@ -22,7 +33,7 @@ const agentService = {
         // First, make sure we have the current user
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-          console.error("No authenticated user found");
+          logger.error("No authenticated user found", { operation: 'createAgent' });
           return null;
         }
 
