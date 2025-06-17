@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Link Expirado - Console Real</title>
+    <style>
+        body { 
+            font-family: 'Courier New', monospace; 
+            padding: 20px; 
+            background: #1a1a1a; 
+            color: #00ff00; 
+            line-height: 1.6;
+        }
+        .console { 
+            background: #000; 
+            padding: 20px; 
+            border-radius: 5px; 
+            border: 1px solid #333;
+            margin: 20px 0;
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+        .error { color: #ff6b6b; }
+        .success { color: #51cf66; }
+        .warning { color: #ffd43b; }
+        .info { color: #74c0fc; }
+        button {
+            background: #339af0;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin: 5px;
+            font-family: inherit;
+        }
+        .url-display {
+            background: #2d2d2d;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #339af0;
+            margin: 15px 0;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug Console - Link Expirado</h1>
+    
+    <div class="url-display">
+        <strong>URL Atual:</strong><br>
+        <span id="currentUrl"></span>
+    </div>
+
+    <button onclick="irParaLinkExpirado()">🔗 Ir para Link Expirado</button>
+    <button onclick="irParaSemParametros()">📭 Ir Sem Parâmetros</button>
+    <button onclick="limparConsole()">🧹 Limpar Console</button>
+    <button onclick="analisarParametros()">📊 Analisar Parâmetros</button>
+
+    <div id="console" class="console">Iniciando debug console...</div>
+
+    <script>
+        let consoleDiv = document.getElementById('console');
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const colorClass = type;
+            consoleDiv.innerHTML += `<span class="${colorClass}">[${timestamp}] ${message}</span>\n`;
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        function limparConsole() {
+            consoleDiv.innerHTML = '';
+        }
+
+        function updateCurrentUrl() {
+            document.getElementById('currentUrl').textContent = window.location.href;
+        }
+
+        function analisarParametros() {
+            log('🔍 Analisando parâmetros da URL atual...', 'info');
+            
+            const params = new URLSearchParams(window.location.search);
+            const hash = window.location.hash;
+            
+            log(`📍 URL completa: ${window.location.href}`, 'info');
+            log(`📋 Query string: ${window.location.search}`, 'info');
+            log(`🔗 Hash: ${hash}`, 'info');
+            
+            if (params.size === 0) {
+                log('❌ Nenhum parâmetro encontrado na URL', 'error');
+            } else {
+                log(`✅ Encontrados ${params.size} parâmetros:`, 'success');
+                params.forEach((value, key) => {
+                    log(`  • ${key}: ${decodeURIComponent(value)}`, 'info');
+                });
+            }
+
+            // Verificar especificamente parâmetros de erro
+            const error = params.get('error');
+            const errorCode = params.get('error_code');
+            const errorDescription = params.get('error_description');
+            
+            if (error) {
+                log('🚨 PARÂMETROS DE ERRO DETECTADOS:', 'error');
+                log(`  error: ${error}`, 'error');
+                log(`  error_code: ${errorCode}`, 'error');
+                log(`  error_description: ${decodeURIComponent(errorDescription || '')}`, 'error');
+                
+                if (error === 'access_denied' && errorCode === 'otp_expired') {
+                    log('✅ Confirmado: Link expirado (OTP expired)', 'warning');
+                    log('💡 Ação necessária: Solicitar novo email de confirmação', 'warning');
+                }
+            }
+
+            // Verificar tokens
+            const token = params.get('token');
+            const tokenHash = params.get('token_hash');
+            
+            if (token) {
+                log(`🎯 Token encontrado: ${token.substring(0, 20)}...`, 'success');
+            } else if (tokenHash) {
+                log(`🎯 Token hash encontrado: ${tokenHash.substring(0, 20)}...`, 'success');
+            } else {
+                log('❌ Nenhum token encontrado na URL', 'error');
+            }
+        }
+
+        function irParaLinkExpirado() {
+            log('🚀 Navegando para link com erro (simulando URL problemática)...', 'info');
+            const urlComErro = `${window.location.origin}/confirmar-email?error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired`;
+            window.location.href = urlComErro;
+        }
+
+        function irParaSemParametros() {
+            log('🚀 Navegando para página sem parâmetros...', 'info');
+            const urlSemParametros = `${window.location.origin}/confirmar-email`;
+            window.location.href = urlSemParametros;
+        }
+
+        // Monitorar mudanças na URL
+        window.addEventListener('hashchange', () => {
+            updateCurrentUrl();
+            log('🔄 URL alterada, reanalizing...', 'info');
+            setTimeout(analisarParametros, 100);
+        });
+
+        // Interceptar erros do console
+        window.addEventListener('error', (e) => {
+            log(`💥 ERRO JAVASCRIPT: ${e.message} (${e.filename}:${e.lineno})`, 'error');
+        });
+
+        // Interceptar logs do console
+        const originalConsoleLog = console.log;
+        const originalConsoleError = console.error;
+        const originalConsoleWarn = console.warn;
+
+        console.log = function(...args) {
+            originalConsoleLog.apply(console, args);
+            log(`📝 CONSOLE: ${args.join(' ')}`, 'info');
+        };
+
+        console.error = function(...args) {
+            originalConsoleError.apply(console, args);
+            log(`❌ ERROR: ${args.join(' ')}`, 'error');
+        };
+
+        console.warn = function(...args) {
+            originalConsoleWarn.apply(console, args);
+            log(`⚠️ WARNING: ${args.join(' ')}`, 'warning');
+        };
+
+        // Inicialização
+        updateCurrentUrl();
+        log('🎯 Debug console iniciado', 'success');
+        log('🔍 Use os botões acima para navegar e testar diferentes cenários', 'info');
+        
+        // Auto-analisar se há parâmetros
+        if (window.location.search) {
+            setTimeout(analisarParametros, 500);
+        }
+    </script>
+</body>
+</html>

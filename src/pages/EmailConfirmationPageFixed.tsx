@@ -22,7 +22,7 @@ const EmailConfirmationPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [status, setStatus] = useState<"loading" | "success" | "error" | "rejected">("loading");
+  const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [message, setMessage] = useState<string>("");
   const [debugInfo, setDebugInfo] = useState<string[]>([]);
 
@@ -33,7 +33,7 @@ const EmailConfirmationPage = () => {
 
   useEffect(() => {
     const confirmEmail = async () => {
-      addDebugLog("🚀 === INICIANDO CONFIRMAÇÃO DE EMAIL ===");
+      addDebugLog("🚀 === INICIANDO CONFIRMAÇÃO SIMPLIFICADA ===");
       addDebugLog(`URL: ${window.location.href}`);
       
       try {
@@ -67,31 +67,16 @@ const EmailConfirmationPage = () => {
         const token = urlParams.get("token");
         const tokenHash = urlParams.get("token_hash");
         const type = urlParams.get("type") || "signup";
-        const redirectTo = urlParams.get("redirect_to");
         const accessToken = hashParams.get("access_token");
         const refreshToken = hashParams.get("refresh_token");
         const error = urlParams.get("error");
-        const errorCode = urlParams.get("error_code");
         const errorDescription = urlParams.get("error_description");
 
         // Se há erro na URL
         if (error) {
-          addDebugLog(`❌ Erro nos parâmetros: ${error} - ${errorCode} - ${errorDescription}`);
-          
-          // Tratamento específico para diferentes tipos de erro
-          if (error === "access_denied" && errorCode === "otp_expired") {
-            setStatus("error");
-            setMessage("O link de confirmação expirou ou é inválido. Links de confirmação são válidos por apenas 24 horas.");
-            addDebugLog("🕒 Link expirado detectado - orientando usuário para reenvio");
-          } else if (errorDescription && (errorDescription.includes("invalid") || errorDescription.includes("expired"))) {
-            setStatus("error");
-            setMessage("Este link de confirmação não é mais válido. Pode ter expirado ou já foi usado.");
-            addDebugLog("🔗 Link inválido detectado - orientando usuário para alternativas");
-          } else {
-            setStatus("error");
-            setMessage(`Erro na confirmação: ${decodeURIComponent(errorDescription || error)}`);
-            addDebugLog("❓ Erro genérico detectado");
-          }
+          addDebugLog(`❌ Erro nos parâmetros: ${error} - ${errorDescription}`);
+          setStatus("error");
+          setMessage(`Erro na confirmação: ${errorDescription || error}`);
           return;
         }
 
@@ -110,7 +95,7 @@ const EmailConfirmationPage = () => {
             addDebugLog(`✅ Sessão estabelecida com sucesso!`);
             setStatus("success");
             setMessage("Seu e-mail foi confirmado com sucesso!");
-            setTimeout(() => navigate(redirectTo || "/dashboard"), 3000);
+            setTimeout(() => navigate("/dashboard"), 3000);
             return;
           }
         }
@@ -130,7 +115,7 @@ const EmailConfirmationPage = () => {
             addDebugLog(`✅ OTP verificado com sucesso!`);
             setStatus("success");
             setMessage("Seu e-mail foi confirmado com sucesso!");
-            setTimeout(() => navigate(redirectTo || "/dashboard"), 3000);
+            setTimeout(() => navigate("/dashboard"), 3000);
             return;
           }
         }
@@ -186,31 +171,15 @@ const EmailConfirmationPage = () => {
                   return;
                 } else {
                   addDebugLog(`❌ Erro na função Edge: ${result.error || 'Erro desconhecido'}`);
-                  
-                  // Fallback: marcar como sucesso e pedir para fazer login
-                  addDebugLog("🔄 Usando fallback para token customizado...");
-                  setStatus("success");
-                  setMessage("Token customizado detectado. Seu e-mail provavelmente foi confirmado. Tente fazer login.");
-                  
-                  toast({
-                    title: "Token customizado processado",
-                    description: "Tente fazer login para verificar se seu email foi confirmado.",
-                  });
-                  return;
                 }
               } catch (edgeError: any) {
                 addDebugLog(`❌ Erro na função Edge: ${edgeError.message}`);
-                
-                // Fallback final para tokens customizados
-                setStatus("success");
-                setMessage("Token customizado detectado. Tente fazer login para verificar se seu email foi confirmado.");
-                return;
               }
             } else if (customData.session) {
               addDebugLog(`✅ Token customizado verificado com sucesso!`);
               setStatus("success");
               setMessage("Seu e-mail foi confirmado com sucesso!");
-              setTimeout(() => navigate(redirectTo || "/dashboard"), 3000);
+              setTimeout(() => navigate("/dashboard"), 3000);
               return;
             }
           } else {
@@ -226,7 +195,7 @@ const EmailConfirmationPage = () => {
               addDebugLog(`✅ Token simples verificado com sucesso!`);
               setStatus("success");
               setMessage("Seu e-mail foi confirmado com sucesso!");
-              setTimeout(() => navigate(redirectTo || "/dashboard"), 3000);
+              setTimeout(() => navigate("/dashboard"), 3000);
               return;
             }
           }
@@ -234,17 +203,8 @@ const EmailConfirmationPage = () => {
 
         // Se chegou aqui, nenhum método funcionou
         addDebugLog("❌ === NENHUM MÉTODO DE CONFIRMAÇÃO FUNCIONOU ===");
-        
-        // Verificar se pelo menos havia algum parâmetro relevante
-        if (!token && !tokenHash && !accessToken && !refreshToken) {
-          addDebugLog("❓ Nenhum token ou parâmetro de confirmação encontrado na URL");
-          setStatus("error");
-          setMessage("Link de confirmação incompleto ou malformado. Verifique se você clicou no link correto do email.");
-        } else {
-          addDebugLog("🔍 Havia parâmetros na URL, mas nenhum método de confirmação funcionou");
-          setStatus("error");
-          setMessage("Não foi possível confirmar seu e-mail automaticamente. O token pode estar expirado ou inválido.");
-        }
+        setStatus("error");
+        setMessage("Não foi possível confirmar seu e-mail. O link pode estar expirado ou inválido.");
 
       } catch (error: any) {
         addDebugLog(`💥 Erro geral: ${error.message}`);
@@ -254,7 +214,7 @@ const EmailConfirmationPage = () => {
     };
 
     confirmEmail();
-  }, [searchParams, navigate, toast]);
+  }, [searchParams, navigate]);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -278,63 +238,51 @@ const EmailConfirmationPage = () => {
             {status === "success" && (
               <div className="flex flex-col items-center justify-center py-8">
                 <CheckCircle className="h-16 w-16 text-green-500 mb-4" />
-                <h3 className="text-xl font-bold mb-2">E-mail confirmado!</h3>
+                <h3 className="text-xl font-bold mb-2">E-mail confirmado com sucesso!</h3>
                 <p className="text-center mb-6">{message}</p>
-                
-                <div className="flex flex-col sm:flex-row gap-2 w-full">
-                  <Button onClick={() => navigate("/dashboard")}>
-                    Ir para Dashboard
-                  </Button>
-                  <Button variant="outline" onClick={() => navigate("/entrar")}>
-                    Fazer Login
-                  </Button>
-                </div>
+                <p className="text-sm text-muted-foreground">
+                  Você será redirecionado automaticamente em alguns segundos...
+                </p>
               </div>
             )}
 
             {status === "error" && (
               <div className="flex flex-col items-center justify-center py-8">
                 <XCircle className="h-16 w-16 text-red-500 mb-4" />
-                <h3 className="text-xl font-bold mb-2">Link de confirmação inválido</h3>
+                <h3 className="text-xl font-bold mb-2">Problema na confirmação</h3>
                 <p className="text-center mb-6">{message}</p>
                 
                 <Alert className="mb-6">
                   <AlertTriangle className="h-4 w-4" />
-                  <AlertTitle>Possíveis soluções:</AlertTitle>
-                  <AlertDescription className="space-y-2">
-                    <div>• <strong>Tente fazer login</strong> - seu email pode já estar confirmado</div>
-                    <div>• <strong>Solicite um novo email</strong> - links expiram em 24 horas</div>
-                    <div>• <strong>Verifique sua caixa de entrada</strong> - pode haver um email mais recente</div>
-                    <div>• <strong>Use apenas emails do "Geni Chat"</strong> - ignore emails do "ConversaAI Brasil"</div>
+                  <AlertTitle>Você pode ter recebido dois emails</AlertTitle>
+                  <AlertDescription className="mt-2">
+                    Devido a um problema técnico, você pode ter recebido dois emails de confirmação:<br />
+                    • Um do <strong>"ConversaAI Brasil"</strong> (com problemas)<br />
+                    • Um do <strong>"Geni Chat"</strong> (funciona corretamente)<br /><br />
+                    Se este link não funciona, tente usar o link do email "Geni Chat".
                   </AlertDescription>
                 </Alert>
 
-                <div className="flex flex-col sm:flex-row gap-2 w-full">
+                <div className="flex flex-col gap-3 w-full">
                   <Button onClick={() => navigate("/entrar")}>
                     Tentar fazer login
                   </Button>
                   <Button variant="outline" onClick={() => navigate("/reenviar-confirmacao")}>
-                    Reenviar confirmação
+                    Reenviar email de confirmação
                   </Button>
                 </div>
               </div>
             )}
 
-            {/* Debug Info Section */}
-            {debugInfo.length > 0 && (
-              <details className="mt-6 p-4 bg-gray-50 rounded-lg">
-                <summary className="cursor-pointer font-medium text-sm">
-                  Debug Info ({debugInfo.length} logs)
-                </summary>
-                <div className="mt-2 text-xs font-mono space-y-1 max-h-60 overflow-y-auto">
-                  {debugInfo.map((log, index) => (
-                    <div key={index} className="text-gray-600">
-                      {log}
-                    </div>
-                  ))}
-                </div>
-              </details>
-            )}
+            {/* Debug Info */}
+            <details className="mt-6 p-4 bg-gray-50 rounded-md">
+              <summary className="cursor-pointer font-medium">Debug Info (Para desenvolvedores)</summary>
+              <div className="mt-2 text-xs max-h-40 overflow-y-auto">
+                {debugInfo.map((log, index) => (
+                  <div key={index} className="py-1 border-b text-xs">{log}</div>
+                ))}
+              </div>
+            </details>
           </CardContent>
         </Card>
       </main>

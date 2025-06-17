@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Confirmação Email Real</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .log { background: #f0f0f0; padding: 10px; margin: 5px 0; border-radius: 5px; }
+        .error { background: #ffe6e6; border-left: 4px solid #ff0000; }
+        .success { background: #e6ffe6; border-left: 4px solid #00ff00; }
+        .warning { background: #fff3cd; border-left: 4px solid #ffc107; }
+        .info { background: #e7f3ff; border-left: 4px solid #007bff; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug Confirmação de Email - Teste Real</h1>
+    <div id="logs"></div>
+    
+    <h2>📋 Simulação de URLs de Confirmação</h2>
+    <div>
+        <h3>1. URL com token_hash (formato comum Supabase):</h3>
+        <button onclick="testUrl('http://localhost:8082/confirmar-email?token_hash=test-token-hash&type=signup')">
+            Testar URL com token_hash
+        </button>
+        
+        <h3>2. URL com token (formato personalizado):</h3>
+        <button onclick="testUrl('http://localhost:8082/confirmar-email?token=test-token&type=signup')">
+            Testar URL com token
+        </button>
+        
+        <h3>3. URL com access_token no hash (formato padrão Supabase):</h3>
+        <button onclick="testUrl('http://localhost:8082/confirmar-email#access_token=test-access-token&refresh_token=test-refresh-token&token_type=bearer')">
+            Testar URL com hash tokens
+        </button>
+        
+        <h3>4. URL vazia (sem parâmetros):</h3>
+        <button onclick="testUrl('http://localhost:8082/confirmar-email')">
+            Testar URL vazia
+        </button>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const logDiv = document.createElement('div');
+            logDiv.className = `log ${type}`;
+            logDiv.innerHTML = `<strong>[${new Date().toLocaleTimeString()}]</strong> ${message}`;
+            logsDiv.appendChild(logDiv);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function testUrl(url) {
+            log(`🚀 Abrindo URL: ${url}`, 'info');
+            
+            // Abrir em nova aba e tentar capturar logs
+            const newWindow = window.open(url, '_blank');
+            
+            setTimeout(() => {
+                log(`✅ URL aberta em nova aba. Verifique o console da nova aba para logs detalhados.`, 'success');
+            }, 1000);
+        }
+
+        // Função para simular o processo de confirmação
+        async function simulateConfirmation() {
+            log('🔍 Iniciando simulação do processo de confirmação...', 'info');
+            
+            try {
+                // Simular diferentes cenários
+                const scenarios = [
+                    {
+                        name: 'URL com token_hash',
+                        url: new URL('http://localhost:8082/confirmar-email?token_hash=test-hash&type=signup'),
+                        expected: 'Deve processar token_hash via verifyOtp'
+                    },
+                    {
+                        name: 'URL com access_token no hash',
+                        url: new URL('http://localhost:8082/confirmar-email#access_token=test-access&refresh_token=test-refresh&token_type=bearer'),
+                        expected: 'Deve processar via setSession'
+                    },
+                    {
+                        name: 'URL sem parâmetros',
+                        url: new URL('http://localhost:8082/confirmar-email'),
+                        expected: 'Deve verificar sessão existente'
+                    }
+                ];
+
+                for (const scenario of scenarios) {
+                    log(`📝 Cenário: ${scenario.name}`, 'info');
+                    log(`🎯 URL: ${scenario.url.href}`, 'info');
+                    log(`📋 Esperado: ${scenario.expected}`, 'info');
+                    
+                    // Simular extração de parâmetros
+                    const queryParams = new URLSearchParams(scenario.url.search);
+                    const hashParams = new URLSearchParams(scenario.url.hash.substring(1));
+                    
+                    log(`🔍 Query params: ${JSON.stringify(Object.fromEntries(queryParams))}`, 'info');
+                    log(`🔍 Hash params: ${JSON.stringify(Object.fromEntries(hashParams))}`, 'info');
+                    log('---', 'info');
+                }
+                
+            } catch (error) {
+                log(`❌ Erro na simulação: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-executar simulação
+        window.onload = function() {
+            log('🚀 Página carregada. Iniciando diagnóstico...', 'success');
+            simulateConfirmation();
+        };
+    </script>
+</body>
+</html>

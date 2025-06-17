@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - Sistema de Confirmação de Email</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+        .section { margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        button { padding: 10px 20px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-warning { background: #ffc107; color: black; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug - Sistema de Confirmação de Email</h1>
+    
+    <div class="section info">
+        <h3>📊 Informações da URL Atual</h3>
+        <div id="url-info"></div>
+    </div>
+
+    <div class="section warning">
+        <h3>🧪 Simulador de URLs de Confirmação</h3>
+        <p>Teste diferentes formatos de URL para identificar problemas:</p>
+        <button class="btn-primary" onclick="testSupabaseFormat()">Testar Formato Supabase Padrão</button>
+        <button class="btn-warning" onclick="testCustomFormat()">Testar Formato Customizado</button>
+        <button class="btn-success" onclick="testGeniChatFormat()">Testar Formato Geni Chat</button>
+    </div>
+
+    <div class="section">
+        <h3>📋 Logs de Debug</h3>
+        <div id="debug-logs"></div>
+    </div>
+
+    <script>
+        function logDebug(message, type = 'info') {
+            const logs = document.getElementById('debug-logs');
+            const timestamp = new Date().toLocaleTimeString();
+            const logElement = document.createElement('div');
+            logElement.innerHTML = `<strong>[${timestamp}]</strong> ${message}`;
+            logElement.className = type;
+            logs.appendChild(logElement);
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        function analyzeURL() {
+            const url = window.location.href;
+            const urlObj = new URL(url);
+            
+            logDebug("🔍 Analisando URL atual...", "info");
+            logDebug(`URL completa: ${url}`, "info");
+            
+            // Query parameters
+            const queryParams = new URLSearchParams(urlObj.search);
+            const queryEntries = Array.from(queryParams.entries());
+            
+            // Hash parameters
+            const hashParams = new URLSearchParams(urlObj.hash.substring(1));
+            const hashEntries = Array.from(hashParams.entries());
+            
+            const urlInfo = document.getElementById('url-info');
+            urlInfo.innerHTML = `
+                <h4>📊 Detalhes da URL:</h4>
+                <p><strong>URL:</strong> ${url}</p>
+                <p><strong>Pathname:</strong> ${urlObj.pathname}</p>
+                <p><strong>Search:</strong> ${urlObj.search}</p>
+                <p><strong>Hash:</strong> ${urlObj.hash}</p>
+                
+                <h4>📋 Query Parameters (?):</h4>
+                <pre>${queryEntries.length ? queryEntries.map(([k,v]) => `${k}: ${v}`).join('\\n') : 'Nenhum parâmetro query encontrado'}</pre>
+                
+                <h4>🔗 Hash Parameters (#):</h4>
+                <pre>${hashEntries.length ? hashEntries.map(([k,v]) => `${k}: ${v}`).join('\\n') : 'Nenhum parâmetro hash encontrado'}</pre>
+            `;
+
+            // Análise específica para confirmação de email
+            const token = queryParams.get('token');
+            const tokenHash = queryParams.get('token_hash');
+            const type = queryParams.get('type');
+            const hashAccessToken = hashParams.get('access_token');
+            const hashRefreshToken = hashParams.get('refresh_token');
+
+            if (token || tokenHash) {
+                logDebug("✅ Formato de confirmação via Query Parameters detectado", "success");
+                logDebug(`Token: ${token}`, "info");
+                logDebug(`Token Hash: ${tokenHash}`, "info");
+                logDebug(`Type: ${type}`, "info");
+            }
+
+            if (hashAccessToken || hashRefreshToken) {
+                logDebug("✅ Formato de confirmação via Hash Parameters detectado", "success");
+                logDebug(`Access Token: ${hashAccessToken?.substring(0, 20)}...`, "info");
+                logDebug(`Refresh Token: ${hashRefreshToken?.substring(0, 20)}...`, "info");
+            }
+
+            if (!token && !tokenHash && !hashAccessToken && !hashRefreshToken) {
+                logDebug("❌ Nenhum token de confirmação encontrado na URL", "error");
+            }
+        }
+
+        function testSupabaseFormat() {
+            const testUrl = window.location.origin + window.location.pathname + 
+                "#access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test&refresh_token=test_refresh&token_type=bearer&type=signup";
+            
+            logDebug("🧪 Testando formato Supabase padrão...", "warning");
+            logDebug(`Redirecionando para: ${testUrl}`, "info");
+            
+            setTimeout(() => {
+                window.location.href = testUrl;
+            }, 1000);
+        }
+
+        function testCustomFormat() {
+            const testUrl = window.location.origin + window.location.pathname + 
+                "?token=custom-token-abc123&token_hash=hash456&type=signup&redirect_to=/dashboard";
+            
+            logDebug("🧪 Testando formato customizado...", "warning");
+            logDebug(`Redirecionando para: ${testUrl}`, "info");
+            
+            setTimeout(() => {
+                window.location.href = testUrl;
+            }, 1000);
+        }
+
+        function testGeniChatFormat() {
+            // Simular um link real do Geni Chat baseado no que sabemos
+            const testUrl = window.location.origin + window.location.pathname + 
+                "?token_hash=real_token_hash_from_supabase&type=signup";
+            
+            logDebug("🧪 Testando formato Geni Chat...", "warning");
+            logDebug(`Redirecionando para: ${testUrl}`, "info");
+            
+            setTimeout(() => {
+                window.location.href = testUrl;
+            }, 1000);
+        }
+
+        // Executar análise automaticamente quando a página carregar
+        window.onload = function() {
+            logDebug("🚀 Debug de confirmação de email iniciado", "success");
+            analyzeURL();
+        };
+    </script>
+</body>
+</html>

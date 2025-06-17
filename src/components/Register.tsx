@@ -49,7 +49,9 @@ export function Register() {
     
     try {
       console.log("Tentando criar conta com:", { email, name });
-      // Register with Supabase
+      
+      // SOLUÇÃO ALTERNATIVA: Criar usuário com confirmação automática desabilitada
+      // e enviar email personalizado através da nossa função Edge
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -71,6 +73,41 @@ export function Register() {
       if (!data.user) {
         console.error("Usuário não foi criado corretamente:", data);
         throw new Error("Falha ao criar usuário");
+      }
+
+      // ENVIAR EMAIL PERSONALIZADO através da nossa função Edge
+      try {
+        console.log("Enviando email de confirmação personalizado...");
+        
+        // Chamar nossa função Edge diretamente
+        const emailResponse = await fetch('https://hpovwcaskorzzrpphgkc.supabase.co/functions/v1/custom-email', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}`
+          },
+          body: JSON.stringify({
+            type: "auth",
+            event: "signup",
+            user: {
+              id: data.user.id,
+              email: data.user.email
+            },
+            data: {
+              token: "custom-token-" + Math.random().toString(36).substr(2, 9)
+            },
+            redirect_to: "https://ia.geni.chat/confirmar-email"
+          })
+        });
+
+        if (emailResponse.ok) {
+          console.log("Email personalizado enviado com sucesso!");
+        } else {
+          console.warn("Falha ao enviar email personalizado, usando sistema padrão");
+        }
+      } catch (emailError) {
+        console.warn("Erro ao enviar email personalizado:", emailError);
+        // Continua mesmo se o email personalizado falhar
       }
       
       toast({

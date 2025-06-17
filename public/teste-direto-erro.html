@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Direto - Link Expirado</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; }
+        .result { margin: 10px 0; padding: 15px; border-radius: 5px; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .info { background: #e2e3e5; border: 1px solid #d6d8db; color: #383d41; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        .url-test { background: #f8f9fa; padding: 10px; border-radius: 5px; margin: 10px 0; font-family: monospace; word-break: break-all; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste Direto - Detecção de Link Expirado</h1>
+        
+        <div class="url-test">
+            <strong>URL de Teste:</strong><br>
+            confirmar-email?error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired
+        </div>
+
+        <button onclick="testarDeteccaoErro()">🔍 Testar Detecção de Erro</button>
+        <button onclick="simularReactComponent()">⚛️ Simular Componente React</button>
+        <button onclick="irParaPaginaReal()">🚀 Ir para Página Real</button>
+
+        <div id="resultados"></div>
+    </div>
+
+    <script>
+        function addResult(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.innerHTML = message;
+            document.getElementById('resultados').appendChild(div);
+        }
+
+        function testarDeteccaoErro() {
+            addResult('🔍 <strong>Testando detecção de parâmetros de erro...</strong>', 'info');
+            
+            // Simular a URL problemática
+            const urlProblematica = 'confirmar-email?error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired';
+            const params = new URLSearchParams(urlProblematica.split('?')[1]);
+            
+            // Extrair parâmetros como no código React
+            const error = params.get("error");
+            const errorCode = params.get("error_code");  
+            const errorDescription = params.get("error_description");
+            
+            addResult(`• error: "${error}"`, 'info');
+            addResult(`• errorCode: "${errorCode}"`, 'info');
+            addResult(`• errorDescription: "${errorDescription}"`, 'info');
+            
+            // Testar a lógica condicional
+            if (error) {
+                addResult('✅ <strong>Erro detectado!</strong>', 'success');
+                
+                if (error === "access_denied" && errorCode === "otp_expired") {
+                    addResult('🎯 <strong>Condição específica atendida:</strong> access_denied + otp_expired', 'success');
+                    addResult('📝 <strong>Mensagem que deveria aparecer:</strong> "O link de confirmação expirou ou é inválido. Links de confirmação são válidos por apenas 24 horas."', 'success');
+                } else {
+                    addResult('❌ Condição específica NÃO atendida', 'error');
+                }
+                
+                // Testar segunda condição
+                if (errorDescription && (errorDescription.includes("invalid") || errorDescription.includes("expired"))) {
+                    addResult('🎯 <strong>Segunda condição também atendida:</strong> errorDescription contém "invalid" ou "expired"', 'success');
+                } else {
+                    addResult('❌ Segunda condição NÃO atendida', 'error');
+                }
+            } else {
+                addResult('❌ <strong>Nenhum erro detectado</strong>', 'error');
+            }
+        }
+
+        function simularReactComponent() {
+            addResult('⚛️ <strong>Simulando lógica do componente React...</strong>', 'info');
+            
+            // Simular exatamente o que o React faz
+            const urlParams = new URLSearchParams('error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired');
+            
+            const token = urlParams.get("token");
+            const tokenHash = urlParams.get("token_hash");
+            const type = urlParams.get("type") || "signup";
+            const redirectTo = urlParams.get("redirect_to");
+            const error = urlParams.get("error");
+            const errorCode = urlParams.get("error_code");
+            const errorDescription = urlParams.get("error_description");
+            
+            addResult(`📊 <strong>Parâmetros extraídos:</strong>`, 'info');
+            addResult(`• token: ${token || 'null'}`, 'info');
+            addResult(`• tokenHash: ${tokenHash || 'null'}`, 'info');
+            addResult(`• error: ${error || 'null'}`, 'info');
+            addResult(`• errorCode: ${errorCode || 'null'}`, 'info');
+            addResult(`• errorDescription: ${errorDescription || 'null'}`, 'info');
+            
+            // Executar a lógica exata do componente
+            if (error) {
+                addResult('✅ <strong>if (error) = TRUE</strong>', 'success');
+                
+                if (error === "access_denied" && errorCode === "otp_expired") {
+                    addResult('🎯 <strong>MATCH!</strong> error === "access_denied" && errorCode === "otp_expired"', 'success');
+                    addResult('📱 <strong>Status:</strong> setStatus("error")', 'success');
+                    addResult('💬 <strong>Mensagem:</strong> "O link de confirmação expirou ou é inválido. Links de confirmação são válidos por apenas 24 horas."', 'success');
+                    addResult('🔄 <strong>Return:</strong> função deveria retornar aqui', 'success');
+                } else {
+                    addResult('❌ Primeira condição não atendida', 'error');
+                }
+            } else {
+                addResult('❌ <strong>if (error) = FALSE</strong>', 'error');
+            }
+        }
+
+        function irParaPaginaReal() {
+            addResult('🚀 <strong>Redirecionando para página real...</strong>', 'success');
+            const url = `${window.location.origin}/confirmar-email?error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired`;
+            window.open(url, '_blank');
+        }
+
+        // Executar teste automático
+        setTimeout(() => {
+            testarDeteccaoErro();
+        }, 500);
+    </script>
+</body>
+</html>

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste URL com Erro - Link Expirado</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            max-width: 1000px; 
+            margin: 0 auto;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .url-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+            margin: 15px 0;
+            word-break: break-all;
+        }
+        .error-box {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .success-box {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .params {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        .test-results { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste de URL com Erro - Link Expirado</h1>
+        
+        <div class="error-box">
+            <strong>❌ Problema Identificado:</strong><br>
+            A URL da imagem mostra parâmetros de erro em vez de um token válido
+        </div>
+
+        <h2>📋 Análise da URL Problemática</h2>
+        <div class="url-box">
+            <strong>URL:</strong> ia.geni.chat/confirmar-email?error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired
+        </div>
+
+        <div class="params">
+            <strong>Parâmetros detectados:</strong><br>
+            • <code>error=access_denied</code><br>
+            • <code>error_code=otp_expired</code><br>
+            • <code>error_description=Email+link+is+invalid+or+has+expired</code>
+        </div>
+
+        <h2>🔧 Testes de Correção</h2>
+        
+        <button onclick="testarURLLocal()">🧪 Testar URL Local (Desenvolvimento)</button>
+        <button onclick="testarURLProducao()">🌐 Testar URL Produção</button>
+        <button onclick="analisarParametros()">📊 Analisar Parâmetros</button>
+        
+        <div id="resultados" class="test-results"></div>
+    </div>
+
+    <script>
+        function addResult(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = type === 'error' ? 'error-box' : type === 'success' ? 'success-box' : 'params';
+            div.innerHTML = `<strong>[${new Date().toLocaleTimeString()}]</strong> ${message}`;
+            document.getElementById('resultados').appendChild(div);
+        }
+
+        function analisarParametros() {
+            addResult('🔍 Analisando parâmetros da URL problemática...', 'info');
+            
+            const urlProblematica = 'ia.geni.chat/confirmar-email?error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired';
+            const params = new URLSearchParams(urlProblematica.split('?')[1]);
+            
+            addResult('📋 Parâmetros encontrados:', 'info');
+            params.forEach((value, key) => {
+                addResult(`• ${key}: ${decodeURIComponent(value)}`, 'info');
+            });
+            
+            const error = params.get('error');
+            const errorCode = params.get('error_code');
+            const errorDescription = params.get('error_description');
+            
+            if (error === 'access_denied' && errorCode === 'otp_expired') {
+                addResult('✅ Erro identificado corretamente: Link expirado (OTP expired)', 'success');
+                addResult('💡 Solução: Usuário deve solicitar novo email de confirmação', 'success');
+            } else {
+                addResult('❓ Tipo de erro diferente do esperado', 'error');
+            }
+        }
+
+        function testarURLLocal() {
+            addResult('🧪 Testando URL no ambiente local...', 'info');
+            
+            // Simular a URL com erro no ambiente local
+            const urlLocal = 'http://localhost:8081/confirmar-email?error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired';
+            
+            addResult(`🔗 URL de teste: ${urlLocal}`, 'info');
+            addResult('🚀 Abrindo em nova aba...', 'info');
+            
+            window.open(urlLocal, '_blank');
+            
+            setTimeout(() => {
+                addResult('ℹ️ Verifique a nova aba para ver como a página trata o erro', 'info');
+                addResult('✅ A página deve mostrar: "O link de confirmação expirou ou é inválido"', 'success');
+            }, 1000);
+        }
+
+        function testarURLProducao() {
+            addResult('🌐 Testando URL em produção...', 'info');
+            
+            const urlProducao = 'https://ia.geni.chat/confirmar-email?error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired';
+            
+            addResult(`🔗 URL de produção: ${urlProducao}`, 'info');
+            addResult('🚀 Abrindo em nova aba...', 'info');
+            
+            window.open(urlProducao, '_blank');
+            
+            setTimeout(() => {
+                addResult('ℹ️ Verifique se a página em produção trata o erro corretamente', 'info');
+                addResult('📝 Compare o comportamento com o ambiente local', 'info');
+            }, 1000);
+        }
+
+        // Executar análise automática ao carregar
+        setTimeout(() => {
+            analisarParametros();
+        }, 500);
+    </script>
+</body>
+</html>
