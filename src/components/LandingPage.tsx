@@ -305,7 +305,7 @@ export function LandingPage() {
               <div className="text-sm text-gray-600">Clientes recebem respostas em segundos</div>
             </div>
             <div className="text-center">
-              <div className="text-4xl font-bold text-brand-600 mb-2">3x</div>
+              <div className="text-4xl font-bold text-brand-600 mb-2">400%</div>
               <div className="text-lg font-medium mb-2 text-gray-900">Mais conversões</div>
               <div className="text-sm text-gray-600">Aumento nas vendas através do WhatsApp</div>
             </div>
@@ -384,7 +384,7 @@ export function LandingPage() {
               </div>
               <h3 className="text-xl font-bold mb-3">Conecte o WhatsApp</h3>
               <p className="text-muted-foreground">
-                Escaneie um QR code e conecte sua conta do WhatsApp Business em segundos.
+                Escaneie um QR code e conecte sua conta do WhatsApp em segundos.
               </p>
             </div>
             <div className="flex flex-col items-center text-center">
@@ -423,7 +423,7 @@ export function LandingPage() {
                     <h3 className="font-semibold text-lg mb-2 text-gray-900">Resposta instantânea = Mais vendas</h3>
                     <p className="text-gray-600">
                       87% dos clientes esperam resposta em até 4 horas. Nosso assistente responde em segundos, 
-                      aumentando suas chances de conversão em até 300%.
+                      aumentando suas chances de conversão em até 400%.
                     </p>
                   </div>
                 </div>
@@ -444,7 +444,7 @@ export function LandingPage() {
                     <Lock className="h-6 w-6 text-purple-600" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-lg mb-2 text-gray-900">Economize até R$15.000/mês</h3>
+                    <h3 className="font-semibold text-lg mb-2 text-gray-900">Economize até R$7.200/mês</h3>
                     <p className="text-gray-600">
                       Substitua até 3 atendentes humanos. Com nosso plano Growth a R$249/mês, 
                       você economiza milhares em salários e ainda atende melhor.
@@ -472,35 +472,12 @@ export function LandingPage() {
               </div>
             </div>
             <div className="rounded-xl bg-gradient-to-br from-brand-100 to-brand-50 p-8 border">
-              <div className="aspect-video bg-white rounded-lg shadow-lg p-6 flex items-center justify-center">
-                <div className="max-w-xs w-full">
-                  <div className="flex gap-4 mb-4">
-                    <div className="w-10 h-10 rounded-full bg-brand-500/20 flex items-center justify-center">
-                      <MessageSquare className="h-5 w-5 text-brand-500" />
-                    </div>
-                    <div className="flex-1 space-y-2">
-                      <div className="h-4 bg-muted rounded-full w-3/4"></div>
-                      <div className="h-4 bg-muted rounded-full w-1/2"></div>
-                    </div>
-                  </div>
-                  <div className="space-y-3">
-                    <div className="flex gap-3">
-                      <div className="w-8 h-8 rounded-full bg-muted"></div>
-                      <div className="bg-muted rounded-lg p-3 flex-1">
-                        <div className="h-3 bg-muted-foreground/20 rounded-full w-full mb-2"></div>
-                        <div className="h-3 bg-muted-foreground/20 rounded-full w-4/5"></div>
-                      </div>
-                    </div>
-                    <div className="flex gap-3 justify-end">
-                      <div className="bg-brand-500 rounded-lg p-3 flex-1 max-w-[80%]">
-                        <div className="h-3 bg-white/20 rounded-full w-full mb-2"></div>
-                        <div className="h-3 bg-white/20 rounded-full w-4/5"></div>
-                        <div className="h-3 bg-white/20 rounded-full w-3/5 mt-2"></div>
-                      </div>
-                      <div className="w-8 h-8 rounded-full bg-muted"></div>
-                    </div>
-                  </div>
-                </div>
+              <div className="aspect-video bg-white rounded-lg shadow-lg overflow-hidden">
+                <img 
+                  src="/dashboard-screenshot.png" 
+                  alt="Dashboard do Geni.Chat mostrando clientes e estatísticas de vendas"
+                  className="w-full h-full object-cover"
+                />
               </div>
             </div>
           </div>
@@ -527,11 +504,11 @@ export function LandingPage() {
                 </div>
                 <div>
                   <div className="text-2xl font-bold mb-1">💰</div>
-                  <div className="text-sm">Economie até R$15k/mês</div>
+                  <div className="text-sm">Economie até R$7.2k/mês</div>
                 </div>
                 <div>
                   <div className="text-2xl font-bold mb-1">📈</div>
-                  <div className="text-sm">3x mais conversões</div>
+                  <div className="text-sm">4x mais conversões</div>
                 </div>
               </div>
             </div>
