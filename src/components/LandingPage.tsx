@@ -582,27 +582,23 @@ export function LandingPage() {
                   </Button>
                 </li>
                 <li>
-                  <Button variant="link" className="p-0 h-auto text-gray-400 hover:text-white">
-                    Contato
-                  </Button>
-                </li>
-                <li>
-                  <Button variant="link" className="p-0 h-auto text-gray-400 hover:text-white">
-                    WhatsApp: (11) 99999-9999
-                  </Button>
+                  <div className="text-sm text-gray-400">
+                    <div>contato@geni.chat</div>
+                    <div>(19) 99691-0257</div>
+                  </div>
                 </li>
               </ul>
             </div>
           </div>
           <div className="border-t border-gray-700 mt-12 pt-6 flex flex-col md:flex-row justify-between items-center">
             <p className="text-sm text-gray-400">
-              &copy; {new Date().getFullYear()} Geni.Chat. Todos os direitos reservados.
+              &copy; {new Date().getFullYear()} Geni.Chat. Todos os direitos reservados. | CNPJ: 53.263.087/0001-55
             </p>
             <div className="flex gap-4 mt-4 md:mt-0">
-              <Button variant="link" className="p-0 h-auto text-gray-400 hover:text-white text-sm">
+              <Button variant="link" className="p-0 h-auto text-gray-400 hover:text-white text-sm" onClick={() => navigate("/termos")}>
                 Termos de Uso
               </Button>
-              <Button variant="link" className="p-0 h-auto text-gray-400 hover:text-white text-sm">
+              <Button variant="link" className="p-0 h-auto text-gray-400 hover:text-white text-sm" onClick={() => navigate("/privacidade")}>
                 Privacidade
               </Button>
             </div>

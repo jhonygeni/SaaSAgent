@@ -26,6 +26,8 @@ import EmailConfirmSuccessPage from "./pages/EmailConfirmSuccessPage";
 import ResendConfirmationPage from "./pages/ResendConfirmationPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import TermsPage from "./pages/TermsPage";
+import PrivacyPage from "./pages/PrivacyPage";
 import { DebugDashboard } from "@/components/DebugDashboard";
 
 // Query client singleton para evitar re-criações
@@ -69,6 +71,8 @@ const AppRoutes = memo(() => (
     <Route path="/reenviar-confirmacao" element={<ResendConfirmationPage />} />
     <Route path="/esqueci-senha" element={<ForgotPasswordPage />} />
     <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
+    <Route path="/termos" element={<TermsPage />} />
+    <Route path="/privacidade" element={<PrivacyPage />} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 ));
