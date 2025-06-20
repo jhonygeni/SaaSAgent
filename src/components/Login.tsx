@@ -49,8 +49,8 @@ export function Login() {
       await checkSubscriptionStatus();
 
       toast({
-        title: "Login successful",
-        description: "Welcome back! Redirecting to dashboard...",
+        title: "Login realizado com sucesso",
+        description: "Bem-vindo de volta! Redirecionando para o dashboard...",
       });
       
       navigate("/dashboard", { replace: true });
@@ -60,16 +60,16 @@ export function Login() {
       if (error.message?.includes("Email not confirmed")) {
         toast({
           variant: "destructive",
-          title: "Email not confirmed",
-          description: "Please confirm your email before logging in.",
+          title: "E-mail não confirmado",
+          description: "Por favor, confirme seu e-mail antes de fazer login.",
         });
         return;
       }
       
       toast({
         variant: "destructive",
-        title: "Login failed",
-        description: error.message || "Please check your credentials and try again.",
+        title: "Falha no login",
+        description: error.message || "Verifique suas credenciais e tente novamente.",
       });
     } finally {
       setIsLoading(false);
@@ -79,19 +79,19 @@ export function Login() {
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
-        <CardTitle>Login</CardTitle>
+        <CardTitle>Entrar</CardTitle>
         <CardDescription>
-          Sign in to your account to continue.
+          Faça login na sua conta para continuar.
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleLogin}>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">E-mail</Label>
             <Input
               id="email"
               type="email"
-              placeholder="your@email.com"
+              placeholder="seu@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -99,11 +99,11 @@ export function Login() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">Senha</Label>
             <Input
               id="password"
               type="password"
-              placeholder="Your password"
+              placeholder="Sua senha"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -120,10 +120,10 @@ export function Login() {
             {isLoading ? (
               <div className="flex items-center gap-2">
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                <span>Signing in...</span>
+                <span>Entrando...</span>
               </div>
             ) : (
-              "Sign in"
+              "Entrar"
             )}
           </Button>
           <div className="flex flex-col gap-2 w-full text-center">
@@ -131,17 +131,17 @@ export function Login() {
               type="button"
               variant="link"
               className="text-sm"
-              onClick={() => navigate("/forgot-password")}
+              onClick={() => navigate("/esqueci-senha")}
             >
-              Forgot your password?
+              Esqueceu sua senha?
             </Button>
             <Button
               type="button"
               variant="link"
               className="text-sm"
-              onClick={() => navigate("/register")}
+              onClick={() => navigate("/registrar")}
             >
-              Don't have an account? Sign up
+              Não tem uma conta? Cadastre-se
             </Button>
           </div>
         </CardFooter>
