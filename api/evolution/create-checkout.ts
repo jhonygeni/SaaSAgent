@@ -1,28 +1,25 @@
 export default async function handler(req: any, res: any) {
-  if (req.method !== 'DELETE') {
+  if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Método não permitido' });
   }
 
   const apiKey = process.env.EVOLUTION_API_KEY;
   const apiUrl = process.env.EVOLUTION_API_URL || 'https://cloudsaas.geni.chat';
-  const { instanceId } = req.query;
 
   if (!apiKey) {
     return res.status(500).json({ error: 'EVOLUTION_API_KEY não configurada no backend' });
   }
-  if (!instanceId) {
-    return res.status(400).json({ error: 'instanceId é obrigatório' });
-  }
 
   try {
     const baseUrl = apiUrl.replace(/\/$/, '');
-    const response = await fetch(`${baseUrl}/instance/delete?instanceId=${instanceId}`, {
-      method: 'DELETE',
+    const response = await fetch(`${baseUrl}/checkout/create`, {
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
         'apikey': apiKey,
       },
+      body: JSON.stringify(req.body)
     });
     const data: any = await response.json();
     if (!response.ok) {
