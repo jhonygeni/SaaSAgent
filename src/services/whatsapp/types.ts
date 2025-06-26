@@ -86,7 +86,7 @@ export interface InstanceInfo {
 
 // Connection manager interface
 export interface ConnectionManager {
-  startConnection: (instanceName?: string) => Promise<string | null>;
+  startConnection: (instanceName?: string, agentId?: string) => Promise<string | null>;
   cancelConnection: () => void;
   completeConnection: (phoneNumber?: string) => void;
   getCurrentQrCode: () => string | null;

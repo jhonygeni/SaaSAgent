@@ -73,8 +73,9 @@ export function useWhatsAppConnection() {
   /**
    * Initialize WhatsApp instance with the correct sequence following API docs
    * IMPORTANT: This function should only be called once per instance name
+   * CORREÇÃO: Verifica instâncias existentes antes de criar nova
    */
-  const initializeWhatsAppInstance = useCallback(async (providedName?: string): Promise<string | null> => {
+  const initializeWhatsAppInstance = useCallback(async (providedName?: string, agentId?: string): Promise<string | null> => {
     // Prevent multiple simultaneous creation requests
     if (creationInProgressRef.current) {
       console.log("Instance creation already in progress, skipping duplicate request");
@@ -87,6 +88,36 @@ export function useWhatsAppConnection() {
       const instanceName = getInstanceName(providedName);
       console.log(`Starting WhatsApp connection for instance: ${instanceName}`);
       updateDebugInfo({ action: "initialize", instanceName });
+      
+      // CORREÇÃO: Verificar se já existe uma instância para este agente
+      if (agentId) {
+        console.log(`Checking for existing WhatsApp instance for agent: ${agentId}`);
+        
+        // Use the agentService to check for existing instances
+        const agentService = await import('../services/agentService');
+        const existingInstance = await agentService.default.checkExistingWhatsAppInstance(agentId);
+        
+        if (existingInstance.hasInstance && existingInstance.canReuse) {
+          console.log(`Found existing instance for agent ${agentId}: ${existingInstance.instanceName} (${existingInstance.status})`);
+          
+          // If instance exists and can be reused, use it instead of creating new one
+          if (existingInstance.status === 'connected') {
+            console.log('Instance is already connected, returning existing connection');
+            setConnectionStatus('connected');
+            setConnectionError(null);
+            return null; // Already connected
+          } else {
+            console.log('Instance exists but is pending, attempting to get QR code for existing instance');
+            // Try to get QR code for existing instance
+            try {
+              return await fetchQrCode(existingInstance.instanceName!);
+            } catch (qrError) {
+              console.warn('Failed to get QR code for existing instance, will create new one:', qrError);
+              // Fall through to create new instance
+            }
+          }
+        }
+      }
       
       // 1. First check if the API is accessible using the fetchInstances endpoint
       const isApiHealthy = await whatsappService.checkApiHealth();
@@ -154,7 +185,7 @@ export function useWhatsAppConnection() {
   /**
    * Start WhatsApp connection process following the correct API sequence
    */
-  const startConnection = useCallback(async (instanceName?: string): Promise<string | null> => {
+  const startConnection = useCallback(async (instanceName?: string, agentId?: string): Promise<string | null> => {
     // Reset state on new connection
     setConnectionStatus("waiting");
     setIsLoading(true);
@@ -167,6 +198,7 @@ export function useWhatsAppConnection() {
     updateDebugInfo({
       action: "startConnection",
       instanceId: instanceName || getInstanceName(),
+      agentId: agentId || 'unknown',
       startTime: new Date().toISOString(),
     });
     
@@ -176,10 +208,11 @@ export function useWhatsAppConnection() {
       
       // Initialize instance and get QR code
       const instanceId = instanceName || getInstanceName();
-      console.log(`Starting WhatsApp connection process for instance: ${instanceId}`);
+      console.log(`Starting WhatsApp connection process for instance: ${instanceId}, agentId: ${agentId}`);
       
       // This will create the instance AND get the QR code in one flow
-      const qrCode = await initializeWhatsAppInstance(instanceId);
+      // CORREÇÃO: Passar agentId para verificação de instâncias existentes
+      const qrCode = await initializeWhatsAppInstance(instanceId, agentId);
       
       if (qrCode) {
         console.log("🎯 QR code obtained successfully:", qrCode.substring(0, 50) + "...");

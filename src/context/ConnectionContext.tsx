@@ -5,7 +5,7 @@ import { useWhatsAppConnection } from "@/hooks/useWhatsAppConnection";
 
 interface ConnectionContextType {
   connectionStatus: ConnectionStatus;
-  startConnection: (instanceName?: string) => Promise<string | null>;
+  startConnection: (instanceName?: string, agentId?: string) => Promise<string | null>;
   cancelConnection: () => void;
   completeConnection: (phoneNumber?: string) => void;
   isLoading: boolean;

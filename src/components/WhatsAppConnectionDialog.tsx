@@ -182,7 +182,8 @@ function WhatsAppConnectionDialogInternal({
           setIsSubmitting(true);
           // If we have an initial instance name, use it; otherwise, generate one
           const instanceNameToUse = initialInstanceName || customInstanceName || null;
-          await startConnection(instanceNameToUse);
+          // CORREÇÃO: Passar agentId para verificação de instâncias existentes
+          await startConnection(instanceNameToUse, agentId || undefined);
           console.log("Connection initiated");
         } catch (error) {
           console.error("Error initiating connection:", error);
@@ -266,7 +267,8 @@ function WhatsAppConnectionDialogInternal({
       setIsSubmitting(true);
       setCustomInstanceName(name);
       setModalState("loading");
-      await startConnection(name);
+      // CORREÇÃO: Passar agentId para verificação de instâncias existentes
+      await startConnection(name, agentId || undefined);
       setShowCustomNameForm(false);
       console.log("Connection initiated with custom name");
     } catch (error) {

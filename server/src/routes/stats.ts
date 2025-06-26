@@ -54,7 +54,7 @@ router.get('/dashboard', async (req, res) => {
           };
         });
 
-        const totalMessages = processedData.reduce((sum, day) => sum + day.enviadas + day.recebidas, 0);
+        const totalMessages = processedData.reduce((sum, day) => sum + day.enviadas, 0);
 
         return res.json({
           data: processedData,
@@ -76,7 +76,7 @@ router.get('/dashboard', async (req, res) => {
       };
     });
 
-    const totalMessages = processedData.reduce((sum, day) => sum + day.enviadas + day.recebidas, 0);
+    const totalMessages = processedData.reduce((sum, day) => sum + day.enviadas, 0);
 
     return res.json({
       data: processedData,

@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { Agent, BusinessSector, FAQ } from "@/types";
 import { nanoid } from "nanoid";
@@ -21,7 +20,7 @@ const agentService = {
       apiLogger.request({ 
         method: 'POST', 
         endpoint: 'createAgent', 
-        requestData: { agentName: agent.name, agentType: agent.type }
+        requestData: { agentName: agent.nome, agentType: 'agent' }
       });
       
       // Set timeout for the operation
@@ -370,6 +369,102 @@ const agentService = {
     } catch (error) {
       console.error("Error getting connected agents:", error);
       return [];
+    }
+  },
+
+  /**
+   * Check if an agent already has a WhatsApp instance (PENDING or CONNECTED)
+   * This prevents creating duplicate instances for the same agent
+   */
+  checkExistingWhatsAppInstance: async (agentId: string): Promise<{
+    hasInstance: boolean;
+    instanceName?: string;
+    status?: 'pending' | 'connected';
+    canReuse: boolean;
+  }> => {
+    try {
+      console.log(`Checking existing WhatsApp instance for agent: ${agentId}`);
+      
+      const { data: agent, error } = await supabase
+        .from('agents')
+        .select('*')
+        .eq('id', agentId)
+        .single();
+      
+      if (error || !agent) {
+        console.log('Agent not found for instance check:', error);
+        return { hasInstance: false, canReuse: false };
+      }
+      
+      // Parse agent settings to check for WhatsApp connection data
+      let settings = {};
+      try {
+        settings = agent.settings ? 
+          (typeof agent.settings === 'string' ? 
+            JSON.parse(agent.settings) : agent.settings) : {};
+      } catch (e) {
+        console.error("Error parsing agent settings for instance check:", e);
+        settings = {};
+      }
+      
+      const hasInstanceName = agent.instance_name && agent.instance_name.trim() !== '';
+      const isConnected = (settings as any).connected === true;
+      const hasPhoneNumber = (settings as any).phone_number;
+      
+      if (hasInstanceName) {
+        console.log(`Agent ${agentId} has instance: ${agent.instance_name}, connected: ${isConnected}`);
+        
+        return {
+          hasInstance: true,
+          instanceName: agent.instance_name,
+          status: isConnected ? 'connected' : 'pending',
+          canReuse: true // Can always reuse existing instances
+        };
+      }
+      
+      console.log(`Agent ${agentId} has no existing WhatsApp instance`);
+      return { hasInstance: false, canReuse: false };
+      
+    } catch (error) {
+      console.error('Error checking existing WhatsApp instance:', error);
+      return { hasInstance: false, canReuse: false };
+    }
+  },
+
+  /**
+   * Create or update an agent based on existing WhatsApp instance
+   * SIMPLIFIED: High-level method to ensure agent and instance are in sync
+   */
+  upsertAgentByInstance: async (agentId: string, agentData: Partial<Agent>): Promise<Agent | null> => {
+    try {
+      // Check for existing instance first
+      const { hasInstance, instanceName, status, canReuse } = await agentService.checkExistingWhatsAppInstance(agentId);
+      
+      if (hasInstance && canReuse) {
+        console.log(`Instance already exists for agent ${agentId}, updating agent data`);
+        
+        // If instance exists and can be reused, just update the agent data
+        const updateSuccess = await agentService.updateAgent(agentId, agentData);
+        if (updateSuccess) {
+          // Return the updated agent
+          return await agentService.getAgentById(agentId);
+        } else {
+          return null;
+        }
+      }
+      
+      console.log(`No valid instance found for agent ${agentId}, creating new agent`);
+      
+      // If no valid instance exists, create a new agent
+      const newAgent = await agentService.createAgent({
+        ...agentData,
+        id: agentId // Ensure the agent ID is set
+      } as Agent);
+      
+      return newAgent;
+    } catch (error) {
+      console.error("Error upserting agent by instance:", error);
+      return null;
     }
   }
 };
