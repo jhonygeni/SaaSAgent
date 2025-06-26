@@ -2,6 +2,7 @@
 // Original estava causando avalanche de requisições no Supabase
 import { useState, useEffect } from 'react';
 import { useUser } from '@/context/UserContext';
+import { logger } from '@/lib/safeLog';
 
 export interface UsageStatsData {
   dia: string;
@@ -62,7 +63,7 @@ export function useUsageStats(): UsageStatsResponse {
     }
 
     // Dados seguros para usuário logado
-    console.log('📊 [EMERGÊNCIA] Gerando dados seguros sem requisições HTTP para:', user.id);
+    logger.sensitive('📊 [EMERGÊNCIA] Gerando dados seguros sem requisições HTTP para usuário', { userId: user.id });
     const safeData = generateSafeData();
     const totalExchanged = safeData.reduce((sum, day) => sum + day.enviadas + day.recebidas, 0);
     const totalSent = safeData.reduce((sum, day) => sum + day.enviadas, 0);
@@ -74,7 +75,7 @@ export function useUsageStats(): UsageStatsResponse {
   }, [user?.id]);
 
   const refetch = () => {
-    console.log('🔄 [EMERGÊNCIA] Refetch solicitado - Regenerando dados seguros');
+    logger.debug('🔄 [EMERGÊNCIA] Refetch solicitado - Regenerando dados seguros');
     const newData = generateSafeData();
     const totalExchanged = newData.reduce((sum, day) => sum + day.enviadas + day.recebidas, 0);
     const totalSent = newData.reduce((sum, day) => sum + day.enviadas, 0);

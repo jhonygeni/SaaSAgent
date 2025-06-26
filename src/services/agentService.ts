@@ -1,8 +1,8 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from '@/integrations/supabase/client';
 import { Agent, BusinessSector, FAQ } from "@/types";
 import { nanoid } from "nanoid";
 import { getAutomaticInstanceName } from "@/utils/automaticInstanceNameGenerator";
-import { logger } from "@/lib/logging";
+import { logger } from "@/lib/safeLog";
 import { APILogger, withAPILogging } from "@/lib/logging/api-logger";
 
 /**
@@ -114,7 +114,7 @@ const agentService = {
           return [];
         }
 
-        console.log("AgentService - Fetching agents for user:", user.id);
+        logger.sensitive("AgentService - Fetching agents for user", { userId: user.id });
 
         // Fetch all agents for this user
         const { data, error } = await supabase
@@ -127,8 +127,8 @@ const agentService = {
           return [];
         }
 
-        console.log("AgentService - Raw data from Supabase:", data);
-        console.log("AgentService - Found", data?.length || 0, "agents");
+        logger.debug("AgentService - Raw data from Supabase", { agentCount: data?.length || 0 });
+        logger.info("AgentService - Found agents", { count: data?.length || 0 });
 
         // Transform the data to match our Agent type
         const agents: Agent[] = data.map(convertDbAgentToAppAgent);

@@ -3,6 +3,7 @@ import { ConnectionStatus } from './whatsapp/types';
 import { whatsappService } from '../services/whatsappService';
 import { useToast } from './use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { logger } from '@/lib/safeLog';
 import { 
   USE_MOCK_DATA,
   PREVENT_CREDIT_CONSUMPTION_ON_FAILURE, 
@@ -78,7 +79,7 @@ export function useWhatsAppConnection() {
   const initializeWhatsAppInstance = useCallback(async (providedName?: string, agentId?: string): Promise<string | null> => {
     // Prevent multiple simultaneous creation requests
     if (creationInProgressRef.current) {
-      console.log("Instance creation already in progress, skipping duplicate request");
+      logger.debug("Instance creation already in progress, skipping duplicate request");
       throw new Error("Instance creation already in progress. Please wait for the current operation to complete.");
     }
     
@@ -86,23 +87,23 @@ export function useWhatsAppConnection() {
     
     try {
       const instanceName = getInstanceName(providedName);
-      console.log(`Starting WhatsApp connection for instance: ${instanceName}`);
+      logger.info("Starting WhatsApp connection", { instanceName });
       updateDebugInfo({ action: "initialize", instanceName });
       
       // CORREÇÃO: Verificar se já existe uma instância para este agente
       if (agentId) {
-        console.log(`Checking for existing WhatsApp instance for agent: ${agentId}`);
+        logger.debug("Checking for existing WhatsApp instance", { agentId });
         
         // Use the agentService to check for existing instances
         const agentService = await import('../services/agentService');
         const existingInstance = await agentService.default.checkExistingWhatsAppInstance(agentId);
         
         if (existingInstance.hasInstance && existingInstance.canReuse) {
-          console.log(`Found existing instance for agent ${agentId}: ${existingInstance.instanceName} (${existingInstance.status})`);
+          logger.info("Found existing instance", { agentId, instanceName: existingInstance.instanceName, status: existingInstance.status });
           
           // If instance exists and can be reused, use it instead of creating new one
           if (existingInstance.status === 'connected') {
-            console.log('Instance is already connected, returning existing connection');
+            logger.info('Instance is already connected, returning existing connection');
             setConnectionStatus('connected');
             setConnectionError(null);
             return null; // Already connected

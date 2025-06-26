@@ -6,6 +6,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/integrations/supabase/types';
+import { logger } from '@/lib/safeLog';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -38,8 +39,8 @@ export async function saveWhatsAppInstanceAdmin(instanceData: {
   session_data?: any;
 }) {
   try {
-    console.log('Attempting to save WhatsApp instance with admin client...');
-    console.log('Instance data:', instanceData);
+    logger.info('Attempting to save WhatsApp instance with admin client...');
+    logger.debug('Instance data', instanceData);
 
     const { data, error } = await supabaseAdmin
       .from('whatsapp_instances')
@@ -48,15 +49,15 @@ export async function saveWhatsAppInstanceAdmin(instanceData: {
       .single();
 
     if (error) {
-      console.error('Admin client save failed:', error);
+      logger.error('Admin client save failed:', error);
       throw error;
     }
 
-    console.log('WhatsApp instance saved successfully with admin client:', data);
+    logger.info('WhatsApp instance saved successfully with admin client', data);
     return data;
 
   } catch (error) {
-    console.error('Error in saveWhatsAppInstanceAdmin:', error);
+    logger.error('Error in saveWhatsAppInstanceAdmin:', error);
     throw error;
   }
 }
@@ -74,13 +75,13 @@ export async function checkExistingInstance(userId: string, instanceName: string
       .single();
 
     if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
-      console.error('Error checking existing instance:', error);
+      logger.error('Error checking existing instance:', error);
       return null;
     }
 
     return data;
   } catch (error) {
-    console.error('Error in checkExistingInstance:', error);
+    logger.error('Error in checkExistingInstance:', error);
     return null;
   }
 }
@@ -97,13 +98,13 @@ export async function getUserInstancesAdmin(userId: string) {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching user instances with admin client:', error);
+      logger.error('Error fetching user instances with admin client:', error);
       throw error;
     }
 
     return data || [];
   } catch (error) {
-    console.error('Error in getUserInstancesAdmin:', error);
+    logger.error('Error in getUserInstancesAdmin:', error);
     throw error;
   }
 }
@@ -122,14 +123,14 @@ export async function updateInstanceStatus(instanceName: string, userId: string,
       .single();
 
     if (error) {
-      console.error('Error updating instance status:', error);
+      logger.error('Error updating instance status:', error);
       throw error;
     }
 
-    console.log(`Instance ${instanceName} status updated to ${status}`);
+    logger.info(`Instance ${instanceName} status updated to ${status}`);
     return data;
   } catch (error) {
-    console.error('Error in updateInstanceStatus:', error);
+    logger.error('Error in updateInstanceStatus:', error);
     throw error;
   }
 }
@@ -149,13 +150,13 @@ export async function updateWhatsAppInstanceStatusAdmin(instanceName: string, st
       .single();
 
     if (error) {
-      console.error('Admin client update failed:', error);
+      logger.error('Admin client update failed:', error);
       throw error;
     }
-    console.log('WhatsApp instance status updated successfully with admin client:', data);
+    logger.info('WhatsApp instance status updated successfully with admin client', data);
     return data;
   } catch (error) {
-    console.error('Error in updateWhatsAppInstanceStatusAdmin:', error);
+    logger.error('Error in updateWhatsAppInstanceStatusAdmin:', error);
     throw error;
   }
 }

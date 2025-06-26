@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUser } from '@/context/UserContext';
+import { logger } from '@/lib/safeLog';
 
 export interface UsageStatsData {
   dia: string;
@@ -42,7 +43,7 @@ export function useUsageStats(): UsageStatsResponse {
     isMounted.current = true;
     
     return () => {
-      console.log('🧹 useUsageStats: Limpando recursos no desmonte');
+      logger.debug('🧹 useUsageStats: Limpando recursos no desmonte');
       isMounted.current = false;
       isFetching.current = false;
       
@@ -57,7 +58,7 @@ export function useUsageStats(): UsageStatsResponse {
   const fetchUsageStats = useCallback(async (forceRefetch = false) => {
     // Verificações de segurança para evitar múltiplas execuções
     if (!isMounted.current) {
-      console.log('🚫 useUsageStats: Componente desmontado, cancelando fetch');
+      logger.debug('🚫 useUsageStats: Componente desmontado, cancelando fetch');
       return;
     }
 
@@ -91,9 +92,8 @@ export function useUsageStats(): UsageStatsResponse {
 
       console.log('🔍 useUsageStats: Iniciando busca de dados para usuário:', currentUserId || 'sem usuário');
 
-      // TEMPORARY DEBUG: Log do user ID específico
-      console.log('🔍 DEBUG: USER ID COMPLETO:', currentUserId);
-      console.log('🔍 DEBUG: USER OBJECT:', user);
+      logger.debug('🔍 DEBUG: USER ID COMPLETO', { userId: currentUserId });
+      logger.debug('🔍 DEBUG: USER OBJECT', { userEmail: user?.email });
 
       // Se não há usuário logado, retornar dados vazios em vez de fallback
       if (!currentUserId) {
@@ -261,7 +261,7 @@ export function useUsageStats(): UsageStatsResponse {
     const timeSinceLastFetch = Date.now() - lastFetch.current;
     const delay = Math.max(0, THROTTLE_DELAY - timeSinceLastFetch);
     
-    console.log(`🏃 useUsageStats: Agendando fetch em ${delay}ms para usuário:`, user?.id || 'não logado');
+    logger.sensitive(`🏃 useUsageStats: Agendando fetch para usuário`, { userId: user?.id || 'não logado', delay });
     
     fetchTimeoutRef.current = setTimeout(() => {
       if (isMounted.current) {

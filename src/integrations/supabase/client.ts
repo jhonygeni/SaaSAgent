@@ -1,6 +1,7 @@
 // SECURITY-ENHANCED: Production-ready Supabase client configuration
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
+import { logger } from '@/lib/safeLog';
 
 // 🔒 SECURITY: Get credentials from environment variables ONLY
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -78,11 +79,11 @@ if (typeof window !== 'undefined' && !import.meta.env.PROD) {
   (window as any).supabase = supabase;
   (window as any).debugUserAuth = async () => {
     const { data: { user }, error } = await supabase.auth.getUser();
-    console.log('🔍 DEBUG - User Authentication:');
-    console.log('User:', user);
-    console.log('Error:', error);
-    console.log('User ID:', user?.id);
-    console.log('User Email:', user?.email);
+    logger.sensitive('🔍 DEBUG - User Authentication', { 
+      hasUser: !!user, 
+      hasError: !!error,
+      userEmail: user?.email 
+    });
     return { user, error };
   };
   

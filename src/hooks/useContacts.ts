@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUser } from '@/context/UserContext';
+import { logger } from '@/lib/safeLog';
 
 // Interface para representar um contato do Supabase adaptado para o componente
 export interface Contact {
@@ -94,7 +95,7 @@ export function useContacts(): ContactsResponse {
       return;
     }
 
-    console.log('🔄 useContacts: Buscando contatos para usuário:', user.id);
+    logger.sensitive('useContacts: Buscando contatos para usuário', { userId: user.id });
 
     isFetching.current = true;
     setIsLoading(true);

@@ -32,6 +32,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Check, AlertCircle, Lock, Mail, Phone, User as UserIcon, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { logger } from "@/lib/safeLog";
 
 const UserProfilePage = () => {
   const { user, updateUser, setPlan, logout, checkSubscriptionStatus } = useUser();
@@ -69,7 +70,7 @@ const UserProfilePage = () => {
       const { data, error } = await supabase.functions.invoke('check-subscription');
       
       if (error) {
-        console.warn("Error getting subscription details:", error.message);
+        logger.warn("Error getting subscription details", { error: error.message });
         return;
       }
       
@@ -77,7 +78,7 @@ const UserProfilePage = () => {
         setSubscriptionEnd(data.subscription_end);
       }
     } catch (err) {
-      console.error("Error checking subscription:", err);
+      logger.error("Error checking subscription", err);
       toast({
         variant: "destructive",
         title: "Erro ao verificar assinatura",
@@ -109,7 +110,7 @@ const UserProfilePage = () => {
         throw new Error("No portal URL returned");
       }
     } catch (err) {
-      console.error("Customer portal error:", err);
+      logger.error("Customer portal error", err);
       toast({
         variant: "destructive",
         title: "Erro ao abrir portal",

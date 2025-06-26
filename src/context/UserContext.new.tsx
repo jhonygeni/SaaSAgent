@@ -3,6 +3,7 @@ import { createContext, useContext, useState, ReactNode, useEffect, useCallback,
 import { User, SubscriptionPlan } from '../types';
 import { getMessageLimitByPlan } from '../lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { logger } from '@/lib/safeLog';
 
 interface UserContextType {
   user: User | null;
@@ -31,7 +32,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     isMounted.current = true;
     
     return () => {
-      console.log("🧹 UserProvider: Limpeza completa no desmonte");
+      logger.debug("UserProvider: Limpeza completa no desmonte");
       isMounted.current = false;
       isCheckingSubscription.current = false;
       authListenerSet.current = false;
@@ -51,7 +52,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         messageLimit: getMessageLimitByPlan(defaultPlan),
         agents: [],
       };
-      console.log("👤 UserContext: Criando usuário com plano padrão:", newUser.email, newUser.plan);
+      logger.sensitive("UserContext: Criando usuário com plano padrão", { email: newUser.email, plan: newUser.plan });
       return newUser;
     }, []
   );
@@ -60,36 +61,36 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const checkSubscriptionStatus = useCallback(async () => {
     // Verificações de segurança para evitar múltiplas execuções
     if (!isMounted.current) {
-      console.log("🚫 UserContext: Componente desmontado, cancelando verificação");
+      logger.debug("UserContext: Componente desmontado, cancelando verificação");
       return;
     }
     
     if (isCheckingSubscription.current) {
-      console.log("⏸️ UserContext: Verificação já em andamento, ignorando");
+      logger.debug("UserContext: Verificação já em andamento, ignorando");
       return;
     }
     
     isCheckingSubscription.current = true;
     
     try {
-      console.log("🔍 UserContext: Verificando status da assinatura...");
+      logger.info("UserContext: Verificando status da assinatura...");
       
       // Get current session
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) {
-        console.log("❌ UserContext: Sem sessão ativa para verificar assinatura");
+        logger.warn("UserContext: Sem sessão ativa para verificar assinatura");
         return;
       }
       
       const supabaseUser = session.user;
-      console.log("✅ UserContext: Usuário encontrado na sessão:", supabaseUser.email);
+      logger.sensitive("UserContext: Usuário encontrado na sessão", { email: supabaseUser.email });
       
       try {
         // Call check-subscription edge function
         const { data, error } = await supabase.functions.invoke('check-subscription');
         
         if (error) {
-          console.error('⚠️ UserContext: Erro ao verificar assinatura:', error);
+          logger.error('UserContext: Erro ao verificar assinatura', error);
           
           // Se há erro mas usuário está autenticado, criar com plano padrão
           if (!user && isMounted.current) {
@@ -99,7 +100,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           return;
         }
         
-        console.log("📊 UserContext: Resposta da verificação:", data);
+        logger.debug("UserContext: Resposta da verificação", data);
         
         if (data && isMounted.current) {
           // Create or update user based on subscription data
@@ -110,7 +111,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
             }
             // Se há usuário mas plano mudou, atualizar
             else if (data.plan && data.plan !== currentUser.plan) {
-              console.log(`🔄 UserContext: Atualizando plano de ${currentUser.plan} para ${data.plan}`);
+              logger.info(`UserContext: Atualizando plano de ${currentUser.plan} para ${data.plan}`);
               return {
                 ...currentUser,
                 plan: data.plan as SubscriptionPlan,
@@ -122,7 +123,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           });
         }
       } catch (invokeError) {
-        console.error('🚨 UserContext: Falha ao invocar função de verificação:', invokeError);
+        logger.error('UserContext: Falha ao invocar função de verificação', invokeError);
         
         // Em caso de erro, garantir usuário com plano básico
         if (!user && isMounted.current) {
@@ -131,7 +132,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         }
       }
     } catch (err) {
-      console.error('🚨 UserContext: Erro geral na verificação:', err);
+      logger.error('UserContext: Erro geral na verificação', err);
     } finally {
       isCheckingSubscription.current = false;
     }
@@ -140,11 +141,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // Auth state listener - EXECUTADO APENAS UMA VEZ
   useEffect(() => {
     if (authListenerSet.current) {
-      console.log("⚠️ UserContext: Auth listener já configurado, ignorando");
+      logger.debug("UserContext: Auth listener já configurado, ignorando");
       return;
     }
     
-    console.log("🔐 UserContext: Configurando listener de autenticação");
+    logger.debug("UserContext: Configurando listener de autenticação");
     authListenerSet.current = true;
     setIsLoading(true);
     
@@ -152,11 +153,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
       async (event, session) => {
         if (!isMounted.current) return;
         
-        console.log("🔄 UserContext: Evento de auth:", event, session ? "com sessão" : "sem sessão");
+        logger.debug("UserContext: Evento de auth", { event, hasSession: !!session });
         
         if (event === 'SIGNED_IN' && session?.user) {
           const supabaseUser = session.user;
-          console.log("✅ UserContext: Usuário logado:", supabaseUser.email);
+          logger.sensitive("UserContext: Usuário logado", { email: supabaseUser.email });
           
           // Criar usuário imediatamente com plano padrão
           const newUser = createUserWithDefaultPlan(supabaseUser);
@@ -171,7 +172,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         }
         
         if (event === 'SIGNED_OUT') {
-          console.log("👋 UserContext: Usuário deslogado");
+          logger.info("UserContext: Usuário deslogado");
           setUser(null);
         }
         
@@ -184,17 +185,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
     // Verificar sessão inicial - APENAS UMA VEZ
     const checkInitialSession = async () => {
       if (initialSessionChecked.current) {
-        console.log("⚠️ UserContext: Sessão inicial já verificada, ignorando");
+        logger.debug("UserContext: Sessão inicial já verificada, ignorando");
         return;
       }
       
       initialSessionChecked.current = true;
-      console.log("🔍 UserContext: Verificando sessão inicial");
+      logger.debug("UserContext: Verificando sessão inicial");
       
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user && isMounted.current) {
-          console.log("✅ UserContext: Sessão existente encontrada:", session.user.email);
+          logger.sensitive("UserContext: Sessão existente encontrada", { email: session.user.email });
           
           // Criar usuário com plano padrão
           const newUser = createUserWithDefaultPlan(session.user);
@@ -207,10 +208,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
             }
           }, 1500);
         } else {
-          console.log("ℹ️ UserContext: Nenhuma sessão existente");
+          logger.info("UserContext: Nenhuma sessão existente");
         }
       } catch (error) {
-        console.error("🚨 UserContext: Erro ao verificar sessão inicial:", error);
+        logger.error("UserContext: Erro ao verificar sessão inicial", error);
       } finally {
         if (isMounted.current) {
           setIsLoading(false);
@@ -221,7 +222,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     checkInitialSession();
     
     return () => {
-      console.log("🧹 UserContext: Removendo listener de autenticação");
+      logger.debug("UserContext: Removendo listener de autenticação");
       subscription.unsubscribe();
       authListenerSet.current = false;
     };
@@ -230,20 +231,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // Função para atualizar usuário
   const updateUser = useCallback((updatedUser: Partial<User>) => {
     if (!user) {
-      console.log("⚠️ UserContext: Tentativa de atualizar usuário inexistente");
+      logger.warn("UserContext: Tentativa de atualizar usuário inexistente");
       return;
     }
     
     setUser(prev => {
       if (!prev) return null;
-      console.log("🔄 UserContext: Atualizando usuário:", Object.keys(updatedUser));
+      logger.debug("UserContext: Atualizando usuário", { fields: Object.keys(updatedUser) });
       return { ...prev, ...updatedUser };
     });
   }, [user]);
 
   // Função de login
   const login = useCallback(async (email: string, name: string) => {
-    console.log("🔐 UserContext: Login manual:", email);
+    logger.sensitive("UserContext: Login manual", { email });
     
     const newUser: User = {
       id: `user-${Date.now()}`,
@@ -267,23 +268,23 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   // Função de logout
   const logout = useCallback(async () => {
-    console.log("👋 UserContext: Fazendo logout");
+    logger.info("UserContext: Fazendo logout");
     try {
       await supabase.auth.signOut();
       setUser(null);
     } catch (error) {
-      console.error("🚨 UserContext: Erro no logout:", error);
+      logger.error("UserContext: Erro no logout", error);
     }
   }, []);
 
   // Função para definir plano
   const setPlan = useCallback((plan: SubscriptionPlan) => {
     if (!user) {
-      console.log("⚠️ UserContext: Tentativa de definir plano para usuário inexistente");
+      logger.warn("UserContext: Tentativa de definir plano para usuário inexistente");
       return;
     }
     
-    console.log("📋 UserContext: Definindo plano:", plan);
+    logger.info("UserContext: Definindo plano", { plan });
     setUser(prev => {
       if (!prev) return null;
       return {

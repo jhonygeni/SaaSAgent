@@ -2,6 +2,7 @@ import { createContext, useContext, useState, ReactNode, useEffect, useCallback,
 import { User, SubscriptionPlan } from '../types';
 import { getMessageLimitByPlan } from '../lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { logger } from '@/lib/safeLog';
 
 interface UserContextType {
   user: User | null;
@@ -102,7 +103,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           setUser(currentUser => {
             if (!currentUser) {
               const newUser = createUserWithDefaultPlan(supabaseUser);
-              console.log('✅ UserContext: Usuário criado com plano padrão (erro):', newUser.email);
+              logger.sensitive('✅ UserContext: Usuário criado com plano padrão (erro)', { email: newUser.email });
               return newUser;
             }
             return currentUser;
@@ -116,7 +117,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           setUser(currentUser => {
             if (!currentUser) {
               const newUser = createUserWithDefaultPlan(supabaseUser, data.plan || 'free');
-              console.log('✅ UserContext: Usuário criado com plano da API:', newUser.email, newUser.plan);
+              logger.sensitive('✅ UserContext: Usuário criado com plano da API', { email: newUser.email, plan: newUser.plan });
               return newUser;
             } else if (data.plan && data.plan !== currentUser.plan) {
               console.log(`🔄 UserContext: Atualizando plano de ${currentUser.plan} para ${data.plan}`);
@@ -135,7 +136,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         setUser(currentUser => {
           if (!currentUser) {
             const newUser = createUserWithDefaultPlan(supabaseUser);
-            console.log('✅ UserContext: Usuário criado após erro de invocação:', newUser.email);
+            logger.sensitive('✅ UserContext: Usuário criado após erro de invocação', { email: newUser.email });
             return newUser;
           }
           return currentUser;
@@ -161,7 +162,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           const supabaseUser = session.user;
           const newUser = createUserWithDefaultPlan(supabaseUser);
           
-          console.log('✅ UserContext: Usuário logado, criando contexto:', newUser.email);
+          logger.sensitive('✅ UserContext: Usuário logado, criando contexto', { email: newUser.email });
           setUser(newUser);
           
           // Verificar subscription após delay controlado

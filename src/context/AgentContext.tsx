@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import agentService from "@/services/agentService";
 import { useUser } from "./UserContext";
 import { getAutomaticInstanceName } from "@/utils/automaticInstanceNameGenerator";
+import { logger } from "@/lib/safeLog";
 
 interface AgentContextType {
   currentAgent: Agent;
@@ -60,7 +61,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       return Promise.resolve();
     }
     
-    console.log("AgentContext - Starting loadAgentsFromSupabase for user:", user.id);
+    logger.sensitive("AgentContext - Starting loadAgentsFromSupabase for user", { userId: user.id });
     
     try {
       setIsLoading(true);

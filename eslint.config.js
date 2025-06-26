@@ -24,6 +24,28 @@ export default tseslint.config(
         { allowConstantExport: true },
       ],
       "@typescript-eslint/no-unused-vars": "off",
+      
+      // 🛡️ REGRAS DE SEGURANÇA PARA LOGS
+      "no-console": ["warn", { 
+        "allow": ["warn", "error"] 
+      }],
+      
+      // Regra customizada para detectar dados sensíveis
+      "no-restricted-syntax": [
+        "error",
+        {
+          "selector": "CallExpression[callee.object.name='console'][callee.property.name='log'] BinaryExpression[operator='+'][right.property.name='id']",
+          "message": "🚨 Não logue user.id diretamente! Use logger.sensitive() ou logger.masked() da lib/safeLog.ts"
+        },
+        {
+          "selector": "CallExpression[callee.object.name='console'][callee.property.name='log'] BinaryExpression[operator='+'][right.property.name='email']", 
+          "message": "🚨 Não logue email diretamente! Use logger.sensitive() ou logger.masked() da lib/safeLog.ts"
+        },
+        {
+          "selector": "CallExpression[callee.object.name='console'][callee.property.name='log'] BinaryExpression[operator='+'][right.property.name='user_id']",
+          "message": "🚨 Não logue user_id diretamente! Use logger.sensitive() ou logger.masked() da lib/safeLog.ts"
+        }
+      ]
     },
   }
 );

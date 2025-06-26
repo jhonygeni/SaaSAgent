@@ -3,6 +3,7 @@ import { createContext, useContext, useState, ReactNode, useEffect, useCallback,
 import { User, SubscriptionPlan } from '../types';
 import { getMessageLimitByPlan } from '../lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { logger } from '@/lib/safeLog';
 
 interface UserContextType {
   user: User | null;
@@ -31,7 +32,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     isMounted.current = true;
     
     return () => {
-      console.log("🧹 UserProvider: Limpeza completa no desmonte");
+      logger.debug("UserProvider: Limpeza completa no desmonte");
       isMounted.current = false;
       isCheckingSubscription.current = false;
       authListenerSet.current = false;
@@ -51,7 +52,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         messageLimit: getMessageLimitByPlan(defaultPlan),
         agents: [],
       };
-      console.log("👤 UserContext: Criando usuário com plano padrão:", newUser.email, newUser.plan);
+      logger.sensitive("UserContext: Criando usuário com plano padrão", { email: newUser.email, plan: newUser.plan });
       return newUser;
     }, []
   );
@@ -82,7 +83,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
       
       const supabaseUser = session.user;
-      console.log("✅ UserContext: Usuário encontrado na sessão:", supabaseUser.email);
+      logger.sensitive("UserContext: Usuário encontrado na sessão", { email: supabaseUser.email });
       
       try {
         // Call check-subscription edge function
@@ -156,7 +157,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         
         if (event === 'SIGNED_IN' && session?.user) {
           const supabaseUser = session.user;
-          console.log("✅ UserContext: Usuário logado:", supabaseUser.email);
+          logger.sensitive("UserContext: Usuário logado", { email: supabaseUser.email });
           
           // Criar usuário imediatamente com plano padrão
           const newUser = createUserWithDefaultPlan(supabaseUser);
@@ -194,7 +195,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user && isMounted.current) {
-          console.log("✅ UserContext: Sessão existente encontrada:", session.user.email);
+          logger.sensitive("UserContext: Sessão existente encontrada", { email: session.user.email });
           
           // Criar usuário com plano padrão
           const newUser = createUserWithDefaultPlan(session.user);
@@ -243,7 +244,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   // Função de login
   const login = useCallback(async (email: string, name: string) => {
-    console.log("🔐 UserContext: Login manual:", email);
+    logger.sensitive("UserContext: Login manual", { email });
     
     const newUser: User = {
       id: `user-${Date.now()}`,
