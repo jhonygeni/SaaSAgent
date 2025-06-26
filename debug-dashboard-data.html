@@ -433,7 +433,8 @@
                 });
             }
             
-            const totalMessages = mockData.reduce((sum, day) => sum + day.enviadas + day.recebidas, 0);
+            // CORREÇÃO: Para o limite do plano, só contamos mensagens enviadas
+            const totalMessages = mockData.reduce((sum, day) => sum + day.enviadas, 0);
             
             log(`Emergency hook generated ${mockData.length} days of data, total: ${totalMessages} messages`, 'SUCCESS');
             addQueryResult('Emergency Hook Data', { mockData, totalMessages }, 'success');

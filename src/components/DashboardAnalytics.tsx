@@ -13,7 +13,7 @@ export function DashboardAnalytics() {
   const [activeTab, setActiveTab] = useState<'overview' | 'comparison'>('overview');
   
   // Buscar dados reais do Supabase
-  const { data: messagesData, totalMessages, isLoading, error } = useUsageStats();
+  const { data: messagesData, totalMessages, totalSentMessages, isLoading, error } = useUsageStats();
   
   // Calculate estimate of total clients based on message patterns
   const totalClients = Math.round(totalMessages * 0.3); // Approximation: 30% of messages lead to new clients
@@ -28,6 +28,7 @@ export function DashboardAnalytics() {
         <OverviewTab 
           totalClients={totalClients}
           totalMessages={totalMessages}
+          totalSentMessages={totalSentMessages}
           messagesData={messagesData}
           chartConfig={chartConfig}
           isLoading={isLoading}

@@ -12,7 +12,8 @@ export interface UsageStatsData {
 
 export interface UsageStatsResponse {
   data: UsageStatsData[];
-  totalMessages: number;
+  totalMessages: number; // Total de mensagens trocadas (enviadas + recebidas) - para cards
+  totalSentMessages: number; // Apenas mensagens enviadas - para barra de progresso do plano
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
@@ -21,7 +22,8 @@ export interface UsageStatsResponse {
 export function useUsageStats(): UsageStatsResponse {
   const { user } = useUser();
   const [data, setData] = useState<UsageStatsData[]>([]);
-  const [totalMessages, setTotalMessages] = useState<number>(0);
+  const [totalMessages, setTotalMessages] = useState<number>(0); // Total trocadas (enviadas + recebidas)
+  const [totalSentMessages, setTotalSentMessages] = useState<number>(0); // Apenas enviadas
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -99,6 +101,7 @@ export function useUsageStats(): UsageStatsResponse {
         if (isMounted.current) {
           setData([]);
           setTotalMessages(0);
+          setTotalSentMessages(0);
           setError(null);
         }
         return;
@@ -130,6 +133,7 @@ export function useUsageStats(): UsageStatsResponse {
         if (isMounted.current) {
           setData([]);
           setTotalMessages(0);
+          setTotalSentMessages(0);
           setError(`Erro ao carregar dados: ${usageError.message}`);
         }
         return;
@@ -198,18 +202,19 @@ export function useUsageStats(): UsageStatsResponse {
 
       if (!isMounted.current) return;
 
-      const total = processedData.reduce(
-        (sum, day) => sum + day.enviadas + day.recebidas, 
-        0
-      );
+      // Calcular ambos os totais separadamente
+      const totalSent = processedData.reduce((sum, day) => sum + day.enviadas, 0);
+      const totalExchanged = processedData.reduce((sum, day) => sum + day.enviadas + day.recebidas, 0);
 
       setData(processedData);
-      setTotalMessages(total);
+      setTotalMessages(totalExchanged); // Total trocadas (enviadas + recebidas) - para cards
+      setTotalSentMessages(totalSent); // Apenas enviadas - para barra de progresso
       setError(null);
 
       console.log('🎉 useUsageStats: Dados carregados com sucesso!', {
         dias: processedData.length,
-        totalMensagens: total
+        totalTrocadas: totalExchanged,
+        totalEnviadas: totalSent
       });
 
     } catch (err) {
@@ -220,6 +225,7 @@ export function useUsageStats(): UsageStatsResponse {
       // Em caso de erro, reportar erro real (sem fallback)
       setData([]);
       setTotalMessages(0);
+      setTotalSentMessages(0);
       setError(err instanceof Error ? err.message : 'Erro desconhecido');
     } finally {
       isFetching.current = false;
@@ -275,6 +281,7 @@ export function useUsageStats(): UsageStatsResponse {
   return {
     data,
     totalMessages,
+    totalSentMessages,
     isLoading,
     error,
     refetch

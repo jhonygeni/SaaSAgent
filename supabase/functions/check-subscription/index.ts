@@ -110,7 +110,7 @@ serve(async (req) => {
           return 0;
         }
         
-        // Somamos todas as mensagens enviadas e recebidas para obter o total
+        // CORREÇÃO: Para limite do plano, consideramos apenas mensagens enviadas
         let totalSent = 0;
         let totalReceived = 0;
         
@@ -119,11 +119,12 @@ serve(async (req) => {
           totalReceived += (stat.messages_received || 0);
         });
         
-        const messageCount = totalSent + totalReceived;
+        // Apenas mensagens enviadas contam para o limite do plano
+        const messageCount = totalSent;
         logStep("Message count retrieved", { 
           messagesSent: totalSent, 
           messagesReceived: totalReceived, 
-          total: messageCount,
+          totalForLimit: messageCount,  // Só enviadas contam para limite
           recordsCount: messageStats.length
         });
         

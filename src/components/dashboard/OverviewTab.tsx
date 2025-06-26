@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 
 interface OverviewTabProps {
   totalClients: number;
-  totalMessages: number;
+  totalMessages: number; // Mensagens trocadas (enviadas + recebidas) - para cards de estatísticas
+  totalSentMessages?: number; // Apenas enviadas - para barra de progresso do plano
   messagesData: any[];
   chartConfig: any;
   isLoading?: boolean;
@@ -19,6 +20,7 @@ interface OverviewTabProps {
 export function OverviewTab({ 
   totalClients, 
   totalMessages, 
+  totalSentMessages,
   messagesData,
   chartConfig,
   isLoading = false,
@@ -160,7 +162,7 @@ export function OverviewTab({
       <div className="grid grid-cols-1 gap-6">
         {user && (
           <MessageUsageCard 
-            messageCount={totalMessages}
+            messageCount={totalSentMessages || 0}
             messageLimit={user.messageLimit || 100}
           />
         )}

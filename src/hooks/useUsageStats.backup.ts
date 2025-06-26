@@ -12,7 +12,8 @@ export interface UsageStatsData {
 
 export interface UsageStatsResponse {
   data: UsageStatsData[];
-  totalMessages: number;
+  totalMessages: number; // Total de mensagens trocadas (enviadas + recebidas) - para cards
+  totalSentMessages: number; // Apenas mensagens enviadas - para barra de progresso do plano
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
@@ -22,6 +23,7 @@ export function useUsageStats(): UsageStatsResponse {
   const { user } = useUser();
   const [data, setData] = useState<UsageStatsData[]>([]);
   const [totalMessages, setTotalMessages] = useState<number>(0);
+  const [totalSentMessages, setTotalSentMessages] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,32 +52,42 @@ export function useUsageStats(): UsageStatsResponse {
     if (!user?.id) {
       // Dados básicos para usuário não logado
       const basicData = generateSafeData();
+      const totalExchanged = basicData.reduce((sum, day) => sum + day.enviadas + day.recebidas, 0);
+      const totalSent = basicData.reduce((sum, day) => sum + day.enviadas, 0);
+      
       setData(basicData);
-      setTotalMessages(basicData.reduce((sum, day) => sum + day.enviadas + day.recebidas, 0));
+      setTotalMessages(totalExchanged); // Total trocadas
+      setTotalSentMessages(totalSent); // Apenas enviadas para barra de progresso
       return;
     }
 
     // Dados seguros para usuário logado
     console.log('📊 [EMERGÊNCIA] Gerando dados seguros sem requisições HTTP para:', user.id);
     const safeData = generateSafeData();
-    const total = safeData.reduce((sum, day) => sum + day.enviadas + day.recebidas, 0);
+    const totalExchanged = safeData.reduce((sum, day) => sum + day.enviadas + day.recebidas, 0);
+    const totalSent = safeData.reduce((sum, day) => sum + day.enviadas, 0);
     
     setData(safeData);
-    setTotalMessages(total);
+    setTotalMessages(totalExchanged);
+    setTotalSentMessages(totalSent);
     setError(null);
   }, [user?.id]);
 
   const refetch = () => {
     console.log('🔄 [EMERGÊNCIA] Refetch solicitado - Regenerando dados seguros');
     const newData = generateSafeData();
-    const total = newData.reduce((sum, day) => sum + day.enviadas + day.recebidas, 0);
+    const totalExchanged = newData.reduce((sum, day) => sum + day.enviadas + day.recebidas, 0);
+    const totalSent = newData.reduce((sum, day) => sum + day.enviadas, 0);
+    
     setData(newData);
-    setTotalMessages(total);
+    setTotalMessages(totalExchanged);
+    setTotalSentMessages(totalSent);
   };
 
   return {
     data,
     totalMessages,
+    totalSentMessages,
     isLoading,
     error,
     refetch

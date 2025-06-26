@@ -12,7 +12,8 @@ export interface UsageStatsData {
 
 export interface UsageStatsResponse {
   data: UsageStatsData[];
-  totalMessages: number;
+  totalMessages: number; // Total de mensagens trocadas (enviadas + recebidas) - para cards
+  totalSentMessages: number; // Apenas mensagens enviadas - para barra de progresso do plano
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
@@ -22,6 +23,7 @@ export function useUsageStats(): UsageStatsResponse {
   const { user } = useUser();
   const [data, setData] = useState<UsageStatsData[]>([]);
   const [totalMessages, setTotalMessages] = useState<number>(0);
+  const [totalSentMessages, setTotalSentMessages] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -132,11 +134,13 @@ export function useUsageStats(): UsageStatsResponse {
         console.log('⚠️ useUsageStats: Usando dados de demonstração (erro ou sem dados reais)');
         
         const fallbackData = generateFallbackData();
-        const total = fallbackData.reduce((sum, day) => sum + day.enviadas + day.recebidas, 0);
+        const totalExchanged = fallbackData.reduce((sum, day) => sum + day.enviadas + day.recebidas, 0);
+        const totalSent = fallbackData.reduce((sum, day) => sum + day.enviadas, 0);
         
         if (isMounted.current) {
           setData(fallbackData);
-          setTotalMessages(total);
+          setTotalMessages(totalExchanged);
+          setTotalSentMessages(totalSent);
           setError(usageError ? `Erro: ${usageError.message}` : 'Usando dados de demonstração');
         }
         return;
@@ -168,18 +172,19 @@ export function useUsageStats(): UsageStatsResponse {
 
       if (!isMounted.current) return;
 
-      const total = processedData.reduce(
-        (sum, day) => sum + day.enviadas + day.recebidas, 
-        0
-      );
+      // Calcular totais separados: trocadas (enviadas + recebidas) e apenas enviadas
+      const totalExchanged = processedData.reduce((sum, day) => sum + day.enviadas + day.recebidas, 0);
+      const totalSent = processedData.reduce((sum, day) => sum + day.enviadas, 0);
 
       setData(processedData);
-      setTotalMessages(total);
+      setTotalMessages(totalExchanged);
+      setTotalSentMessages(totalSent);
       setError(null);
 
       console.log('🎉 useUsageStats: Dados carregados com sucesso!', {
         dias: processedData.length,
-        totalMensagens: total
+        totalTrocadas: totalExchanged,
+        totalEnviadas: totalSent
       });
 
     } catch (err) {
@@ -189,10 +194,12 @@ export function useUsageStats(): UsageStatsResponse {
       
       // Em caso de erro, usar dados de fallback
       const fallbackData = generateFallbackData();
-      const total = fallbackData.reduce((sum, day) => sum + day.enviadas + day.recebidas, 0);
+      const totalExchanged = fallbackData.reduce((sum, day) => sum + day.enviadas + day.recebidas, 0);
+      const totalSent = fallbackData.reduce((sum, day) => sum + day.enviadas, 0);
       
       setData(fallbackData);
-      setTotalMessages(total);
+      setTotalMessages(totalExchanged);
+      setTotalSentMessages(totalSent);
       setError(err instanceof Error ? err.message : 'Erro desconhecido');
     } finally {
       isFetching.current = false;
@@ -248,6 +255,7 @@ export function useUsageStats(): UsageStatsResponse {
   return {
     data,
     totalMessages,
+    totalSentMessages,
     isLoading,
     error,
     refetch

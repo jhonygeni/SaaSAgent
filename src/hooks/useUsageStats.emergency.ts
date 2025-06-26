@@ -10,7 +10,8 @@ export interface UsageStatsData {
 
 export interface UsageStatsResponse {
   data: UsageStatsData[];
-  totalMessages: number;
+  totalMessages: number; // Total de mensagens trocadas (enviadas + recebidas) - para cards
+  totalSentMessages: number; // Apenas mensagens enviadas - para barra de progresso do plano
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
@@ -20,6 +21,7 @@ export function useUsageStats(): UsageStatsResponse {
   const { user } = useUser();
   const [data, setData] = useState<UsageStatsData[]>([]);
   const [totalMessages, setTotalMessages] = useState<number>(0);
+  const [totalSentMessages, setTotalSentMessages] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,13 +49,18 @@ export function useUsageStats(): UsageStatsResponse {
     if (!user?.id) {
       setData([]);
       setTotalMessages(0);
+      setTotalSentMessages(0);
       return;
     }
 
     // Simples geração de dados sem requisições ao Supabase por enquanto
     const simpleData = generateSimpleData();
+    const totalExchanged = simpleData.reduce((sum, day) => sum + day.enviadas + day.recebidas, 0);
+    const totalSent = simpleData.reduce((sum, day) => sum + day.enviadas, 0);
+    
     setData(simpleData);
-    setTotalMessages(simpleData.reduce((sum, day) => sum + day.enviadas + day.recebidas, 0));
+    setTotalMessages(totalExchanged); // Total trocadas
+    setTotalSentMessages(totalSent); // Apenas enviadas para barra de progresso
     setError(null);
   }, [user?.id]);
 
@@ -61,13 +68,18 @@ export function useUsageStats(): UsageStatsResponse {
     if (!user?.id) return;
     
     const newData = generateSimpleData();
+    const totalExchanged = newData.reduce((sum, day) => sum + day.enviadas + day.recebidas, 0);
+    const totalSent = newData.reduce((sum, day) => sum + day.enviadas, 0);
+    
     setData(newData);
-    setTotalMessages(newData.reduce((sum, day) => sum + day.enviadas + day.recebidas, 0));
+    setTotalMessages(totalExchanged);
+    setTotalSentMessages(totalSent);
   };
 
   return {
     data,
     totalMessages,
+    totalSentMessages,
     isLoading,
     error,
     refetch
