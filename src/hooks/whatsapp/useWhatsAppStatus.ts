@@ -489,72 +489,25 @@ export function useWhatsAppStatus() {
     }
   }, [user?.id]); // Removido checkCurrentConnectionState das dependências para evitar loop
 
-  // Configurar subscription para atualizações em tempo real
+  // EMERGENCY FIX: Disable real-time subscription to prevent infinite page reloads
   useEffect(() => {
     if (!user?.id) return;
 
-    console.log('🔌 [REALTIME] Configurando subscription para atualizações...');
+    console.log('🔌 [REALTIME] EMERGENCY: Real-time subscription disabled to prevent page reloads');
 
-    // Primeiro, buscar instância atual
-    const fetchCurrentInstance = async () => {
-      try {
-        // Fix para 406 error: buscar todas as instâncias do usuário e filtrar por status no cliente
-        const { data: allInstances } = await supabase
-          .from('whatsapp_instances')
-          .select('*')
-          .eq('user_id', user.id);
-
-        // Filtrar instâncias conectadas no lado do cliente para evitar 406 error
-        const connectedInstances = allInstances?.filter(instance => instance.status === 'connected') || [];
-        const instance = connectedInstances.length > 0 ? connectedInstances[0] : null;
-
-        if (instance) {
-          await checkCurrentConnectionState(instance.name);
-        }
-      } catch (error) {
-        console.error('❌ [REALTIME] Erro ao buscar instância atual:', error);
-      }
-    };
-
-    // Carregar dados iniciais uma vez
+    // Carregar dados iniciais uma vez apenas, sem subscription
     fetchInitialData();
-    fetchCurrentInstance();
 
-    // Inscrever-se para atualizações na tabela usage_stats
-    const subscription = supabase
-      .channel('usage_stats_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // Escutar todos os eventos (INSERT, UPDATE, DELETE)
-          schema: 'public',
-          table: 'usage_stats',
-          filter: `user_id=eq.${user.id}` // Filtrar apenas para o usuário atual
-        },
-        async (payload) => {
-          console.log('📨 [REALTIME] Recebida atualização:', payload);
-          setLastUpdate(new Date());
-          
-          // Recarregar dados após qualquer mudança (sem causar loop)
-          try {
-            await fetchInitialData();
-          } catch (error) {
-            console.error('❌ [REALTIME] Erro ao recarregar dados:', error);
-          }
-        }
-      )
-      .subscribe((status) => {
-        console.log('🔌 [REALTIME] Status da subscription:', status);
-        setIsConnected(status === 'SUBSCRIBED');
-      });
+    console.log('✅ [REALTIME] Static data loaded without subscription');
+    setIsConnected(true); // Set as connected without subscription
+    setLastUpdate(new Date());
 
-    // Cleanup
+    // Cleanup - sem subscription para cancelar
     return () => {
-      console.log('🔌 [REALTIME] Limpando subscription...');
-      subscription.unsubscribe();
+      console.log('🔌 [REALTIME] No subscription to cleanup');
       setIsConnected(false);
     };
-  }, [user?.id]); // Removido fetchInitialData e checkCurrentConnectionState das dependências para evitar loop
+  }, [user?.id]); // Dependência mínima apenas do user?.id
 
   return {
     connectionStatus,
