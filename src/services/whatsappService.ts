@@ -524,10 +524,18 @@ const whatsappService = {
   enableWebhook: async (instanceName: string): Promise<WebhookConfigResponse> => {
     return withAPILogging(
       async () => {
+        // Validação de entrada
+        if (!instanceName || typeof instanceName !== 'string' || instanceName.trim().length === 0) {
+          throw new Error('Nome da instância é obrigatório e deve ser uma string válida');
+        }
+        
+        const cleanInstanceName = instanceName.trim();
+        console.log(`✅ Starting webhook enable for instance: ${cleanInstanceName}`);
+        
         if (USE_MOCK_DATA) {
           logger.warn("MOCK MODE IS ACTIVE - This should never be used in production!", {
             operation: 'enableWebhook',
-            instanceName
+            instanceName: cleanInstanceName
           });
           return {
             status: "success",
@@ -549,11 +557,14 @@ const whatsappService = {
           events: ["MESSAGES_UPSERT"]
         };
 
-        const data = await secureApiClient.setWebhook(instanceName, webhookConfig);
+        console.log(`✅ Enabling webhook for instance: ${cleanInstanceName}`);
+        console.log('📋 Webhook config:', JSON.stringify(webhookConfig, null, 2));
+
+        const data = await secureApiClient.setWebhook(cleanInstanceName, webhookConfig);
         
         logger.info("Webhook enabled successfully", {
           operation: 'enableWebhook',
-          instanceName
+          instanceName: cleanInstanceName
         });
         return data;
       },
@@ -571,10 +582,18 @@ const whatsappService = {
   disableWebhook: async (instanceName: string): Promise<WebhookConfigResponse> => {
     return withAPILogging(
       async () => {
+        // Validação de entrada
+        if (!instanceName || typeof instanceName !== 'string' || instanceName.trim().length === 0) {
+          throw new Error('Nome da instância é obrigatório e deve ser uma string válida');
+        }
+        
+        const cleanInstanceName = instanceName.trim();
+        console.log(`🚫 Starting webhook disable for instance: ${cleanInstanceName}`);
+        
         if (USE_MOCK_DATA) {
           logger.warn("MOCK MODE IS ACTIVE - This should never be used in production!", {
             operation: 'disableWebhook',
-            instanceName
+            instanceName: cleanInstanceName
           });
           return {
             status: "success",
@@ -587,7 +606,9 @@ const whatsappService = {
           };
         }
         
-        // Disable webhook by setting empty URL and enabled: false
+        // CORREÇÃO: Disable webhook by setting empty URL and enabled: false
+        // Evolution API V2 requer formato específico para desabilitar webhook
+        // FORMATO CORRETO: Evolution API espera dados dentro de "webhook" property
         const webhookConfig = {
           url: "",
           enabled: false,
@@ -596,11 +617,14 @@ const whatsappService = {
           events: []
         };
 
-        const data = await secureApiClient.setWebhook(instanceName, webhookConfig);
+        console.log(`🚫 Disabling webhook for instance: ${cleanInstanceName}`);
+        console.log('📋 Webhook config:', JSON.stringify(webhookConfig, null, 2));
+
+        const data = await secureApiClient.setWebhook(cleanInstanceName, webhookConfig);
         
         logger.info("Webhook disabled successfully", {
           operation: 'disableWebhook',
-          instanceName
+          instanceName: cleanInstanceName
         });
         return data;
       },
