@@ -19,6 +19,8 @@ import { useEffect, useState, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useSearchParams } from "react-router-dom";
 import { ErrorState } from "@/components/ErrorState";
+import { useEvolutionStatusSync } from "@/hooks/useEvolutionStatusSync";
+import { SyncStatusIndicator } from "@/components/SyncStatusIndicator";
 
 export function Dashboard() {
   const { user, checkSubscriptionStatus, isLoading: isUserLoading } = useUser();
@@ -30,6 +32,11 @@ export function Dashboard() {
   const [searchParams] = useSearchParams();
   const isMounted = useRef(true);
   const loadTimeoutRef = useRef<NodeJS.Timeout>();
+
+  // 🔄 SINCRONIZAÇÃO AUTOMÁTICA DO STATUS DA EVOLUTION API
+  // Este hook sincroniza automaticamente o status das instâncias WhatsApp
+  // da Evolution API com o campo 'connected' dos agentes no banco de dados
+  useEvolutionStatusSync();
 
   // Debug: Log agents count
   console.log("Dashboard - Current agents count:", agents?.length || 0);
@@ -73,14 +80,13 @@ export function Dashboard() {
         setIsLoading(true);
         setLoadError(null);
 
-        // CORREÇÃO: Forçar carregamento dos agentes
-        console.log("Dashboard: Forçando carregamento dos agentes...");
+        // CORREÇÃO: Forçar carregamento dos agentes apenas uma vez
+        console.log("Dashboard: Carregando agentes...");
         await loadAgentsFromSupabase();
         console.log("Dashboard: Agentes carregados!");
 
         // Simular carregamento com timeout estendido para evitar loops infinitos
-        // (CORREÇÃO CRÍTICA: aumentado para 2000ms para garantir estabilidade)
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         // Verifica se componente ainda está montado antes de atualizar estado
         if (isMounted.current) {
@@ -98,26 +104,23 @@ export function Dashboard() {
     // Timeout para iniciar carregamento, evitando corrida de condição
     const startTimeout = setTimeout(() => {
       loadDashboard();
-    }, 300);
+    }, 100); // Reduzido para 100ms
 
-    // Force complete loading after timeout com tempo maior
+    // Force complete loading after timeout com tempo otimizado
     loadTimeoutRef.current = setTimeout(() => {
       if (isMounted.current && isLoading) {
         setIsLoading(false);
       }
-    }, 7000); // Aumentado para 7s para evitar race conditions
+    }, 5000); // Reduzido para 5s
 
-    // Limpar timeouts
+    // Limpar timeouts no cleanup
     return () => {
       clearTimeout(startTimeout);
-    };
-
-    return () => {
       if (loadTimeoutRef.current) {
         clearTimeout(loadTimeoutRef.current);
       }
     };
-  }, [user, isUserLoading, navigate]);
+  }, [user, isUserLoading, navigate, loadAgentsFromSupabase]); // CORREÇÃO: Adicionar dependências necessárias
 
   // Loading state
   if (isUserLoading || isLoading) {
@@ -209,6 +212,9 @@ export function Dashboard() {
                 <DashboardAnalytics />
               </div>
             </div>
+            
+            {/* Indicador de sincronização com Evolution API */}
+            <SyncStatusIndicator />
             
             <div className="pt-2 md:pt-4">
               <InterestedClients />

@@ -518,6 +518,100 @@ const whatsappService = {
     return whatsappService.fetchInstances();
   },
 
+  /**
+   * Enable webhook for an instance with MESSAGES_UPSERT event
+   */
+  enableWebhook: async (instanceName: string): Promise<WebhookConfigResponse> => {
+    return withAPILogging(
+      async () => {
+        if (USE_MOCK_DATA) {
+          logger.warn("MOCK MODE IS ACTIVE - This should never be used in production!", {
+            operation: 'enableWebhook',
+            instanceName
+          });
+          return {
+            status: "success",
+            message: "Webhook enabled successfully (mock)",
+            webhook: {
+              enabled: true,
+              url: "https://webhooksaas.geni.chat/webhook/principal",
+              events: ["MESSAGES_UPSERT"]
+            }
+          };
+        }
+        
+        // Configure webhook with MESSAGES_UPSERT event
+        const webhookConfig = {
+          url: "https://webhooksaas.geni.chat/webhook/principal",
+          enabled: true,
+          webhook_by_events: true,
+          webhook_base64: true,
+          events: ["MESSAGES_UPSERT"]
+        };
+
+        const data = await secureApiClient.setWebhook(instanceName, webhookConfig);
+        
+        logger.info("Webhook enabled successfully", {
+          operation: 'enableWebhook',
+          instanceName
+        });
+        return data;
+      },
+      {
+        method: 'POST',
+        endpoint: `enableWebhook/${instanceName}`,
+        service: 'whatsappService'
+      }
+    );
+  },
+
+  /**
+   * Disable webhook for an instance
+   */
+  disableWebhook: async (instanceName: string): Promise<WebhookConfigResponse> => {
+    return withAPILogging(
+      async () => {
+        if (USE_MOCK_DATA) {
+          logger.warn("MOCK MODE IS ACTIVE - This should never be used in production!", {
+            operation: 'disableWebhook',
+            instanceName
+          });
+          return {
+            status: "success",
+            message: "Webhook disabled successfully (mock)",
+            webhook: {
+              enabled: false,
+              url: "",
+              events: []
+            }
+          };
+        }
+        
+        // Disable webhook by setting empty URL and enabled: false
+        const webhookConfig = {
+          url: "",
+          enabled: false,
+          webhook_by_events: false,
+          webhook_base64: false,
+          events: []
+        };
+
+        const data = await secureApiClient.setWebhook(instanceName, webhookConfig);
+        
+        logger.info("Webhook disabled successfully", {
+          operation: 'disableWebhook',
+          instanceName
+        });
+        return data;
+      },
+      {
+        method: 'POST',
+        endpoint: `disableWebhook/${instanceName}`,
+        service: 'whatsappService'
+      }
+    );
+  },
+
   secureApiClient,
 };
 

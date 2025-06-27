@@ -75,8 +75,8 @@ serve(async (req) => {
       requestData = payload; // Usar apenas os dados como payload
     } catch (parseError) {
       logDebug('❌ JSON parsing failed', { 
-        error: parseError.message, 
-        bodyPreview: (await req.text()).substring(0, 200) 
+        error: parseError.message,
+        bodyPreview: 'Unable to re-read body text after error'
       });
       throw new Error(`Invalid JSON body: ${parseError.message}`);
     }
@@ -85,11 +85,24 @@ serve(async (req) => {
     let evolutionApiUrl = EVOLUTION_API_URL.replace(/\/$/, '') + endpoint;
     let body: string | undefined = undefined;
     
-    // Evolution API v2: Handle endpoints correctly
+    // Evolution API v2: Handle endpoints correctly with proper data formatting
     if (method !== 'GET') {
       // For POST/PUT/DELETE requests, include the body data
       if (Object.keys(requestData).length > 0) {
-        body = JSON.stringify(requestData);
+        // 🔧 CORREÇÃO ESPECÍFICA: Para endpoints de webhook, envolver os dados na propriedade "webhook"
+        if (endpoint.includes('/webhook/set/')) {
+          // A Evolution API espera: { "webhook": { "url": "", "events": [], ... } }
+          body = JSON.stringify({
+            webhook: requestData
+          });
+          logDebug('🔗 Webhook endpoint detected - wrapping data in webhook property', {
+            originalData: requestData,
+            wrappedData: { webhook: requestData }
+          });
+        } else {
+          // Para outros endpoints, usar os dados diretamente
+          body = JSON.stringify(requestData);
+        }
       }
     }
     

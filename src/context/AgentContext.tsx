@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from "react";
 import { Agent, FAQ } from "../types";
 import { EXAMPLE_AGENT } from "../lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -55,7 +55,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   // Load agents from Supabase
-  const loadAgentsFromSupabase = async (): Promise<void> => {
+  const loadAgentsFromSupabase = useCallback(async (): Promise<void> => {
     if (!user) {
       console.log("No user, skipping agent loading");
       return Promise.resolve();
@@ -101,7 +101,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user, toast]); // CORREÇÃO: Memoizar a função para evitar loops infinitos
 
   const updateAgent = (updatedAgent: Partial<Agent>) => {
     setCurrentAgent((prev) => ({

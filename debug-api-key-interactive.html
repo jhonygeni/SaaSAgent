@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de API Key - Evolution API</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: monospace;
+            margin: 5px 0;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            margin: 10px 0;
+        }
+        .step {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-left: 4px solid #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔑 Teste de API Key - Evolution API</h1>
+        
+        <div class="info">
+            <strong>🎯 Objetivo:</strong> Testar se sua API key da Evolution API está funcionando corretamente e debugar o erro de webhook.
+        </div>
+
+        <div class="warning">
+            <strong>⚠️ Atenção:</strong> Esta é uma ferramenta de debug. Nunca compartilhe sua API key com terceiros!
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>📋 Como encontrar sua API key</h2>
+        
+        <div class="step">
+            <strong>1.</strong> Acesse seu painel da Evolution API (normalmente em <code>https://evo.geni.chat</code> ou similar)
+        </div>
+        
+        <div class="step">
+            <strong>2.</strong> Vá para <strong>Configurações</strong> ou <strong>Settings</strong>
+        </div>
+        
+        <div class="step">
+            <strong>3.</strong> Procure por <strong>"API Key"</strong>, <strong>"Global Key"</strong> ou <strong>"Token"</strong>
+        </div>
+        
+        <div class="step">
+            <strong>4.</strong> Copie a chave completa (geralmente um texto longo com letras e números)
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>🧪 Teste da API Key</h2>
+        
+        <div>
+            <label for="apiKey"><strong>Cole sua API Key aqui:</strong></label>
+            <input type="password" id="apiKey" placeholder="Cole sua API key aqui..." />
+            <button type="button" onclick="toggleApiKeyVisibility()">👁️ Mostrar/Ocultar</button>
+        </div>
+        
+        <div>
+            <button onclick="testApiKey()" id="testBtn">🧪 Testar API Key</button>
+            <button onclick="testWebhookFind()" id="webhookFindBtn" disabled>🔍 Verificar Webhook</button>
+            <button onclick="testWebhookDisable()" id="webhookDisableBtn" disabled>🚫 Desabilitar Webhook</button>
+            <button onclick="clearLog()">🗑️ Limpar Log</button>
+        </div>
+        
+        <div id="log" class="log">Aguardando teste da API key...</div>
+    </div>
+
+    <div class="container">
+        <h2>🔧 Informações sobre o erro</h2>
+        
+        <div class="error">
+            <strong>Erro atual:</strong> "Edge Function returned a non-2xx status code"
+        </div>
+        
+        <div class="info">
+            <strong>Possíveis causas:</strong>
+            <ul>
+                <li>API key incorreta ou expirada</li>
+                <li>Instância não existe ou foi removida</li>
+                <li>Problema de conectividade com a Evolution API</li>
+                <li>Configuração incorreta no servidor</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const EVOLUTION_API_URL = 'https://evo.geni.chat';
+        const INSTANCE_NAME = 'inst_mcdgmk29_alu6eo';
+        
+        function log(message) {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.textContent += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        function clearLog() {
+            document.getElementById('log').textContent = 'Log limpo - Pronto para novos testes.\n';
+        }
+        
+        function toggleApiKeyVisibility() {
+            const input = document.getElementById('apiKey');
+            input.type = input.type === 'password' ? 'text' : 'password';
+        }
+        
+        async function testApiKey() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            
+            if (!apiKey) {
+                log('❌ ERRO: Por favor, cole sua API key');
+                return;
+            }
+            
+            if (apiKey.length < 10) {
+                log('⚠️ AVISO: API key parece muito curta. Verifique se copiou corretamente.');
+                return;
+            }
+            
+            const testBtn = document.getElementById('testBtn');
+            testBtn.disabled = true;
+            testBtn.textContent = 'Testando...';
+            
+            try {
+                log(`🧪 Testando API key: ${apiKey.substring(0, 8)}...${apiKey.substring(apiKey.length - 4)}`);
+                log('📡 Fazendo requisição para /instance/fetchInstances...');
+                
+                const response = await fetch(`${EVOLUTION_API_URL}/instance/fetchInstances`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': apiKey
+                    }
+                });
+                
+                log(`📊 Status da resposta: ${response.status} (${response.statusText})`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ API key válida!');
+                    log(`📋 ${data.length || 0} instância(s) encontrada(s)`);
+                    
+                    // Verificar se a instância específica existe
+                    const targetInstance = data.find(inst => 
+                        inst.instance?.instanceName === INSTANCE_NAME
+                    );
+                    
+                    if (targetInstance) {
+                        log(`🎯 Instância "${INSTANCE_NAME}" encontrada!`);
+                        log(`📄 Estado: ${targetInstance.instance?.state || 'unknown'}`);
+                        
+                        // Habilitar botões de webhook
+                        document.getElementById('webhookFindBtn').disabled = false;
+                        document.getElementById('webhookDisableBtn').disabled = false;
+                    } else {
+                        log(`⚠️ Instância "${INSTANCE_NAME}" NÃO encontrada`);
+                        log('📋 Instâncias disponíveis:');
+                        data.forEach(inst => {
+                            const name = inst.instance?.instanceName || 'unnamed';
+                            const state = inst.instance?.state || 'unknown';
+                            log(`   - ${name} (${state})`);
+                        });
+                    }
+                } else {
+                    const errorText = await response.text();
+                    log('❌ API key inválida ou erro na API');
+                    log(`📄 Resposta: ${errorText}`);
+                    
+                    if (response.status === 401) {
+                        log('🔑 Erro de autenticação - Verifique se a API key está correta');
+                    } else if (response.status === 404) {
+                        log('🔍 Endpoint não encontrado - Verifique a URL da API');
+                    } else if (response.status >= 500) {
+                        log('🚨 Erro do servidor - A Evolution API pode estar indisponível');
+                    }
+                }
+            } catch (error) {
+                log(`💥 Erro de conexão: ${error.message}`);
+                log('🌐 Verifique sua conexão com a internet e se a URL da API está correta');
+            } finally {
+                testBtn.disabled = false;
+                testBtn.textContent = '🧪 Testar API Key';
+            }
+        }
+        
+        async function testWebhookFind() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            
+            if (!apiKey) {
+                log('❌ ERRO: API key não configurada');
+                return;
+            }
+            
+            const btn = document.getElementById('webhookFindBtn');
+            btn.disabled = true;
+            btn.textContent = 'Verificando...';
+            
+            try {
+                log(`\n🔍 Verificando webhook da instância: ${INSTANCE_NAME}`);
+                
+                const response = await fetch(`${EVOLUTION_API_URL}/webhook/find/${INSTANCE_NAME}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': apiKey
+                    }
+                });
+                
+                log(`📊 Status: ${response.status}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ Webhook encontrado:');
+                    log(JSON.stringify(data, null, 2));
+                } else {
+                    const errorText = await response.text();
+                    log('❌ Erro ao buscar webhook:');
+                    log(errorText);
+                }
+            } catch (error) {
+                log(`💥 Erro: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🔍 Verificar Webhook';
+            }
+        }
+        
+        async function testWebhookDisable() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            
+            if (!apiKey) {
+                log('❌ ERRO: API key não configurada');
+                return;
+            }
+            
+            const btn = document.getElementById('webhookDisableBtn');
+            btn.disabled = true;
+            btn.textContent = 'Desabilitando...';
+            
+            try {
+                log(`\n🚫 Tentando desabilitar webhook da instância: ${INSTANCE_NAME}`);
+                
+                const response = await fetch(`${EVOLUTION_API_URL}/webhook/set/${INSTANCE_NAME}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': apiKey
+                    },
+                    body: JSON.stringify({
+                        url: "",
+                        webhook_by_events: false,
+                        webhook_base64: false,
+                        events: []
+                    })
+                });
+                
+                log(`📊 Status: ${response.status}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ Webhook desabilitado com sucesso!');
+                    log(JSON.stringify(data, null, 2));
+                } else {
+                    const errorText = await response.text();
+                    log('❌ Erro ao desabilitar webhook:');
+                    log(errorText);
+                    
+                    if (response.status === 401) {
+                        log('🔑 Erro de autenticação - API key pode estar incorreta');
+                    } else if (response.status === 404) {
+                        log('🔍 Instância não encontrada');
+                    } else if (response.status >= 500) {
+                        log('🚨 Erro do servidor Evolution API');
+                    }
+                }
+            } catch (error) {
+                log(`💥 Erro: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🚫 Desabilitar Webhook';
+            }
+        }
+        
+        // Log inicial
+        log('🔧 Ferramenta de debug carregada');
+        log(`🎯 Testando com a instância: ${INSTANCE_NAME}`);
+        log('📝 Cole sua API key acima e clique em "Testar API Key"');
+    </script>
+</body>
+</html>

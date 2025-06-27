@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Final - Webhook com "enabled"</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            margin: 10px 0;
+        }
+        pre {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Teste Final - Webhook com Propriedade "enabled"</h1>
+        
+        <div class="info">
+            <strong>✅ Correção 3 Implementada:</strong> Adicionada a propriedade <code>"enabled"</code> que a Evolution API exige.
+        </div>
+        
+        <button onclick="testWebhookDisableFinal()">🚫 Teste Final - Disable Webhook</button>
+        <button onclick="testWebhookEnableFinal()">✅ Teste Final - Enable Webhook</button>
+        <button onclick="clearLog()">🗑️ Limpar Log</button>
+        
+        <div id="log" class="log">Aguardando teste final...</div>
+    </div>
+
+    <div class="container">
+        <h2>📋 Formato Final Correto</h2>
+        
+        <h3>🚫 Para Desabilitar:</h3>
+        <pre>{
+  "webhook": {
+    "url": "",
+    "enabled": false,
+    "webhook_by_events": false,
+    "webhook_base64": false,
+    "events": []
+  }
+}</pre>
+
+        <h3>✅ Para Habilitar:</h3>
+        <pre>{
+  "webhook": {
+    "url": "https://webhooksaas.geni.chat/webhook/principal",
+    "enabled": true,
+    "webhook_by_events": true,
+    "webhook_base64": true,
+    "events": ["MESSAGES_UPSERT"]
+  }
+}</pre>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://hpovwcaskorzzrpphgkc.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhwb3Z3Y2Fza29yenpycHBoZ2tjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc4MjYzODYsImV4cCI6MjA2MzQwMjM4Nn0.3Gx3Gc5xlFKwoMvd0Zk9vELzNbrf0ar4gaM92n9dtDc';
+        const INSTANCE_NAME = 'inst_mcdgmk29_alu6eo';
+        
+        function log(message) {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.textContent += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        function clearLog() {
+            document.getElementById('log').textContent = 'Log limpo.\n';
+        }
+        
+        async function testWebhookDisableFinal() {
+            try {
+                log('🚫 Teste FINAL - Webhook Disable com propriedade "enabled"');
+                
+                // Dados corretos para desabilitar webhook
+                const webhookData = {
+                    url: "",
+                    enabled: false,
+                    webhook_by_events: false,
+                    webhook_base64: false,
+                    events: []
+                };
+                
+                log('📋 Dados completos sendo enviados:');
+                log(JSON.stringify(webhookData, null, 2));
+                
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/evolution-api`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({
+                        endpoint: `/webhook/set/${INSTANCE_NAME}`,
+                        method: 'POST',
+                        data: webhookData
+                    })
+                });
+                
+                log(`📊 Status: ${response.status} (${response.statusText})`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('🎉 SUCESSO TOTAL! Webhook disable funcionando!');
+                    log(JSON.stringify(data, null, 2));
+                    
+                    // Mostrar mensagem de sucesso
+                    const container = document.querySelector('.container');
+                    const successDiv = document.createElement('div');
+                    successDiv.className = 'success';
+                    successDiv.innerHTML = '<strong>🎉 PROBLEMA COMPLETAMENTE RESOLVIDO!</strong><br>✅ O webhook disable está funcionando<br>✅ Agora teste no aplicativo - o toggle deve funcionar!';
+                    container.appendChild(successDiv);
+                } else {
+                    const errorData = await response.text();
+                    log('❌ Ainda há erro:');
+                    log(errorData);
+                }
+            } catch (error) {
+                log(`💥 Erro: ${error.message}`);
+            }
+        }
+        
+        async function testWebhookEnableFinal() {
+            try {
+                log('\n✅ Teste FINAL - Webhook Enable com propriedade "enabled"');
+                
+                // Dados corretos para habilitar webhook
+                const webhookData = {
+                    url: "https://webhooksaas.geni.chat/webhook/principal",
+                    enabled: true,
+                    webhook_by_events: true,
+                    webhook_base64: true,
+                    events: ["MESSAGES_UPSERT"]
+                };
+                
+                log('📋 Dados completos sendo enviados:');
+                log(JSON.stringify(webhookData, null, 2));
+                
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/evolution-api`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({
+                        endpoint: `/webhook/set/${INSTANCE_NAME}`,
+                        method: 'POST',
+                        data: webhookData
+                    })
+                });
+                
+                log(`📊 Status: ${response.status} (${response.statusText})`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ Webhook enable também funcionando!');
+                    log(JSON.stringify(data, null, 2));
+                } else {
+                    const errorData = await response.text();
+                    log('❌ Erro ao habilitar webhook:');
+                    log(errorData);
+                }
+            } catch (error) {
+                log(`💥 Erro: ${error.message}`);
+            }
+        }
+        
+        // Log inicial
+        log('🔧 Teste final carregado');
+        log('🎯 Testando com propriedade "enabled" adicionada');
+        log('📝 Se funcionar aqui, funcionará no aplicativo');
+    </script>
+</body>
+</html>

@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Teste - Correção Recarregamento de Página</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .status-card {
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 5px solid;
+        }
+        .success { border-left-color: #28a745; background: #d4edda; }
+        .error { border-left-color: #dc3545; background: #f8d7da; }
+        .warning { border-left-color: #ffc107; background: #fff3cd; }
+        .info { border-left-color: #17a2b8; background: #d1ecf1; }
+        button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            margin: 10px 5px;
+            transition: all 0.3s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .test-result {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 13px;
+        }
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .metric:last-child { border-bottom: none; }
+        .metric-value { font-weight: bold; color: #007bff; }
+        iframe {
+            width: 100%;
+            height: 400px;
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Teste - Correção do Recarregamento de Página</h1>
+        
+        <div class="status-card info">
+            <h3>📋 O que este teste verifica:</h3>
+            <p><strong>Problema Original:</strong> Dashboard recarregava toda a página quando usuário saía e voltava para a aba</p>
+            <p><strong>Causa Raiz:</strong> Loop infinito no hook useContacts causando sobrecarga do browser</p>
+            <p><strong>Correção Aplicada:</strong> Removidas dependências circulares no useContacts</p>
+        </div>
+
+        <div class="status-card warning">
+            <h3>🧪 Como Testar:</h3>
+            <ol>
+                <li>Abra o dashboard da aplicação abaixo</li>
+                <li>Deixe carregando por 10-15 segundos</li>
+                <li>Mude para outra aba do navegador</li>
+                <li>Espere 30 segundos</li>
+                <li>Volte para esta aba</li>
+                <li><strong>RESULTADO ESPERADO:</strong> Dashboard continua funcionando normalmente</li>
+                <li><strong>SEM:</strong> Recarregamento automático da página</li>
+            </ol>
+        </div>
+
+        <div class="status-card">
+            <h3>📊 Métricas em Tempo Real</h3>
+            <div id="metrics">
+                <div class="metric">
+                    <span>Requisições HTTP:</span>
+                    <span class="metric-value" id="httpRequests">0</span>
+                </div>
+                <div class="metric">
+                    <span>Re-renders Detectados:</span>
+                    <span class="metric-value" id="reRenders">0</span>
+                </div>
+                <div class="metric">
+                    <span>Tempo de Teste:</span>
+                    <span class="metric-value" id="testTime">0s</span>
+                </div>
+                <div class="metric">
+                    <span>Status do Dashboard:</span>
+                    <span class="metric-value" id="dashboardStatus">Aguardando...</span>
+                </div>
+                <div class="metric">
+                    <span>Page Reloads Detectados:</span>
+                    <span class="metric-value" id="pageReloads">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin: 20px 0;">
+            <button onclick="startTest()">🚀 Iniciar Teste</button>
+            <button onclick="stopTest()">⏹️ Parar Teste</button>
+            <button onclick="openDashboard()">📊 Abrir Dashboard</button>
+            <button onclick="clearLogs()">🧹 Limpar Logs</button>
+        </div>
+
+        <div class="status-card">
+            <h3>🖥️ Dashboard da Aplicação</h3>
+            <p>O dashboard será carregado aqui. Teste a troca de abas:</p>
+            <iframe id="dashboardFrame" src="about:blank"></iframe>
+        </div>
+
+        <div class="status-card">
+            <h3>📝 Log de Eventos</h3>
+            <div class="test-result" id="testLog">
+                [SISTEMA] Teste de correção do recarregamento iniciado<br>
+                [INFO] Aguardando início do teste...<br>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let testStartTime = null;
+        let testInterval = null;
+        let httpRequestCount = 0;
+        let reRenderCount = 0;
+        let pageReloadCount = 0;
+        let isTestRunning = false;
+        
+        function log(message, type = 'INFO') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logDiv = document.getElementById('testLog');
+            const colorClass = type === 'ERROR' ? 'error' : type === 'SUCCESS' ? 'success' : 'info';
+            logDiv.innerHTML += `<span class="${colorClass}">[${timestamp}] [${type}] ${message}</span><br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(`[${type}] ${message}`);
+        }
+        
+        function updateMetrics() {
+            document.getElementById('httpRequests').textContent = httpRequestCount;
+            document.getElementById('reRenders').textContent = reRenderCount;
+            document.getElementById('pageReloads').textContent = pageReloadCount;
+            
+            if (testStartTime) {
+                const elapsed = Math.floor((Date.now() - testStartTime) / 1000);
+                document.getElementById('testTime').textContent = elapsed + 's';
+            }
+        }
+        
+        function startTest() {
+            if (isTestRunning) {
+                log('Teste já está em execução', 'WARNING');
+                return;
+            }
+            
+            isTestRunning = true;
+            testStartTime = Date.now();
+            httpRequestCount = 0;
+            reRenderCount = 0;
+            pageReloadCount = 0;
+            
+            log('🚀 INICIANDO TESTE DE CORREÇÃO', 'SUCCESS');
+            log('📊 Carregando dashboard da aplicação...', 'INFO');
+            
+            // Carregar dashboard
+            const frame = document.getElementById('dashboardFrame');
+            frame.src = 'http://localhost:5173/dashboard';
+            
+            document.getElementById('dashboardStatus').textContent = 'Carregando...';
+            
+            // Monitorar frame load
+            frame.onload = function() {
+                log('✅ Dashboard carregado com sucesso', 'SUCCESS');
+                document.getElementById('dashboardStatus').textContent = 'Online';
+                
+                // Instruções para o usuário
+                log('📋 INSTRUÇÕES PARA TESTE:', 'INFO');
+                log('1. Aguarde 10 segundos para o dashboard estabilizar', 'INFO');
+                log('2. Mude para outra aba do navegador', 'INFO');
+                log('3. Espere 30 segundos', 'INFO');
+                log('4. Volte para esta aba', 'INFO');
+                log('5. Observe se houve recarregamento automático', 'INFO');
+            };
+            
+            frame.onerror = function() {
+                log('❌ Erro ao carregar dashboard', 'ERROR');
+                document.getElementById('dashboardStatus').textContent = 'Erro';
+            };
+            
+            // Interceptar requisições fetch para contar
+            monitorHttpRequests();
+            
+            // Monitorar visibilidade da página
+            monitorPageVisibility();
+            
+            // Timer de métricas
+            testInterval = setInterval(updateMetrics, 1000);
+            
+            log('📡 Monitoramento de requisições HTTP ativo', 'INFO');
+            log('👁️ Monitoramento de visibilidade da página ativo', 'INFO');
+        }
+        
+        function stopTest() {
+            if (!isTestRunning) {
+                log('Nenhum teste em execução', 'WARNING');
+                return;
+            }
+            
+            isTestRunning = false;
+            
+            if (testInterval) {
+                clearInterval(testInterval);
+                testInterval = null;
+            }
+            
+            log('⏹️ TESTE FINALIZADO', 'SUCCESS');
+            log(`📊 RESULTADO FINAL:`, 'INFO');
+            log(`• Requisições HTTP: ${httpRequestCount}`, 'INFO');
+            log(`• Re-renders: ${reRenderCount}`, 'INFO');
+            log(`• Recarregamentos de página: ${pageReloadCount}`, 'INFO');
+            
+            if (pageReloadCount === 0) {
+                log('🎉 SUCESSO: Nenhum recarregamento detectado!', 'SUCCESS');
+                log('✅ Correção funcionando corretamente', 'SUCCESS');
+            } else {
+                log('⚠️ ATENÇÃO: Recarregamentos detectados', 'ERROR');
+                log('❌ Problema pode ainda existir', 'ERROR');
+            }
+            
+            document.getElementById('dashboardStatus').textContent = 'Teste Finalizado';
+        }
+        
+        function openDashboard() {
+            window.open('http://localhost:5173/dashboard', '_blank');
+            log('🔗 Dashboard aberto em nova aba', 'INFO');
+        }
+        
+        function clearLogs() {
+            document.getElementById('testLog').innerHTML = '[SISTEMA] Logs limpos<br>';
+            log('🧹 Logs limpos', 'INFO');
+        }
+        
+        function monitorHttpRequests() {
+            // Interceptar fetch
+            const originalFetch = window.fetch;
+            window.fetch = function(...args) {
+                httpRequestCount++;
+                log(`🌐 HTTP Request: ${args[0]}`, 'INFO');
+                return originalFetch.apply(this, args);
+            };
+        }
+        
+        function monitorPageVisibility() {
+            let lastVisibilityChange = Date.now();
+            
+            document.addEventListener('visibilitychange', () => {
+                const now = Date.now();
+                const timeSinceLastChange = now - lastVisibilityChange;
+                lastVisibilityChange = now;
+                
+                if (document.hidden) {
+                    log('👁️ Página ficou oculta (usuário mudou de aba)', 'INFO');
+                } else {
+                    log('👁️ Página ficou visível (usuário voltou à aba)', 'INFO');
+                    
+                    // Verificar se houve recarregamento
+                    if (timeSinceLastChange > 5000) { // Mais de 5 segundos
+                        // Aguardar um pouco e verificar se dashboard ainda está carregado
+                        setTimeout(() => {
+                            const frame = document.getElementById('dashboardFrame');
+                            if (frame.src === 'about:blank' || !frame.contentWindow) {
+                                pageReloadCount++;
+                                log('🚨 RECARREGAMENTO DETECTADO!', 'ERROR');
+                                log('❌ Dashboard foi recarregado automaticamente', 'ERROR');
+                            } else {
+                                log('✅ Dashboard continua estável após retorno', 'SUCCESS');
+                            }
+                        }, 2000);
+                    }
+                }
+            });
+        }
+        
+        // Detectar beforeunload (possível recarregamento)
+        window.addEventListener('beforeunload', () => {
+            if (isTestRunning) {
+                pageReloadCount++;
+                log('⚠️ Evento beforeunload detectado', 'WARNING');
+            }
+        });
+        
+        // Inicializar
+        log('🛠️ Sistema de teste carregado', 'SUCCESS');
+        log('📋 Pronto para testar a correção do recarregamento', 'INFO');
+        log('🎯 OBJETIVO: Verificar se dashboard não recarrega ao trocar de abas', 'INFO');
+        
+        updateMetrics();
+    </script>
+</body>
+</html>

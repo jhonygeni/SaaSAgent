@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Toggle Webhook</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>Teste de Funcionalidade: Toggle de Webhook</h1>
+    
+    <div class="test-section">
+        <h2>Teste de Simulação</h2>
+        <p>Este teste simula o comportamento do toggle de webhook no componente AgentList.</p>
+        
+        <div>
+            <label>Nome da Instância:</label>
+            <input type="text" id="instanceName" value="test-instance" placeholder="Digite o nome da instância">
+        </div>
+        <br>
+        
+        <div>
+            <label>Status Atual:</label>
+            <select id="currentStatus">
+                <option value="inativo">Inativo</option>
+                <option value="ativo">Ativo</option>
+                <option value="pendente">Pendente</option>
+            </select>
+        </div>
+        <br>
+        
+        <button onclick="testToggleWebhook()">Testar Toggle de Status</button>
+        <button onclick="clearLog()">Limpar Log</button>
+        
+        <div id="log" class="log"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Funcionalidades Implementadas ✅</h2>
+        <ul>
+            <li><strong>Toggle de Status Assíncrono:</strong> A função handleToggleStatus agora é async</li>
+            <li><strong>Controle de Webhook via Evolution API:</strong> Chama enableWebhook/disableWebhook</li>
+            <li><strong>Feedback Visual:</strong> Toasts de loading, sucesso e erro</li>
+            <li><strong>Rollback em Caso de Erro:</strong> Reverte status no banco se API falhar</li>
+            <li><strong>Evento MESSAGES_UPSERT:</strong> Sempre usa este evento ao ativar webhook</li>
+            <li><strong>Tratamento de Erros:</strong> Captura e exibe erros da API Evolution</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>Fluxo de Funcionamento</h2>
+        <ol>
+            <li><strong>Usuário clica no toggle:</strong> Status muda de ativo para inativo ou vice-versa</li>
+            <li><strong>Loading Toast:</strong> Mostra "Ativando/Desativando agente..."</li>
+            <li><strong>Atualização do Banco:</strong> Status é atualizado primeiro no banco local</li>
+            <li><strong>Chamada da API Evolution:</strong> 
+                <ul>
+                    <li>Se ativando: <code>enableWebhook(instanceName)</code> com evento MESSAGES_UPSERT</li>
+                    <li>Se desativando: <code>disableWebhook(instanceName)</code> para pausar o bot</li>
+                </ul>
+            </li>
+            <li><strong>Feedback de Sucesso:</strong> Toast confirma operação bem-sucedida</li>
+            <li><strong>Em Caso de Erro:</strong> Reverte status no banco e mostra erro</li>
+        </ol>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${type.toUpperCase()}: ${message}\n`;
+            logElement.textContent += logEntry;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('log').textContent = '';
+        }
+
+        async function testToggleWebhook() {
+            const instanceName = document.getElementById('instanceName').value;
+            const currentStatus = document.getElementById('currentStatus').value;
+            
+            if (!instanceName.trim()) {
+                log('Por favor, digite um nome de instância', 'error');
+                return;
+            }
+
+            log(`Iniciando teste para instância: ${instanceName}`);
+            log(`Status atual: ${currentStatus}`);
+            
+            // Simular o comportamento do handleToggleStatus
+            const newStatus = currentStatus === "ativo" ? "inativo" : "ativo";
+            log(`Novo status será: ${newStatus}`);
+            
+            try {
+                // Simular loading toast
+                log(`🔄 ${newStatus === "ativo" ? "Ativando agente..." : "Desativando agente..."}`);
+                log(`📋 ${newStatus === "ativo" ? "Habilitando webhook..." : "Desabilitando webhook e pausando bot..."}`);
+                
+                // Simular atualização do banco
+                log('✅ Status atualizado no banco de dados');
+                
+                // Simular chamada da API
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Simular delay da API
+                
+                if (newStatus === "ativo") {
+                    log('🔗 Chamando whatsappService.enableWebhook() com evento MESSAGES_UPSERT');
+                    log('📡 Webhook habilitado na Evolution API');
+                } else {
+                    log('🚫 Chamando whatsappService.disableWebhook()');
+                    log('⏸️ Webhook desabilitado - Bot pausado');
+                }
+                
+                // Simular toast de sucesso
+                log(`🎉 Agente ${newStatus === "ativo" ? "ativado" : "desativado"} com sucesso!`);
+                log(`📋 ${newStatus === "ativo" ? "Webhook habilitado - Bot ativo para receber mensagens" : "Webhook desabilitado - Bot pausado"}`);
+                
+                // Atualizar o select para o novo status
+                document.getElementById('currentStatus').value = newStatus;
+                
+            } catch (error) {
+                log('❌ Erro durante a operação', 'error');
+                log('🔄 Revertendo status no banco de dados', 'error');
+                log(`Erro: ${error.message}`, 'error');
+            }
+        }
+
+        // Log inicial
+        log('Sistema de teste carregado - Pronto para testar toggle de webhook');
+        log('A implementação real está em AgentList.tsx e whatsappService.ts');
+    </script>
+</body>
+</html>

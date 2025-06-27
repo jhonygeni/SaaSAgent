@@ -38,9 +38,11 @@ const queryClient = logStep('Query Client Creation', () => new QueryClient({
         console.log(`Query failed ${failureCount} times:`, error);
         return failureCount < 3;
       },
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      refetchOnWindowFocus: false, // Evita refetches desnecessários
+      staleTime: 10 * 60 * 1000, // 10 minutes - aumentado para evitar refetches
+      refetchOnWindowFocus: false, // CRÍTICO: Evita refetches quando volta à aba
       refetchOnMount: false, // Evita refetches desnecessários
+      refetchOnReconnect: false, // Evita refetches na reconexão
+      refetchInterval: false, // Desabilita polling automático
     },
   },
 }));

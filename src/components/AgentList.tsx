@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAgent } from "@/context/AgentContext";
@@ -6,10 +5,11 @@ import { Button } from "@/components/ui/button-extensions";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash, MessageSquare, Smartphone, Plus, WifiOff, AlertTriangle } from "lucide-react";
+import { Edit, Trash, MessageSquare, Smartphone, Plus, WifiOff, AlertTriangle, RefreshCw } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { formatLimit, getAgentLimitByPlan } from "@/lib/utils";
 import { useUser } from "@/context/UserContext";
+import { useEvolutionStatusSync } from "@/hooks/useEvolutionStatusSync";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,22 +27,78 @@ export function AgentList() {
   const navigate = useNavigate();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [agentToDelete, setAgentToDelete] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  
+  // Hook para sincronização manual do status da Evolution API
+  const { syncAgentStatus, syncAllAgentsStatus } = useEvolutionStatusSync();
   
   const agentLimit = user ? getAgentLimitByPlan(user.plan) : 1;
   const hasReachedLimit = agents.length >= agentLimit;
   
-  // Updated handleToggleStatus to account for all possible status types
-  const handleToggleStatus = (id: string, currentStatus: "ativo" | "inativo" | "pendente") => {
+  // Updated handleToggleStatus to control webhook enable/disable in Evolution API
+  const handleToggleStatus = async (id: string, currentStatus: "ativo" | "inativo" | "pendente") => {
     // If status is "ativo", switch to "inativo"
     // If status is "inativo" or "pendente", switch to "ativo"
     const newStatus = currentStatus === "ativo" ? "inativo" : "ativo";
-    updateAgentById(id, { status: newStatus });
     
-    toast({
-      title: `Agente ${newStatus === "ativo" ? "ativado" : "desativado"}`,
-      description: `O agente foi ${newStatus === "ativo" ? "ativado" : "desativado"} com sucesso.`,
-      variant: "default",
-    });
+    // Find the agent to get instance name
+    const agent = agents.find(a => a.id === id);
+    if (!agent) {
+      toast({
+        title: "Erro",
+        description: "Agente não encontrado.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Show loading toast
+      const loadingToast = toast({
+        title: newStatus === "ativo" ? "Ativando agente..." : "Desativando agente...",
+        description: newStatus === "ativo" 
+          ? "Habilitando webhook e pausando bot..." 
+          : "Desabilitando webhook e pausando bot...",
+        variant: "default",
+      });
+
+      // Update database status first
+      updateAgentById(id, { status: newStatus });
+
+      // If agent has instance name, control webhook in Evolution API
+      if (agent.instanceName) {
+        const { default: whatsappService } = await import('@/services/whatsappService');
+        
+        if (newStatus === "ativo") {
+          // Enable webhook with MESSAGES_UPSERT event
+          await whatsappService.enableWebhook(agent.instanceName);
+        } else {
+          // Disable webhook (pauses the bot)
+          await whatsappService.disableWebhook(agent.instanceName);
+        }
+      }
+
+      // Success toast
+      toast({
+        title: `Agente ${newStatus === "ativo" ? "ativado" : "desativado"}`,
+        description: newStatus === "ativo" 
+          ? "O webhook foi habilitado e o bot está ativo para receber mensagens."
+          : "O webhook foi desabilitado e o bot foi pausado.",
+        variant: "default",
+      });
+
+    } catch (error) {
+      console.error("Error toggling agent status:", error);
+      
+      // Revert database status on error
+      updateAgentById(id, { status: currentStatus });
+      
+      toast({
+        title: "Erro ao alterar status",
+        description: error instanceof Error ? error.message : "Erro desconhecido ao alterar status do agente.",
+        variant: "destructive",
+      });
+    }
   };
   
   const handleDeleteClick = (id: string) => {
@@ -75,6 +131,70 @@ export function AgentList() {
     }
   };
 
+  // Função para sincronizar manualmente o status de conexão de um agente específico
+  const handleSyncAgentStatus = async (agentId: string, instanceName: string) => {
+    if (!instanceName) {
+      toast({
+        title: "Erro",
+        description: "Este agente não possui uma instância WhatsApp configurada.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      const success = await syncAgentStatus(agentId, instanceName);
+      
+      if (success) {
+        toast({
+          title: "Status sincronizado",
+          description: "O status de conexão foi atualizado com sucesso.",
+          variant: "default",
+        });
+        // Recarregar a lista de agentes para mostrar o status atualizado
+        window.location.reload();
+      } else {
+        toast({
+          title: "Erro na sincronização",
+          description: "Não foi possível verificar o status na Evolution API.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Ocorreu um erro ao sincronizar o status.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Função para sincronizar todos os agentes
+  const handleSyncAllAgents = async () => {
+    setIsSyncing(true);
+    try {
+      await syncAllAgentsStatus();
+      toast({
+        title: "Sincronização concluída",
+        description: "Status de todos os agentes foi verificado.",
+        variant: "default",
+      });
+      // Recarregar a lista de agentes para mostrar os status atualizados
+      window.location.reload();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Ocorreu um erro ao sincronizar os status.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const handleConnectWhatsApp = (id: string) => {
     if (typeof window.showWhatsAppConnect === "function") {
       window.showWhatsAppConnect(id);
@@ -89,13 +209,25 @@ export function AgentList() {
     <div className="space-y-8">
       <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
         <h2 className="text-2xl font-bold">Seus Agentes</h2>
-        <Button 
-          onClick={() => navigate("/novo-agente")} 
-          disabled={hasReachedLimit}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Novo Agente
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Botão para sincronizar status de todos os agentes */}
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleSyncAllAgents}
+            disabled={isSyncing}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+            {isSyncing ? 'Sincronizando...' : 'Sincronizar Status'}
+          </Button>
+          <Button 
+            onClick={() => navigate("/novo-agente")} 
+            disabled={hasReachedLimit}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Agente
+          </Button>
+        </div>
       </div>
       
       {hasReachedLimit && (
@@ -219,14 +351,28 @@ export function AgentList() {
                 </div>
                 
                 {!agent.connected && (
-                  <Button 
-                    variant="outline" 
-                    className="w-full flex items-center justify-center" 
-                    onClick={() => handleConnectWhatsApp(agent.id!)}
-                  >
-                    <Smartphone className="h-4 w-4 mr-2" />
-                    Conectar WhatsApp
-                  </Button>
+                  <div className="flex gap-2 w-full">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1 flex items-center justify-center" 
+                      onClick={() => handleConnectWhatsApp(agent.id!)}
+                    >
+                      <Smartphone className="h-4 w-4 mr-2" />
+                      Conectar WhatsApp
+                    </Button>
+                    {/* Botão para verificar status individualmente se o agente tem instanceName */}
+                    {agent.instanceName && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleSyncAgentStatus(agent.id!, agent.instanceName!)}
+                        disabled={isSyncing}
+                        title="Verificar se já está conectado na Evolution API"
+                      >
+                        <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                      </Button>
+                    )}
+                  </div>
                 )}
               </CardFooter>
             </Card>

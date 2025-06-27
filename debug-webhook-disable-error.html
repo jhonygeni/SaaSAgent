@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 Debug: Erro Webhook Disable</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .error-section {
+            border: 2px solid #dc3545;
+            background: #f8d7da;
+            color: #721c24;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .solution-section {
+            border: 2px solid #28a745;
+            background: #d4edda;
+            color: #155724;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .test-section {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .btn-danger {
+            background: #dc3545;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        .btn-success {
+            background: #28a745;
+        }
+        .btn-success:hover {
+            background: #218838;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.info {
+            background: #cce5ff;
+            color: #004085;
+            border: 1px solid #b3d7ff;
+        }
+        input, select {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 300px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Debug: Erro "Edge Function returned a non-2xx status code"</h1>
+        
+        <div class="error-section">
+            <h2>❌ Erro Identificado</h2>
+            <p><strong>Erro:</strong> "Edge Function returned a non-2xx status code"</p>
+            <p><strong>Operação:</strong> Desabilitar webhook</p>
+            <p><strong>Função:</strong> disableWebhook() no whatsappService.ts</p>
+        </div>
+
+        <div class="test-section">
+            <h2>🧪 Teste e Debug</h2>
+            
+            <div>
+                <label>Nome da Instância:</label>
+                <input type="text" id="instanceName" value="inst_test_debug" placeholder="Digite o nome da instância">
+            </div>
+            
+            <div>
+                <label>Operação:</label>
+                <select id="operation">
+                    <option value="enable">Habilitar Webhook</option>
+                    <option value="disable">Desabilitar Webhook</option>
+                    <option value="check">Verificar Webhook Atual</option>
+                </select>
+            </div>
+            
+            <button onclick="testWebhookOperation()">Testar Operação</button>
+            <button onclick="testDirectEvolution()">Teste Direto Evolution API</button>
+            <button onclick="clearLog()">Limpar Log</button>
+            
+            <div id="status" class="status info">Pronto para testar...</div>
+            <div id="log" class="log">Aguardando teste...\n</div>
+        </div>
+
+        <div class="solution-section">
+            <h2>🔧 Possíveis Soluções</h2>
+            <ol>
+                <li><strong>Verificar API Key:</strong> A Evolution API pode estar rejeitando as requisições</li>
+                <li><strong>Verificar Instância:</strong> A instância pode não existir na Evolution API</li>
+                <li><strong>Problema na Configuração:</strong> O payload para desabilitar pode estar incorreto</li>
+                <li><strong>Rate Limiting:</strong> A Evolution API pode estar limitando requisições</li>
+                <li><strong>URL Incorreta:</strong> O endpoint pode estar incorreto</li>
+            </ol>
+        </div>
+
+        <div class="test-section">
+            <h2>📋 Configurações de Webhook</h2>
+            
+            <h3>✅ Para Habilitar:</h3>
+            <pre>{
+  "url": "https://webhooksaas.geni.chat/webhook/principal",
+  "webhook_by_events": true,
+  "webhook_base64": true,
+  "events": ["MESSAGES_UPSERT"]
+}</pre>
+
+            <h3>❌ Para Desabilitar:</h3>
+            <pre>{
+  "url": "",
+  "webhook_by_events": false,
+  "webhook_base64": false,
+  "events": []
+}</pre>
+        </div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${type.toUpperCase()}: ${message}\n`;
+            logElement.textContent += logEntry;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function setStatus(message, type = 'info') {
+            const statusElement = document.getElementById('status');
+            statusElement.textContent = message;
+            statusElement.className = `status ${type}`;
+        }
+
+        function clearLog() {
+            document.getElementById('log').textContent = 'Log limpo...\n';
+        }
+
+        async function testWebhookOperation() {
+            const instanceName = document.getElementById('instanceName').value.trim();
+            const operation = document.getElementById('operation').value;
+            
+            if (!instanceName) {
+                log('ERRO: Nome da instância é obrigatório', 'error');
+                setStatus('❌ Digite o nome da instância', 'error');
+                return;
+            }
+
+            log(`Iniciando teste: ${operation} para instância ${instanceName}`);
+            setStatus(`🔄 Executando ${operation}...`, 'info');
+            
+            try {
+                let url = '';
+                let method = 'GET';
+                let body = null;
+                
+                if (operation === 'enable') {
+                    url = `/api/evolution/webhook?instance=${encodeURIComponent(instanceName)}`;
+                    method = 'POST';
+                    body = JSON.stringify({
+                        url: "https://webhooksaas.geni.chat/webhook/principal",
+                        webhook_by_events: true,
+                        webhook_base64: true,
+                        events: ["MESSAGES_UPSERT"]
+                    });
+                } else if (operation === 'disable') {
+                    url = `/api/evolution/webhook?instance=${encodeURIComponent(instanceName)}`;
+                    method = 'POST';
+                    body = JSON.stringify({
+                        url: "",
+                        webhook_by_events: false,
+                        webhook_base64: false,
+                        events: []
+                    });
+                } else if (operation === 'check') {
+                    url = `/api/evolution/webhook?instance=${encodeURIComponent(instanceName)}`;
+                    method = 'GET';
+                }
+
+                log(`Fazendo requisição: ${method} ${url}`);
+                if (body) {
+                    log(`Payload: ${body}`);
+                }
+
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    ...(body && { body })
+                });
+
+                log(`Resposta: ${response.status} ${response.statusText}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ SUCESSO: ${JSON.stringify(data, null, 2)}`);
+                    setStatus(`✅ ${operation} executado com sucesso`, 'success');
+                } else {
+                    const errorText = await response.text();
+                    log(`❌ ERRO: ${errorText}`, 'error');
+                    setStatus(`❌ Erro: ${response.status}`, 'error');
+                    
+                    // Tentar analisar o erro
+                    try {
+                        const errorData = JSON.parse(errorText);
+                        log(`Detalhes do erro: ${JSON.stringify(errorData, null, 2)}`, 'error');
+                    } catch (e) {
+                        log(`Erro não é JSON válido: ${errorText}`, 'error');
+                    }
+                }
+            } catch (error) {
+                log(`❌ ERRO DE REDE: ${error.message}`, 'error');
+                setStatus(`❌ Erro de rede: ${error.message}`, 'error');
+            }
+        }
+
+        async function testDirectEvolution() {
+            const instanceName = document.getElementById('instanceName').value.trim();
+            
+            if (!instanceName) {
+                log('ERRO: Nome da instância é obrigatório', 'error');
+                return;
+            }
+
+            log('🔄 Simulando teste direto na Evolution API...');
+            log('⚠️ NOTA: Teste direto bloqueado por CORS no navegador');
+            
+            // Simular o que aconteceria na Evolution API
+            log('Comando curl equivalente para desabilitar webhook:');
+            log(`curl --request POST \\`);
+            log(`  --url https://cloudsaas.geni.chat/webhook/set/${instanceName} \\`);
+            log(`  --header 'Content-Type: application/json' \\`);
+            log(`  --header 'apikey: [API_KEY]' \\`);
+            log(`  --data '{`);
+            log(`    "url": "",`);
+            log(`    "webhook_by_events": false,`);
+            log(`    "webhook_base64": false,`);
+            log(`    "events": []`);
+            log(`  }'`);
+            
+            setStatus('📋 Comando curl gerado - verifique o log', 'info');
+        }
+
+        // Log inicial
+        log('Sistema de debug carregado');
+        log('Erro: "Edge Function returned a non-2xx status code" ao desabilitar webhook');
+        log('Vamos investigar as possíveis causas...');
+    </script>
+</body>
+</html>

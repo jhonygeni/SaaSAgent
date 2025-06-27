@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚨 TESTE EMERGENCIAL - Recarregamento da Página</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(0,0,0,0.8);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        .alert {
+            background: #ff4757;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .status-card {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid rgba(255,255,255,0.2);
+        }
+        .status-value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #00ff88;
+            text-align: center;
+            margin: 10px 0;
+        }
+        .status-label {
+            text-align: center;
+            font-size: 14px;
+            color: #ccc;
+        }
+        .test-section {
+            background: rgba(255,255,255,0.05);
+            padding: 25px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 5px solid #00ff88;
+        }
+        button {
+            background: linear-gradient(45deg, #00ff88, #00cc6a);
+            color: #000;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            margin: 10px;
+            transition: all 0.3s ease;
+        }
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(0,255,136,0.3);
+        }
+        button.danger {
+            background: linear-gradient(45deg, #ff4757, #ff3838);
+            color: white;
+        }
+        .log-container {
+            background: #000;
+            border: 2px solid #333;
+            border-radius: 10px;
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            margin: 20px 0;
+        }
+        .log-entry {
+            margin: 3px 0;
+            padding: 2px 5px;
+        }
+        .log-critical { color: #ff4757; }
+        .log-warning { color: #ffa502; }
+        .log-success { color: #00ff88; }
+        .log-info { color: #3742fa; }
+        .iframe-test {
+            width: 100%;
+            height: 600px;
+            border: 3px solid #00ff88;
+            border-radius: 10px;
+            background: #fff;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="alert">
+            🚨 TESTE EMERGENCIAL: Detectando Recarregamento Contínuo da Página
+        </div>
+        
+        <h1>🔍 Monitor de Recarregamento da Página</h1>
+        <p>Este teste detecta exatamente quando e por que a página está recarregando quando você sai e volta para a aba.</p>
+        
+        <div class="status-grid">
+            <div class="status-card">
+                <div class="status-value" id="visibility-changes">0</div>
+                <div class="status-label">Mudanças de Visibilidade</div>
+            </div>
+            <div class="status-card">
+                <div class="status-value" id="page-reloads">0</div>
+                <div class="status-label">Recarregamentos Detectados</div>
+            </div>
+            <div class="status-card">
+                <div class="status-value" id="network-requests">0</div>
+                <div class="status-label">Requisições HTTP</div>
+            </div>
+            <div class="status-card">
+                <div class="status-value" id="react-renders">0</div>
+                <div class="status-label">React Re-renders</div>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🎯 Testes Automáticos</h2>
+            <button onclick="testVisibilityAPI()">👁️ Testar API de Visibilidade</button>
+            <button onclick="loadApp()">🚀 Carregar App no iFrame</button>
+            <button onclick="simulateTabSwitch()">🔄 Simular Troca de Aba</button>
+            <button onclick="clearLogs()" class="danger">🧹 Limpar Logs</button>
+            <button onclick="startStressTest()" class="danger">⚡ Teste de Stress</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>📋 Log em Tempo Real</h2>
+            <div id="log-container" class="log-container">
+                <div class="log-entry log-success">🚀 Monitor iniciado. Aguardando atividade...</div>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🖥️ Aplicação em Teste</h2>
+            <iframe id="app-iframe" class="iframe-test" src="about:blank"></iframe>
+        </div>
+    </div>
+
+    <script>
+        let visibilityChanges = 0;
+        let pageReloads = 0;
+        let networkRequests = 0;
+        let reactRenders = 0;
+        let monitoringActive = true;
+        let lastVisibilityChange = 0;
+        
+        function log(message, type = 'info') {
+            const container = document.getElementById('log-container');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            container.appendChild(entry);
+            container.scrollTop = container.scrollHeight;
+            
+            // Log no console também
+            console.log(`[PAGE MONITOR] ${message}`);
+        }
+        
+        function updateCounter(id, value) {
+            document.getElementById(id).textContent = value;
+        }
+        
+        // MONITOR PRINCIPAL: Eventos de visibilidade
+        document.addEventListener('visibilitychange', function() {
+            const now = Date.now();
+            const isHidden = document.hidden;
+            visibilityChanges++;
+            
+            log(`👁️ Visibilidade: ${isHidden ? 'OCULTA' : 'VISÍVEL'}`, isHidden ? 'warning' : 'success');
+            updateCounter('visibility-changes', visibilityChanges);
+            
+            // Se a página ficou visível recentemente, verificar se houve reload
+            if (!isHidden) {
+                const timeSinceLastChange = now - lastVisibilityChange;
+                if (timeSinceLastChange < 1000) {
+                    pageReloads++;
+                    log('🚨 POSSÍVEL RELOAD DETECTADO! Página ficou visível muito rapidamente após ficar oculta', 'critical');
+                    updateCounter('page-reloads', pageReloads);
+                }
+                
+                // Verificar se a aplicação está recarregando
+                setTimeout(() => {
+                    checkForAppReload();
+                }, 500);
+            }
+            
+            lastVisibilityChange = now;
+        });
+        
+        // MONITOR: Focus/Blur da janela
+        window.addEventListener('focus', function() {
+            log('🎯 Janela recebeu FOCUS', 'info');
+            setTimeout(checkForAppReload, 300);
+        });
+        
+        window.addEventListener('blur', function() {
+            log('😴 Janela perdeu FOCUS', 'info');
+        });
+        
+        // MONITOR: Beforeunload (página sendo recarregada)
+        window.addEventListener('beforeunload', function() {
+            log('🔄 PÁGINA SENDO RECARREGADA!', 'critical');
+            pageReloads++;
+            updateCounter('page-reloads', pageReloads);
+        });
+        
+        // MONITOR: Network requests
+        const originalFetch = window.fetch;
+        window.fetch = function(...args) {
+            networkRequests++;
+            updateCounter('network-requests', networkRequests);
+            
+            const url = args[0];
+            log(`📡 HTTP Request: ${url}`, 'info');
+            
+            return originalFetch.apply(this, args);
+        };
+        
+        // MONITOR: React re-renders (através de performance)
+        if (window.performance && window.performance.measure) {
+            const observer = new PerformanceObserver((list) => {
+                for (const entry of list.getEntries()) {
+                    if (entry.name.includes('React') || entry.name.includes('render')) {
+                        reactRenders++;
+                        updateCounter('react-renders', reactRenders);
+                        log(`⚛️ React render detectado: ${entry.name}`, 'info');
+                    }
+                }
+            });
+            observer.observe({entryTypes: ['measure']});
+        }
+        
+        function checkForAppReload() {
+            const iframe = document.getElementById('app-iframe');
+            if (iframe.src && iframe.src !== 'about:blank') {
+                log('🔍 Verificando se a aplicação no iframe recarregou...', 'info');
+                
+                try {
+                    // Tentar acessar o conteúdo do iframe
+                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    if (iframeDoc.readyState === 'loading') {
+                        log('⚠️ Aplicação está carregando - possível reload!', 'warning');
+                        pageReloads++;
+                        updateCounter('page-reloads', pageReloads);
+                    }
+                } catch (e) {
+                    log('🔒 Não foi possível acessar iframe (cross-origin)', 'info');
+                }
+            }
+        }
+        
+        function testVisibilityAPI() {
+            log('🧪 TESTANDO API DE VISIBILIDADE...', 'info');
+            
+            // Simular mudança de visibilidade
+            log('📱 Simulando página ficando oculta...', 'warning');
+            Object.defineProperty(document, 'hidden', {
+                value: true,
+                configurable: true
+            });
+            document.dispatchEvent(new Event('visibilitychange'));
+            
+            setTimeout(() => {
+                log('📱 Simulando página ficando visível...', 'success');
+                Object.defineProperty(document, 'hidden', {
+                    value: false,
+                    configurable: true
+                });
+                document.dispatchEvent(new Event('visibilitychange'));
+                
+                log('✅ Teste de API de visibilidade concluído', 'success');
+            }, 2000);
+        }
+        
+        function loadApp() {
+            const iframe = document.getElementById('app-iframe');
+            iframe.src = 'http://localhost:8085';
+            
+            log('🚀 Carregando aplicação no iframe...', 'info');
+            
+            iframe.onload = function() {
+                log('✅ Aplicação carregada com sucesso', 'success');
+                
+                // Monitorar mudanças no iframe
+                try {
+                    iframe.contentWindow.addEventListener('beforeunload', function() {
+                        log('🔄 IFRAME SENDO RECARREGADO!', 'critical');
+                        pageReloads++;
+                        updateCounter('page-reloads', pageReloads);
+                    });
+                } catch (e) {
+                    log('🔒 Não foi possível monitorar iframe internamente', 'info');
+                }
+            };
+            
+            iframe.onerror = function() {
+                log('❌ Erro ao carregar aplicação', 'critical');
+            };
+        }
+        
+        function simulateTabSwitch() {
+            log('🔄 SIMULANDO TROCA DE ABA...', 'warning');
+            
+            // Simular blur
+            window.dispatchEvent(new Event('blur'));
+            document.dispatchEvent(new Event('visibilitychange'));
+            
+            setTimeout(() => {
+                // Simular focus
+                window.dispatchEvent(new Event('focus'));
+                document.dispatchEvent(new Event('visibilitychange'));
+                
+                log('✅ Simulação de troca de aba concluída', 'success');
+            }, 3000);
+        }
+        
+        function clearLogs() {
+            document.getElementById('log-container').innerHTML = 
+                '<div class="log-entry log-success">🧹 Logs limpos. Continuando monitoramento...</div>';
+        }
+        
+        function startStressTest() {
+            log('⚡ INICIANDO TESTE DE STRESS...', 'warning');
+            
+            for (let i = 0; i < 10; i++) {
+                setTimeout(() => {
+                    window.dispatchEvent(new Event('focus'));
+                    setTimeout(() => {
+                        window.dispatchEvent(new Event('blur'));
+                    }, 100);
+                }, i * 200);
+            }
+            
+            setTimeout(() => {
+                log('✅ Teste de stress concluído', 'success');
+            }, 3000);
+        }
+        
+        // Inicialização
+        log('🎯 INSTRUÇÕES:', 'info');
+        log('1. Clique em "Carregar App no iFrame"', 'info');
+        log('2. Minimize esta janela ou mude de aba', 'info');
+        log('3. Volte para esta janela', 'info');
+        log('4. Observe os contadores e logs para detectar recarregamentos', 'info');
+        log('', 'info');
+        log('🚨 Se os contadores de "Recarregamentos" aumentarem, há um problema!', 'warning');
+    </script>
+</body>
+</html>
