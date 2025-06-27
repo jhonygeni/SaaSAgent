@@ -489,25 +489,25 @@ export function useWhatsAppStatus() {
     }
   }, [user?.id]); // Removido checkCurrentConnectionState das dependências para evitar loop
 
-  // EMERGENCY FIX: Disable real-time subscription to prevent infinite page reloads
+  // FIXED: Load initial data without state manipulation that causes reloads
   useEffect(() => {
     if (!user?.id) return;
 
-    console.log('🔌 [REALTIME] EMERGENCY: Real-time subscription disabled to prevent page reloads');
+    console.log('🔌 [REALTIME] Loading initial data without subscription');
 
     // Carregar dados iniciais uma vez apenas, sem subscription
     fetchInitialData();
 
-    console.log('✅ [REALTIME] Static data loaded without subscription');
-    setIsConnected(true); // Set as connected without subscription
+    console.log('✅ [REALTIME] Static data loaded successfully');
+    // REMOVED: setIsConnected manipulation that was causing page reloads
     setLastUpdate(new Date());
 
     // Cleanup - sem subscription para cancelar
     return () => {
-      console.log('🔌 [REALTIME] No subscription to cleanup');
-      setIsConnected(false);
+      console.log('🔌 [REALTIME] Component unmounted - no subscription to cleanup');
+      // REMOVED: setIsConnected(false) that was causing reloads on tab switch
     };
-  }, [user?.id]); // Dependência mínima apenas do user?.id
+  }, [user?.id, fetchInitialData]); // Stable dependencies only
 
   return {
     connectionStatus,

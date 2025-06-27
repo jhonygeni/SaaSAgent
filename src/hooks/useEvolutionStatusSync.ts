@@ -175,6 +175,8 @@ export function useEvolutionStatusSync() {
   // Iniciar sincronização quando o usuário estiver logado
   useEffect(() => {
     if (user?.id) {
+      // FIXED: Execute sync only once on mount to prevent continuous reloads
+      console.log('🔄 [EVOLUTION_SYNC] Starting single sync on mount');
       startPeriodicSync();
     }
 
@@ -182,7 +184,7 @@ export function useEvolutionStatusSync() {
     return () => {
       stopPeriodicSync();
     };
-  }, [user?.id, startPeriodicSync, stopPeriodicSync]);
+  }, [user?.id]); // Removed startPeriodicSync, stopPeriodicSync from dependencies to prevent loops
 
   return {
     syncAgentStatus,

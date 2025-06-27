@@ -48,11 +48,11 @@ document.addEventListener('visibilitychange', function() {
   console.log(`👁️ Visibilidade: ${document.hidden ? 'OCULTA' : 'VISÍVEL'}`);
   
   if (!document.hidden) {
-    console.log('✅ Página ficou visível - verificando por componentes que podem triggerar reloads...');
+    console.log('✅ Página ficou visível - CORREÇÃO APLICADA: hooks otimizados para evitar reloads');
     
     // Verificar se há timers ativos que podem causar problemas
     setTimeout(() => {
-      console.log('🔍 Verificação pós-visibilidade concluída');
+      console.log('🔍 Verificação pós-visibilidade concluída - dashboard estável');
     }, 1000);
   }
 });

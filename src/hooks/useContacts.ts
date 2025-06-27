@@ -148,8 +148,9 @@ export function useContacts(): ContactsResponse {
 
   // Efeito principal - executar apenas quando user.id mudar
   useEffect(() => {
+    console.log('📞 [CONTACTS] Loading contacts on user change');
     fetchContacts();
-  }, [user?.id]); // Apenas user?.id como dependência
+  }, [user?.id]); // Removed fetchContacts dependency to prevent reload loops
 
   return {
     contacts,
