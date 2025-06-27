@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Debug Contatos - jhony@geni.chat</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: monospace;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .result {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+        }
+        .success { border-color: #28a745; background: #d4edda; }
+        .error { border-color: #dc3545; background: #f8d7da; }
+        .warning { border-color: #ffc107; background: #fff3cd; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Debug Contatos - jhony@geni.chat</h1>
+        
+        <button onclick="checkJhonyData()">🔍 Verificar Dados</button>
+        <button onclick="createTestContact()">➕ Criar Contato Teste</button>
+        <button onclick="checkHookMapping()">🔄 Testar Mapeamento Hook</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        // Configuração Supabase
+        const supabaseUrl = 'https://hpovwcaskorzzrpphgkc.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhwb3Z3Y2Fza29yenpycHBoZ2tjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc4MjYzODYsImV4cCI6MjA2MzQwMjM4Nn0.3Gx3Gc5xlFKwoMvd0Zk9vELzNbrf0ar4gaM92n9dtDc';
+        
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+        
+        function log(message, type = 'result') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.textContent = message;
+            results.appendChild(div);
+            console.log(message);
+        }
+
+        async function checkJhonyData() {
+            log('🔍 Verificando dados de jhony@geni.chat...\n');
+            
+            try {
+                // 1. Buscar usuário
+                const { data: user, error: userError } = await supabase
+                    .from('profiles')
+                    .select('id, email, full_name')
+                    .eq('email', 'jhony@geni.chat')
+                    .single();
+                
+                if (userError || !user) {
+                    log('❌ Usuário jhony@geni.chat não encontrado', 'error');
+                    return;
+                }
+                
+                log(`✅ Usuário encontrado: ${user.email}`, 'success');
+                log(`📝 User ID: ${user.id}`);
+                log(`👤 Nome: ${user.full_name || 'N/A'}`);
+                
+                // 2. Buscar contatos
+                const { data: contacts, error: contactsError } = await supabase
+                    .from('contacts')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .order('created_at', { ascending: false });
+                
+                if (contactsError) {
+                    log(`❌ Erro ao buscar contatos: ${contactsError.message}`, 'error');
+                    return;
+                }
+                
+                log(`\n📊 Total de contatos encontrados: ${contacts?.length || 0}`);
+                
+                if (contacts && contacts.length > 0) {
+                    log('\n📋 Contatos encontrados:', 'success');
+                    contacts.forEach((contact, i) => {
+                        log(`\n--- Contato ${i + 1} ---`);
+                        log(`Nome: ${contact.name}`);
+                        log(`Telefone: ${contact.phone_number}`);
+                        log(`Email: ${contact.email || 'N/A'}`);
+                        log(`Status: ${contact.status || 'N/A'}`);
+                        log(`Resume: ${contact.resume || 'N/A'}`);
+                        log(`Valor: R$ ${contact.valor || 'N/A'}`);
+                        log(`Custom Fields: ${JSON.stringify(contact.custom_fields, null, 2)}`);
+                        log(`Criado em: ${contact.created_at}`);
+                    });
+                } else {
+                    log('\n📭 Nenhum contato encontrado para este usuário', 'warning');
+                }
+                
+                window.currentUserId = user.id;
+                
+            } catch (err) {
+                log(`💥 Erro geral: ${err.message}`, 'error');
+            }
+        }
+
+        async function createTestContact() {
+            if (!window.currentUserId) {
+                log('⚠️ Execute "Verificar Dados" primeiro para obter o User ID', 'warning');
+                return;
+            }
+            
+            log('💡 Criando contato de teste...');
+            
+            try {
+                const testContact = {
+                    name: 'Cliente Interessado Teste',
+                    phone_number: '+5511999123456',
+                    email: 'cliente@teste.com',
+                    user_id: window.currentUserId,
+                    resume: 'Cliente interessado em nossos serviços de automação WhatsApp',
+                    status: 'Contacted',
+                    valor: 500,
+                    custom_fields: {
+                        summary: 'Cliente interessado em automação WhatsApp',
+                        status: 'Contacted',
+                        purchaseAmount: 500
+                    }
+                };
+                
+                const { data: newContact, error: insertError } = await supabase
+                    .from('contacts')
+                    .insert([testContact])
+                    .select();
+                    
+                if (insertError) {
+                    log(`❌ Erro ao criar contato: ${insertError.message}`, 'error');
+                } else {
+                    log(`✅ Contato de teste criado: ${newContact[0].name}`, 'success');
+                    log(`📝 ID do contato: ${newContact[0].id}`);
+                }
+                
+            } catch (err) {
+                log(`💥 Erro: ${err.message}`, 'error');
+            }
+        }
+
+        async function checkHookMapping() {
+            if (!window.currentUserId) {
+                log('⚠️ Execute "Verificar Dados" primeiro', 'warning');
+                return;
+            }
+            
+            log('🔄 Testando mapeamento do hook useContacts...');
+            
+            try {
+                // Buscar dados como o hook faz
+                const { data: contacts, error } = await supabase
+                    .from('contacts')
+                    .select('*')
+                    .eq('user_id', window.currentUserId)
+                    .order('created_at', { ascending: false });
+                
+                if (error) {
+                    log(`❌ Erro na consulta: ${error.message}`, 'error');
+                    return;
+                }
+                
+                log(`📊 Dados brutos: ${contacts.length} registros`);
+                
+                // Mapear como o hook faz
+                const mappedContacts = contacts.map(contact => {
+                    let summary = contact.resume || 'Cliente interessado em nossos serviços.';
+                    let status = contact.status || 'Contacted';
+                    let purchaseAmount = contact.valor ? Number(contact.valor) : undefined;
+                    
+                    // Fallback para custom_fields
+                    if (!contact.resume && contact.custom_fields) {
+                        try {
+                            const customFields = typeof contact.custom_fields === 'string' 
+                                ? JSON.parse(contact.custom_fields) 
+                                : contact.custom_fields;
+                            
+                            if (customFields.summary) summary = customFields.summary;
+                            if (customFields.status) status = customFields.status;
+                            if (customFields.purchaseAmount) purchaseAmount = Number(customFields.purchaseAmount);
+                        } catch (e) {
+                            log(`⚠️ Erro ao processar custom_fields: ${e.message}`, 'warning');
+                        }
+                    }
+                    
+                    return {
+                        id: contact.id,
+                        name: contact.name || 'Nome não informado',
+                        phoneNumber: contact.phone_number,
+                        summary,
+                        date: contact.created_at || new Date().toISOString(),
+                        status,
+                        purchaseAmount,
+                        email: contact.email,
+                        tags: contact.tags,
+                        customFields: contact.custom_fields
+                    };
+                });
+                
+                log(`🔄 Contatos mapeados: ${mappedContacts.length}`, 'success');
+                
+                if (mappedContacts.length > 0) {
+                    log('\n📋 Resultado do mapeamento:', 'success');
+                    mappedContacts.forEach((contact, i) => {
+                        log(`\n--- Contato Mapeado ${i + 1} ---`);
+                        log(`Nome: ${contact.name}`);
+                        log(`Telefone: ${contact.phoneNumber}`);
+                        log(`Resumo: ${contact.summary}`);
+                        log(`Status: ${contact.status}`);
+                        log(`Valor: R$ ${contact.purchaseAmount || 'N/A'}`);
+                        log(`Data: ${contact.date}`);
+                    });
+                    
+                    log('\n✅ Mapeamento concluído com sucesso!', 'success');
+                    log('💡 Estes dados devem aparecer no dashboard.');
+                } else {
+                    log('\n📭 Nenhum contato para mapear', 'warning');
+                }
+                
+            } catch (err) {
+                log(`💥 Erro no mapeamento: ${err.message}`, 'error');
+            }
+        }
+
+        // Auto-executar verificação inicial
+        window.addEventListener('load', () => {
+            setTimeout(checkJhonyData, 1000);
+        });
+    </script>
+</body>
+</html>

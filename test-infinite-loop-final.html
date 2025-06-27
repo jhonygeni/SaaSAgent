@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Teste Loop Infinito - Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; }
+        .status { padding: 15px; margin: 10px 0; border-radius: 5px; font-weight: bold; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }
+        .metric { background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center; }
+        .metric-value { font-size: 2em; font-weight: bold; color: #007bff; }
+        .logs { background: #1a1a1a; color: #00ff00; padding: 15px; border-radius: 8px; font-family: monospace; height: 300px; overflow-y: auto; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0056b3; }
+        .btn-danger { background: #dc3545; }
+        .btn-danger:hover { background: #c82333; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Teste de Loop Infinito - Dashboard</h1>
+        <p><strong>Status:</strong> Testando se as correções no useContacts resolveram o problema</p>
+
+        <div id="status" class="status warning">
+            🔄 Iniciando monitoramento...
+        </div>
+
+        <div class="metrics">
+            <div class="metric">
+                <div class="metric-value" id="renderCount">0</div>
+                <div>Renders Detectados</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" id="requestCount">0</div>
+                <div>Requests HTTP</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" id="errorCount">0</div>
+                <div>Erros</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" id="elapsedTime">0s</div>
+                <div>Tempo Decorrido</div>
+            </div>
+        </div>
+
+        <div>
+            <button onclick="startTest()">🚀 Iniciar Teste</button>
+            <button onclick="stopTest()" class="btn-danger">🛑 Parar Teste</button>
+            <button onclick="openDashboard()">📊 Abrir Dashboard</button>
+            <button onclick="clearLogs()">🧹 Limpar Logs</button>
+        </div>
+
+        <div class="logs" id="logs">
+            [SISTEMA] Teste de Loop Infinito inicializado
+            [SISTEMA] Aguardando início do teste...
+        </div>
+    </div>
+
+    <script>
+        let testStartTime = null;
+        let renderCount = 0;
+        let requestCount = 0;
+        let errorCount = 0;
+        let testInterval = null;
+        let isTestRunning = false;
+
+        function log(message, type = 'INFO') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logs = document.getElementById('logs');
+            const prefix = type === 'ERROR' ? '❌' : type === 'SUCCESS' ? '✅' : type === 'WARNING' ? '⚠️' : 'ℹ️';
+            logs.textContent += `\n[${timestamp}] ${prefix} ${message}`;
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        function updateMetrics() {
+            document.getElementById('renderCount').textContent = renderCount;
+            document.getElementById('requestCount').textContent = requestCount;
+            document.getElementById('errorCount').textContent = errorCount;
+            
+            if (testStartTime) {
+                const elapsed = Math.floor((Date.now() - testStartTime) / 1000);
+                document.getElementById('elapsedTime').textContent = elapsed + 's';
+            }
+        }
+
+        function updateStatus(message, type = 'warning') {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+        }
+
+        function startTest() {
+            if (isTestRunning) {
+                log('Teste já está executando', 'WARNING');
+                return;
+            }
+
+            isTestRunning = true;
+            testStartTime = Date.now();
+            renderCount = 0;
+            requestCount = 0;
+            errorCount = 0;
+
+            log('🚀 INICIANDO TESTE DE LOOP INFINITO', 'SUCCESS');
+            log('Monitorando renders, requests HTTP e console.log por 30 segundos...', 'INFO');
+            
+            updateStatus('🔄 Teste em andamento - Monitorando por 30 segundos...', 'warning');
+
+            // Interceptar console.log para detectar re-renders
+            const originalConsoleLog = console.log;
+            console.log = function(...args) {
+                const message = args.join(' ');
+                
+                // Detectar mensagens específicas do useContacts
+                if (message.includes('useContacts:') || 
+                    message.includes('fetchContacts') ||
+                    message.includes('ContactsDebug')) {
+                    renderCount++;
+                    log(`🔄 RENDER DETECTADO: ${message}`, 'WARNING');
+                }
+                
+                originalConsoleLog.apply(console, args);
+            };
+
+            // Interceptar fetch para contar requests
+            const originalFetch = window.fetch;
+            window.fetch = function(...args) {
+                requestCount++;
+                const url = args[0];
+                log(`📡 HTTP REQUEST #${requestCount}: ${url}`, 'INFO');
+                
+                // Detectar loop infinito por volume de requests
+                if (requestCount > 20) {
+                    log(`🚨 POSSÍVEL LOOP INFINITO: ${requestCount} requests em pouco tempo!`, 'ERROR');
+                    errorCount++;
+                }
+                
+                return originalFetch.apply(this, args);
+            };
+
+            // Interceptar console.error
+            const originalConsoleError = console.error;
+            console.error = function(...args) {
+                errorCount++;
+                log(`💥 ERRO: ${args.join(' ')}`, 'ERROR');
+                originalConsoleError.apply(console, args);
+            };
+
+            // Atualizar métricas a cada segundo
+            testInterval = setInterval(() => {
+                updateMetrics();
+                
+                // Análise em tempo real
+                const elapsed = testStartTime ? (Date.now() - testStartTime) / 1000 : 0;
+                
+                if (elapsed > 5 && renderCount > 10) {
+                    log(`⚠️ ALERTA: ${renderCount} renders em ${elapsed}s - Possível loop!`, 'WARNING');
+                    updateStatus('⚠️ POSSÍVEL LOOP DETECTADO - Muitos renders', 'error');
+                } else if (elapsed > 5 && requestCount > 15) {
+                    log(`⚠️ ALERTA: ${requestCount} requests HTTP em ${elapsed}s - Possível loop!`, 'WARNING');
+                    updateStatus('⚠️ POSSÍVEL LOOP DETECTADO - Muitos requests', 'error');
+                } else if (elapsed > 10 && renderCount < 5 && requestCount < 10) {
+                    updateStatus('✅ TUDO NORMAL - Sem loops detectados', 'success');
+                }
+                
+            }, 1000);
+
+            // Parar teste automaticamente após 30 segundos
+            setTimeout(() => {
+                stopTest();
+                analyzeResults();
+            }, 30000);
+        }
+
+        function stopTest() {
+            if (!isTestRunning) return;
+
+            isTestRunning = false;
+            
+            if (testInterval) {
+                clearInterval(testInterval);
+                testInterval = null;
+            }
+
+            log('🛑 TESTE FINALIZADO', 'SUCCESS');
+            updateMetrics();
+        }
+
+        function analyzeResults() {
+            log('📋 ANÁLISE DOS RESULTADOS:', 'SUCCESS');
+            log('='.repeat(50), 'INFO');
+            
+            const elapsed = testStartTime ? (Date.now() - testStartTime) / 1000 : 0;
+            const renderRate = elapsed > 0 ? (renderCount / elapsed).toFixed(2) : '0';
+            const requestRate = elapsed > 0 ? (requestCount / elapsed).toFixed(2) : '0';
+            
+            log(`⏱️ Tempo total: ${elapsed.toFixed(1)}s`, 'INFO');
+            log(`🔄 Renders: ${renderCount} (${renderRate}/s)`, 'INFO');
+            log(`📡 Requests: ${requestCount} (${requestRate}/s)`, 'INFO');
+            log(`💥 Erros: ${errorCount}`, 'INFO');
+            
+            // Veredito final
+            if (renderCount < 10 && requestCount < 15 && errorCount === 0) {
+                log('🎉 RESULTADO: LOOP INFINITO RESOLVIDO!', 'SUCCESS');
+                log('✅ Sistema estável, sem loops detectados', 'SUCCESS');
+                updateStatus('🎉 SUCESSO! Loop infinito resolvido', 'success');
+            } else if (renderCount > 20 || requestCount > 30) {
+                log('🚨 RESULTADO: LOOP INFINITO AINDA EXISTE!', 'ERROR');
+                log('❌ Sistema instável, loops detectados', 'ERROR');
+                updateStatus('🚨 FALHA! Loop infinito ainda presente', 'error');
+            } else {
+                log('⚠️ RESULTADO: COMPORTAMENTO SUSPEITO', 'WARNING');
+                log('🔍 Requer investigação adicional', 'WARNING');
+                updateStatus('⚠️ Comportamento suspeito detectado', 'warning');
+            }
+        }
+
+        function openDashboard() {
+            window.open('http://localhost:5173', '_blank');
+            log('📊 Dashboard aberto em nova aba', 'INFO');
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').textContent = '[SISTEMA] Logs limpos';
+            log('🧹 Logs limpos', 'INFO');
+        }
+
+        // Inicializar
+        log('Sistema pronto para teste', 'SUCCESS');
+        log('Clique em "Iniciar Teste" para começar', 'INFO');
+    </script>
+</body>
+</html>

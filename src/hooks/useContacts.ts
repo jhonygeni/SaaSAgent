@@ -136,18 +136,20 @@ export function useContacts(): ContactsResponse {
         isFetching.current = false;
       }
     }
-  }, [user?.id, mapSupabaseContact]);
+  }, [user?.id]);
 
   // Função de refetch manual
   const refetch = useCallback(() => {
     console.log('🔄 useContacts: Refetch manual');
-    fetchContacts();
-  }, [fetchContacts]);
+    if (isMounted.current && !isFetching.current) {
+      fetchContacts();
+    }
+  }, []);
 
-  // Efeito principal
+  // Efeito principal - executar apenas quando user.id mudar
   useEffect(() => {
     fetchContacts();
-  }, [fetchContacts]);
+  }, [user?.id]); // Apenas user?.id como dependência
 
   return {
     contacts,
