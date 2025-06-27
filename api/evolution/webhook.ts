@@ -1,4 +1,5 @@
 export default async function handler(req: any, res: any) {
+  // Force deploy trigger - webhook disable fix v2.0
   const apiKey = process.env.EVOLUTION_API_KEY;
   const apiUrl = process.env.EVOLUTION_API_URL || 'https://cloudsaas.geni.chat';
 

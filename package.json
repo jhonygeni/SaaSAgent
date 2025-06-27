@@ -1,7 +1,7 @@
 {
   "name": "vite_react_shadcn_ts",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1",
   "scripts": {
     "dev": "sh scripts/setup-logs.sh && vite",
     "build:functions": "tsc -p tsconfig.node.json",
