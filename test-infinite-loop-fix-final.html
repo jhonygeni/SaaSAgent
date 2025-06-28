@@ -204,7 +204,7 @@
             const pollingStartTime = Date.now();
             let maxTimeForTest = testMode === 'maxTime' ? 10000 : MAX_POLLING_TIME_MS; // 10s for demo
 
-            pollingInterval = setInterval(() => {
+            pollingInterval = //DISABLED setInterval(() => {
                 // Safety check: Force stop after maximum time to prevent infinite loops
                 const elapsedTime = Date.now() - pollingStartTime;
                 if (elapsedTime > maxTimeForTest) {
@@ -281,9 +281,9 @@
             log("🧪 TESTING: Multiple start calls (should prevent duplicates)", 'critical');
             startStatusPolling();
             // Try to start again immediately
-            setTimeout(() => startStatusPolling(), 100);
-            setTimeout(() => startStatusPolling(), 200);
-            setTimeout(() => startStatusPolling(), 300);
+            //DISABLED setTimeout(() => startStatusPolling(), 100);
+            //DISABLED setTimeout(() => startStatusPolling(), 200);
+            //DISABLED setTimeout(() => startStatusPolling(), 300);
         });
 
         document.getElementById('testStateChange').addEventListener('click', () => {
@@ -291,15 +291,15 @@
             startStatusPolling();
             
             // Simulate multiple state changes that previously caused issues
-            setTimeout(() => {
+            //DISABLED setTimeout(() => {
                 log("📱 Simulating state change: waiting -> connecting", 'info');
             }, 1000);
             
-            setTimeout(() => {
+            //DISABLED setTimeout(() => {
                 log("📱 Simulating state change: connecting -> waiting_qr", 'info');
             }, 2000);
             
-            setTimeout(() => {
+            //DISABLED setTimeout(() => {
                 log("🎯 Simulating QR scan success", 'info');
                 simulateConnectedAfterPoll = pollCount + 1;
             }, 5000);

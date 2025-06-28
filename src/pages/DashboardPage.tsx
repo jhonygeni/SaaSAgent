@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Dashboard } from "@/components/Dashboard";
 import { EditAgentDialog } from "@/components/EditAgentDialog";
@@ -123,7 +122,7 @@ const DashboardPage = () => {
   const handleRetry = () => {
     setPageError(null);
     setRetryCount(prev => prev + 1);
-    window.location.reload();
+    // window.location.reload(); // REMOVIDO para evitar reload automático
   };
 
   // If there's a critical page error, display it

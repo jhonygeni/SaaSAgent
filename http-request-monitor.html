@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 HTTP Request Monitor</title>
+    <style>
+        body {
+            font-family: 'Monaco', 'Consolas', monospace;
+            background: #1a1a1a;
+            color: #ffffff;
+            padding: 20px;
+            margin: 0;
+        }
+        .header {
+            background: linear-gradient(45deg, #2196F3, #4CAF50);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #4CAF50;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            color: #ccc;
+            font-size: 12px;
+        }
+        .excessive {
+            border-left-color: #f44336;
+            background: #3a1a1a;
+        }
+        .logs {
+            background: #111;
+            padding: 15px;
+            border-radius: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-entry {
+            margin: 2px 0;
+            padding: 2px 0;
+        }
+        .normal { color: #4CAF50; }
+        .warning { color: #FFC107; }
+        .error { color: #f44336; }
+        .info { color: #2196F3; }
+        .controls {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .btn {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            margin: 0 10px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn:hover {
+            background: #45a049;
+        }
+        .btn.danger {
+            background: #f44336;
+        }
+        .btn.danger:hover {
+            background: #da190b;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        🔍 HTTP REQUEST MONITOR<br>
+        <small>Monitorando requisições para detectar loops infinitos</small>
+    </div>
+
+    <div class="controls">
+        <button class="btn" onclick="startMonitoring()">🟢 Iniciar Monitor</button>
+        <button class="btn danger" onclick="stopMonitoring()">🛑 Parar Monitor</button>
+        <button class="btn" onclick="clearLogs()">🧹 Limpar Logs</button>
+        <button class="btn" onclick="openDashboard()">📊 Abrir Dashboard</button>
+        <button class="btn danger" onclick="emergencyStopAllTimers()">🚨 EMERGENCY STOP</button>
+    </div>
+
+    <div class="stats">
+        <div class="stat-card" id="totalRequests">
+            <div class="stat-value">0</div>
+            <div class="stat-label">Total Requests</div>
+        </div>
+        <div class="stat-card" id="requestsPerSecond">
+            <div class="stat-value">0</div>
+            <div class="stat-label">Requests/segundo</div>
+        </div>
+        <div class="stat-card" id="uniqueUrls">
+            <div class="stat-value">0</div>
+            <div class="stat-label">URLs Únicas</div>
+        </div>
+        <div class="stat-card" id="loopDetected">
+            <div class="stat-value">0</div>
+            <div class="stat-label">Loops Detectados</div>
+        </div>
+    </div>
+
+    <div class="logs" id="logContainer">
+        <div class="log-entry info">[SYSTEM] Monitor inicializado - Aguardando requisições...</div>
+    </div>
+
+    <script>
+        let monitoring = false;
+        let totalRequests = 0;
+        let startTime = Date.now();
+        let requestTimes = [];
+        let urlCounts = {};
+        let loopCount = 0;
+        let originalFetch = null;
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logContainer = document.getElementById('logContainer');
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+
+            // Manter apenas últimas 100 entradas
+            if (logContainer.children.length > 100) {
+                logContainer.removeChild(logContainer.firstChild);
+            }
+        }
+
+        function updateStats() {
+            const now = Date.now();
+            const elapsed = (now - startTime) / 1000;
+            
+            // Calcular requests por segundo
+            const recentRequests = requestTimes.filter(time => (now - time) < 1000);
+            const requestsPerSecond = recentRequests.length;
+            
+            // Detectar URLs com muitas requisições
+            const excessiveUrls = Object.entries(urlCounts).filter(([url, count]) => count > 10);
+            
+            // Atualizar UI
+            document.querySelector('#totalRequests .stat-value').textContent = totalRequests;
+            document.querySelector('#requestsPerSecond .stat-value').textContent = requestsPerSecond;
+            document.querySelector('#uniqueUrls .stat-value').textContent = Object.keys(urlCounts).length;
+            document.querySelector('#loopDetected .stat-value').textContent = loopCount;
+            
+            // Marcar como excessivo se > 5 requests/segundo
+            const totalCard = document.getElementById('totalRequests');
+            const rpsCard = document.getElementById('requestsPerSecond');
+            
+            if (requestsPerSecond > 5) {
+                rpsCard.classList.add('excessive');
+                log(`⚠️ EXCESSIVE REQUESTS: ${requestsPerSecond} requests/second`, 'error');
+            } else {
+                rpsCard.classList.remove('excessive');
+            }
+            
+            if (totalRequests > 50 && elapsed < 30) {
+                totalCard.classList.add('excessive');
+                log(`🚨 POTENTIAL INFINITE LOOP: ${totalRequests} requests in ${elapsed.toFixed(1)}s`, 'error');
+            }
+            
+            // Detectar loops por URL
+            excessiveUrls.forEach(([url, count]) => {
+                if (count > 20) {
+                    loopCount++;
+                    log(`🔄 LOOP DETECTED: ${url} requested ${count} times`, 'error');
+                    delete urlCounts[url]; // Reset count
+                }
+            });
+        }
+
+        function startMonitoring() {
+            if (monitoring) {
+                log('⚠️ Monitor já está ativo', 'warning');
+                return;
+            }
+            
+            monitoring = true;
+            originalFetch = window.fetch;
+            totalRequests = 0;
+            startTime = Date.now();
+            requestTimes = [];
+            urlCounts = {};
+            loopCount = 0;
+            
+            log('🟢 Monitor de requisições HTTP iniciado', 'normal');
+            
+            // Interceptar fetch
+            window.fetch = function(...args) {
+                if (monitoring) {
+                    const url = args[0];
+                    const now = Date.now();
+                    
+                    totalRequests++;
+                    requestTimes.push(now);
+                    
+                    // Contar URLs
+                    const cleanUrl = url.toString().split('?')[0];
+                    urlCounts[cleanUrl] = (urlCounts[cleanUrl] || 0) + 1;
+                    
+                    log(`📡 ${url}`, 'info');
+                    
+                    // Limpar tempos antigos
+                    requestTimes = requestTimes.filter(time => (now - time) < 5000);
+                    
+                    updateStats();
+                }
+                
+                return originalFetch.apply(this, args);
+            };
+            
+            log('✅ Interceptador de fetch instalado', 'normal');
+        }
+
+        function stopMonitoring() {
+            if (!monitoring) {
+                log('⚠️ Monitor não está ativo', 'warning');
+                return;
+            }
+            
+            monitoring = false;
+            
+            if (originalFetch) {
+                window.fetch = originalFetch;
+                log('🛑 Monitor parado - fetch restaurado', 'normal');
+            }
+            
+            const elapsed = (Date.now() - startTime) / 1000;
+            log(`📊 Resumo: ${totalRequests} requests em ${elapsed.toFixed(1)}s`, 'info');
+            log(`📈 Média: ${(totalRequests / elapsed).toFixed(2)} requests/segundo`, 'info');
+        }
+
+        function clearLogs() {
+            document.getElementById('logContainer').innerHTML = 
+                '<div class="log-entry info">[SYSTEM] Logs limpos</div>';
+        }
+
+        function openDashboard() {
+            log('📊 Abrindo dashboard...', 'info');
+            window.open('http://localhost:8084', '_blank');
+        }
+
+        function emergencyStopAllTimers() {
+            log('🚨 EXECUTANDO PARADA DE EMERGÊNCIA...', 'error');
+            
+            let clearedCount = 0;
+            
+            // Parar todos os //DISABLED setInterval e //DISABLED setTimeout
+            for (let i = 1; i <= 10000; i++) {
+                try {
+                    clearInterval(i);
+                    clearTimeout(i);
+                    clearedCount++;
+                } catch (e) {}
+            }
+            
+            // Limpar variáveis conhecidas
+            const timerVars = ['iframeHealthChecker', 'testInterval', 'memoryInterval', 
+                              'debugInterval', 'pollingInterval', 'statusInterval'];
+            
+            timerVars.forEach(varName => {
+                try {
+                    if (window[varName]) {
+                        clearInterval(window[varName]);
+                        clearTimeout(window[varName]);
+                        window[varName] = null;
+                        log(`🛑 Cleared: ${varName}`, 'normal');
+                    }
+                } catch (e) {}
+            });
+            
+            log(`✅ Emergency stop concluído: ${clearedCount} timers cleared`, 'normal');
+        }
+
+        // Auto-start monitoring
+        window.addEventListener('load', () => {
+            //DISABLED setTimeout(() => {
+                startMonitoring();
+                log('🚀 Monitor iniciado automaticamente', 'normal');
+            }, 1000);
+        });
+
+        // Atualizar stats a cada segundo
+        //DISABLED setInterval(updateStats, 1000);
+    </script>
+</body>
+</html>

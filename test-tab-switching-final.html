@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 TESTE FINAL - Problema de Troca de Abas</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        .status { padding: 15px; margin: 10px 0; border-radius: 4px; font-weight: bold; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .critical { background: #dc3545; color: white; border: 1px solid #dc3545; }
+        
+        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }
+        .metric-card { background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #007bff; }
+        .metric-value { font-size: 24px; font-weight: bold; color: #007bff; }
+        .metric-label { font-size: 12px; color: #666; margin-top: 5px; }
+        
+        .test-section { margin: 20px 0; padding: 20px; border: 2px solid #ddd; border-radius: 8px; }
+        .test-section.critical { border-color: #dc3545; background: #fff5f5; }
+        
+        .log { background: #f8f9fa; padding: 15px; border-radius: 4px; font-family: monospace; 
+               max-height: 400px; overflow-y: auto; white-space: pre-wrap; font-size: 12px; }
+        
+        button { padding: 10px 15px; margin: 5px; border: none; border-radius: 4px; 
+                 cursor: pointer; background: #007bff; color: white; font-weight: bold; }
+        button:hover { background: #0056b3; }
+        button.critical { background: #dc3545; }
+        button.success { background: #28a745; }
+        
+        .instructions { background: #e9ecef; padding: 15px; border-radius: 4px; margin: 20px 0; }
+        .alert { background: #fff3cd; border: 1px solid #ffeaa7; color: #856404; padding: 15px; 
+                border-radius: 4px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 TESTE FINAL - Diagnóstico de Recarregamento em Troca de Abas</h1>
+        
+        <div class="status info" id="mainStatus">
+            🔄 Monitor ativo - Aguardando ações do usuário...
+        </div>
+        
+        <div class="instructions">
+            <h3>📋 INSTRUÇÕES PARA O TESTE:</h3>
+            <ol>
+                <li><strong>ABRA O DASHBOARD:</strong> Clique no botão para abrir o dashboard em nova aba</li>
+                <li><strong>MONITORE AS ABAS:</strong> Deixe esta aba aberta para monitorar</li>
+                <li><strong>TESTE A TROCA:</strong> Alterne entre as abas algumas vezes</li>
+                <li><strong>OBSERVE OS LOGS:</strong> Veja se há recarregamentos detectados</li>
+            </ol>
+        </div>
+        
+        <div class="test-section critical">
+            <h3>🎯 TESTE PRINCIPAL</h3>
+            <p><strong>Objetivo:</strong> Detectar se há recarregamentos automáticos quando o usuário troca de aba</p>
+            <button onclick="openDashboardAndMonitor()" class="critical">
+                🚀 ABRIR DASHBOARD E INICIAR MONITORAMENTO
+            </button>
+            <button onclick="clearAllLogs()">🗑️ Limpar Logs</button>
+        </div>
+        
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-value" id="reloadCount">0</div>
+                <div class="metric-label">Recarregamentos Detectados</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="tabSwitches">0</div>
+                <div class="metric-label">Trocas de Aba</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="httpRequests">0</div>
+                <div class="metric-label">Requisições HTTP</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="eventCount">0</div>
+                <div class="metric-label">Eventos de Visibilidade</div>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>📊 LOG DE EVENTOS EM TEMPO REAL</h3>
+            <div class="log" id="eventLog">Sistema iniciado - Aguardando ações...\n</div>
+        </div>
+        
+        <div class="test-section">
+            <h3>🔍 ANÁLISE DETALHADA</h3>
+            <div class="log" id="analysisLog">Análise será exibida aqui...\n</div>
+        </div>
+    </div>
+
+    <script>
+        let reloadCount = 0;
+        let tabSwitches = 0;
+        let httpRequests = 0;
+        let eventCount = 0;
+        let dashboardWindow = null;
+        let monitoringActive = false;
+        let originalFetch = null;
+        let testStartTime = null;
+        
+        // URLs para testar
+        const dashboardURL = 'http://localhost:8082/dashboard';
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const eventLog = document.getElementById('eventLog');
+            const emoji = type === 'error' ? '❌' : type === 'success' ? '✅' : 
+                         type === 'warning' ? '⚠️' : type === 'critical' ? '🚨' : 'ℹ️';
+            
+            eventLog.textContent += `[${timestamp}] ${emoji} ${message}\n`;
+            eventLog.scrollTop = eventLog.scrollHeight;
+            
+            console.log(`[TAB-MONITOR] ${message}`);
+        }
+        
+        function analysisLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const analysisLog = document.getElementById('analysisLog');
+            const emoji = type === 'error' ? '❌' : type === 'success' ? '✅' : 
+                         type === 'warning' ? '⚠️' : type === 'critical' ? '🚨' : '🔍';
+            
+            analysisLog.textContent += `[${timestamp}] ${emoji} ${message}\n`;
+            analysisLog.scrollTop = analysisLog.scrollHeight;
+        }
+        
+        function updateMetrics() {
+            document.getElementById('reloadCount').textContent = reloadCount;
+            document.getElementById('tabSwitches').textContent = tabSwitches;
+            document.getElementById('httpRequests').textContent = httpRequests;
+            document.getElementById('eventCount').textContent = eventCount;
+        }
+        
+        function updateStatus(message, type = 'info') {
+            const status = document.getElementById('mainStatus');
+            status.textContent = message;
+            status.className = `status ${type}`;
+        }
+        
+        function setupHTTPMonitoring() {
+            if (originalFetch) return; // Já configurado
+            
+            originalFetch = window.fetch;
+            window.fetch = function(...args) {
+                const url = args[0];
+                httpRequests++;
+                updateMetrics();
+                
+                log(`HTTP Request: ${url}`, 'info');
+                
+                // Detectar padrões suspeitos
+                if (url.includes('/api/') || url.includes('supabase')) {
+                    analysisLog(`API Request detectada: ${url}`, 'warning');
+                }
+                
+                return originalFetch.apply(this, args)
+                    .then(response => {
+                        log(`HTTP Response ${response.status}: ${url}`, 'success');
+                        return response;
+                    })
+                    .catch(error => {
+                        log(`HTTP Error: ${error.message} para ${url}`, 'error');
+                        throw error;
+                    });
+            };
+            
+            log('Monitoramento HTTP ativado', 'success');
+        }
+        
+        function setupVisibilityMonitoring() {
+            // Monitor de visibilidade da página
+            document.addEventListener('//DISABLED visibilitychange', function() {
+                eventCount++;
+                updateMetrics();
+                
+                const isVisible = !document.hidden;
+                const visibility = isVisible ? 'VISÍVEL' : 'OCULTA';
+                
+                log(`Página ficou ${visibility}`, isVisible ? 'success' : 'warning');
+                
+                if (isVisible) {
+                    tabSwitches++;
+                    updateMetrics();
+                    
+                    // Verificar se houve reload suspeito
+                    analysisLog(`Aba voltou ao foco - verificando por reloads...`, 'warning');
+                    
+                    // Detectar possível reload baseado em padrões
+                    //DISABLED setTimeout(() => {
+                        detectPossibleReload();
+                    }, 100);
+                }
+            });
+            
+            // Monitor de foco da janela
+            window.addEventListener('focus', function() {
+                log('Janela ganhou foco', 'info');
+                analysisLog('Window focus event detectado', 'info');
+            });
+            
+            window.addEventListener('blur', function() {
+                log('Janela perdeu foco', 'info');
+                analysisLog('Window blur event detectado', 'info');
+            });
+            
+            log('Monitoramento de visibilidade ativado', 'success');
+        }
+        
+        function detectPossibleReload() {
+            const recentRequests = httpRequests;
+            
+            // Se houve muitas requisições logo após voltar ao foco
+            //DISABLED setTimeout(() => {
+                const newRequests = httpRequests - recentRequests;
+                if (newRequests > 3) {
+                    reloadCount++;
+                    updateMetrics();
+                    
+                    log(`🚨 POSSÍVEL RELOAD DETECTADO! ${newRequests} requests em 1 segundo`, 'critical');
+                    analysisLog(`SUSPEITA DE RELOAD: ${newRequests} requisições após troca de aba`, 'critical');
+                    updateStatus('🚨 RELOAD DETECTADO! Verifique os logs.', 'critical');
+                }
+            }, 1000);
+        }
+        
+        function openDashboardAndMonitor() {
+            if (dashboardWindow && !dashboardWindow.closed) {
+                dashboardWindow.focus();
+                log('Dashboard já está aberto - colocando em foco', 'warning');
+                return;
+            }
+            
+            // Iniciar monitoramento
+            if (!monitoringActive) {
+                setupHTTPMonitoring();
+                setupVisibilityMonitoring();
+                monitoringActive = true;
+                testStartTime = Date.now();
+            }
+            
+            // Abrir dashboard
+            try {
+                dashboardWindow = window.open(dashboardURL, '_blank');
+                
+                if (dashboardWindow) {
+                    log(`Dashboard aberto em nova aba: ${dashboardURL}`, 'success');
+                    updateStatus('🔄 Monitoramento ativo - Teste as trocas de aba!', 'warning');
+                    
+                    // Monitorar quando a janela for fechada
+                    const checkClosed = //DISABLED setInterval(() => {
+                        if (dashboardWindow.closed) {
+                            clearInterval(checkClosed);
+                            log('Dashboard foi fechado', 'info');
+                            generateReport();
+                        }
+                    }, 1000);
+                    
+                    analysisLog('Teste iniciado - troque entre as abas para testar', 'success');
+                } else {
+                    log('Erro: Não foi possível abrir o dashboard. Verifique se o popup foi bloqueado.', 'error');
+                    updateStatus('❌ Erro ao abrir dashboard', 'error');
+                }
+            } catch (error) {
+                log(`Erro ao abrir dashboard: ${error.message}`, 'error');
+                updateStatus('❌ Erro ao abrir dashboard', 'error');
+            }
+        }
+        
+        function generateReport() {
+            if (!testStartTime) return;
+            
+            const duration = Math.round((Date.now() - testStartTime) / 1000);
+            
+            analysisLog('=== RELATÓRIO FINAL ===', 'critical');
+            analysisLog(`Duração do teste: ${duration}s`, 'info');
+            analysisLog(`Recarregamentos detectados: ${reloadCount}`, reloadCount > 0 ? 'critical' : 'success');
+            analysisLog(`Trocas de aba: ${tabSwitches}`, 'info');
+            analysisLog(`Total de requisições HTTP: ${httpRequests}`, 'info');
+            analysisLog(`Eventos de visibilidade: ${eventCount}`, 'info');
+            
+            if (reloadCount > 0) {
+                analysisLog('🚨 PROBLEMA CONFIRMADO: Recarregamentos detectados!', 'critical');
+                updateStatus('🚨 PROBLEMA CONFIRMADO! Verifique o relatório.', 'critical');
+            } else if (tabSwitches > 0) {
+                analysisLog('✅ TESTE OK: Nenhum reload automático detectado', 'success');
+                updateStatus('✅ Nenhum problema detectado no teste.', 'success');
+            } else {
+                analysisLog('⚠️ Teste inconclusivo: Poucas trocas de aba realizadas', 'warning');
+                updateStatus('⚠️ Teste inconclusivo - troque mais vezes de aba.', 'warning');
+            }
+            
+            analysisLog('=== FIM DO RELATÓRIO ===', 'critical');
+        }
+        
+        function clearAllLogs() {
+            document.getElementById('eventLog').textContent = 'Logs limpos - Sistema pronto...\n';
+            document.getElementById('analysisLog').textContent = 'Análise limpa - Pronto para novo teste...\n';
+            
+            // Reset metrics
+            reloadCount = 0;
+            tabSwitches = 0;
+            httpRequests = 0;
+            eventCount = 0;
+            updateMetrics();
+            
+            updateStatus('🔄 Logs limpos - Sistema pronto para novo teste', 'info');
+            log('Sistema resetado para novo teste', 'success');
+        }
+        
+        // Detectar se a página foi recarregada
+        window.addEventListener('load', function() {
+            log('Página carregada/recarregada', 'info');
+            
+            // Verificar se foi um reload
+            if (performance.navigation.type === performance.navigation.TYPE_RELOAD) {
+                log('🚨 RELOAD DETECTADO via Performance API!', 'critical');
+                reloadCount++;
+                updateMetrics();
+            }
+        });
+        
+        // Detectar beforeunload (possível reload)
+        window.addEventListener('beforeunload', function() {
+            log('Página está sendo recarregada/fechada', 'warning');
+        });
+        
+        // Inicializar
+        log('Sistema de monitoramento inicializado', 'success');
+        log('Clique em "ABRIR DASHBOARD" para começar o teste', 'info');
+        updateMetrics();
+    </script>
+</body>
+</html>

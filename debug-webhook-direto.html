@@ -152,7 +152,7 @@ const response = await fetch('https://cloudsaas.geni.chat/webhook/set/INSTANCE',
             log('🔍 Problema: Webhook não funciona via proxy Vercel');
             log('💡 Solução: Backend deve chamar Evolution API diretamente');
             
-            setTimeout(() => {
+            //DISABLED setTimeout(() => {
                 log('⚠️ Testando via proxy (atual método)...');
                 testViaProxy();
             }, 1000);

@@ -186,15 +186,15 @@
 
         const mockWhatsAppService = {
             createInstance: async (config) => {
-                await new Promise(resolve => setTimeout(resolve, 100));
+                await new Promise(resolve => //DISABLED setTimeout(resolve, 100));
                 return { success: true, instanceId: 'test-instance-123' };
             },
             getInstanceStatus: async (instanceId) => {
-                await new Promise(resolve => setTimeout(resolve, 50));
+                await new Promise(resolve => //DISABLED setTimeout(resolve, 50));
                 return { status: 'disconnected', qrCode: null };
             },
             connectInstance: async (instanceId) => {
-                await new Promise(resolve => setTimeout(resolve, 200));
+                await new Promise(resolve => //DISABLED setTimeout(resolve, 200));
                 return { success: true, qrCode: 'test-qr-code' };
             }
         };
@@ -206,7 +206,7 @@
             console.log(`API Call #${apiCallCount}:`, args[0]);
             
             // Simulate network delay
-            await new Promise(resolve => setTimeout(resolve, Math.random() * 100));
+            await new Promise(resolve => //DISABLED setTimeout(resolve, Math.random() * 100));
             
             // Mock response for testing
             return {
@@ -434,7 +434,7 @@
                         break;
                     }
                     
-                    await new Promise(resolve => setTimeout(resolve, 500));
+                    await new Promise(resolve => //DISABLED setTimeout(resolve, 500));
                 }
                 
                 addTestResult(
@@ -472,7 +472,7 @@
                         throw new Error('Loop prevention mechanism failed - timeout reached');
                     }
                     
-                    await new Promise(resolve => setTimeout(resolve, 100));
+                    await new Promise(resolve => //DISABLED setTimeout(resolve, 100));
                 }
                 
                 addTestResult(
@@ -538,7 +538,7 @@
 
         // Auto-run basic tests on page load
         window.addEventListener('load', () => {
-            setTimeout(() => {
+            //DISABLED setTimeout(() => {
                 addTestResult('System Ready', 'PASS', 'Validation system initialized and ready for testing');
             }, 1000);
         });

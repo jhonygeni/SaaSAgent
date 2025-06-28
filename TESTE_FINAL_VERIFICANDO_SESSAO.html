@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚨 TESTE FINAL: Verificando sessão...</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #1a1a1a;
+            color: white;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: #2a2a2a;
+            padding: 30px;
+            border-radius: 15px;
+        }
+        .status-good { color: #00ff88; font-weight: bold; }
+        .status-bad { color: #ff4444; font-weight: bold; }
+        .status-warning { color: #ffaa00; font-weight: bold; }
+        iframe {
+            width: 100%;
+            height: 600px;
+            border: 2px solid #444;
+            border-radius: 8px;
+            background: white;
+        }
+        .test-result {
+            background: #333;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 5px solid #00ff88;
+        }
+        .test-result.fail {
+            border-left-color: #ff4444;
+        }
+        .counter {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚨 TESTE FINAL: "Verificando sessão..."</h1>
+        
+        <div class="test-result" id="mainResult">
+            <h3>📊 Status do Teste</h3>
+            <p><strong>Objetivo:</strong> Verificar se a mensagem "Verificando sessão..." aparece infinitamente</p>
+            <p><strong>Status:</strong> <span id="testStatus" class="status-warning">Testando...</span></p>
+            <p><strong>Tempo observando:</strong> <span id="timeCounter" class="counter">0s</span></p>
+            <p><strong>"Verificando sessão..." detectado:</strong> <span id="loadingCounter" class="counter">0</span> vezes</p>
+        </div>
+
+        <div style="text-align: center; margin: 20px 0;">
+            <button onclick="startTest()">🚀 Iniciar Teste</button>
+            <button onclick="simulateTabSwitch()">🔄 Simular Troca de Aba</button>
+            <button onclick="checkDashboardNow()">🔍 Verificar Dashboard Agora</button>
+            <button onclick="clearTest()">🧹 Limpar</button>
+        </div>
+
+        <iframe id="dashboardFrame" src="about:blank"></iframe>
+
+        <div class="test-result">
+            <h4>📋 Log de Eventos</h4>
+            <div id="eventLog" style="max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 12px;">
+                <div>[PRONTO] Teste pronto para iniciar</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let testStartTime = 0;
+        let loadingDetectedCount = 0;
+        let checkInterval = null;
+        let timeInterval = null;
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const eventLog = document.getElementById('eventLog');
+            const entry = document.createElement('div');
+            
+            let prefix = '';
+            switch(type) {
+                case 'success': prefix = '✅'; break;
+                case 'error': prefix = '❌'; break;
+                case 'warning': prefix = '⚠️'; break;
+                default: prefix = 'ℹ️'; break;
+            }
+            
+            entry.textContent = `[${timestamp}] ${prefix} ${message}`;
+            eventLog.appendChild(entry);
+            eventLog.scrollTop = eventLog.scrollHeight;
+        }
+
+        function updateCounters() {
+            if (testStartTime > 0) {
+                const elapsed = Math.floor((Date.now() - testStartTime) / 1000);
+                document.getElementById('timeCounter').textContent = elapsed + 's';
+            }
+            
+            document.getElementById('loadingCounter').textContent = loadingDetectedCount;
+            
+            // Determinar status do teste
+            const elapsed = testStartTime > 0 ? Math.floor((Date.now() - testStartTime) / 1000) : 0;
+            let status = '';
+            let statusClass = '';
+            
+            if (elapsed < 5) {
+                status = 'Aguardando carregamento inicial...';
+                statusClass = 'status-warning';
+            } else if (loadingDetectedCount === 0) {
+                status = '✅ SUCESSO - Sem "Verificando sessão..." infinito!';
+                statusClass = 'status-good';
+                document.getElementById('mainResult').className = 'test-result';
+            } else if (loadingDetectedCount <= 2) {
+                status = '⚠️ ACEITÁVEL - Poucos carregamentos detectados';
+                statusClass = 'status-warning';
+            } else {
+                status = '❌ PROBLEMA - "Verificando sessão..." aparecendo muito!';
+                statusClass = 'status-bad';
+                document.getElementById('mainResult').className = 'test-result fail';
+            }
+            
+            document.getElementById('testStatus').textContent = status;
+            document.getElementById('testStatus').className = statusClass;
+        }
+
+        function checkDashboardContent() {
+            try {
+                const iframe = document.getElementById('dashboardFrame');
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                
+                if (iframeDoc && iframeDoc.body) {
+                    const text = iframeDoc.body.innerText || iframeDoc.body.textContent || '';
+                    
+                    // Procurar pela mensagem específica
+                    if (text.includes('Verificando sessão...')) {
+                        loadingDetectedCount++;
+                        log('🚨 DETECTADO: "Verificando sessão..." encontrado no dashboard!', 'error');
+                        return true;
+                    }
+                    
+                    // Verificar se o dashboard carregou corretamente
+                    if (text.includes('Dashboard') || text.includes('Agentes') || text.includes('Analytics')) {
+                        log('✅ Dashboard carregado corretamente', 'success');
+                        return false;
+                    }
+                }
+            } catch (e) {
+                // Erro de CORS - normal quando testando localmente
+                log('ℹ️ Não foi possível acessar conteúdo do iframe (CORS)', 'info');
+            }
+            
+            return false;
+        }
+
+        function startTest() {
+            log('🚀 Iniciando teste - carregando dashboard...', 'info');
+            testStartTime = Date.now();
+            loadingDetectedCount = 0;
+            
+            // Carregar dashboard
+            const iframe = document.getElementById('dashboardFrame');
+            iframe.src = 'http://localhost:5173';
+            
+            // Verificar conteúdo a cada 2 segundos
+            if (checkInterval) clearInterval(checkInterval);
+            checkInterval = setInterval(checkDashboardContent, 2000);
+            
+            // Atualizar contadores a cada segundo
+            if (timeInterval) clearInterval(timeInterval);
+            timeInterval = setInterval(updateCounters, 1000);
+            
+            log('✅ Teste iniciado - observando por "Verificando sessão..."', 'success');
+        }
+
+        function simulateTabSwitch() {
+            log('🔄 Simulando troca de aba...', 'warning');
+            
+            // Simular blur e visibility change
+            window.dispatchEvent(new Event('blur'));
+            document.dispatchEvent(new Event('visibilitychange'));
+            
+            setTimeout(() => {
+                window.dispatchEvent(new Event('focus'));
+                document.dispatchEvent(new Event('visibilitychange'));
+                log('✅ Simulação de troca de aba concluída', 'success');
+                
+                // Verificar dashboard imediatamente após troca de aba
+                setTimeout(checkDashboardContent, 1000);
+            }, 3000);
+        }
+
+        function checkDashboardNow() {
+            log('🔍 Verificação manual do dashboard...', 'info');
+            const found = checkDashboardContent();
+            if (!found) {
+                log('✅ Verificação manual: Dashboard OK', 'success');
+            }
+        }
+
+        function clearTest() {
+            if (checkInterval) clearInterval(checkInterval);
+            if (timeInterval) clearInterval(timeInterval);
+            
+            testStartTime = 0;
+            loadingDetectedCount = 0;
+            
+            document.getElementById('dashboardFrame').src = 'about:blank';
+            document.getElementById('eventLog').innerHTML = '<div>[LIMPO] Teste limpo - pronto para reiniciar</div>';
+            document.getElementById('mainResult').className = 'test-result';
+            
+            updateCounters();
+            log('🧹 Teste limpo - pronto para reiniciar', 'info');
+        }
+
+        // Monitorar mudanças de visibilidade para detectar trocas de aba
+        document.addEventListener('visibilitychange', function() {
+            if (testStartTime === 0) return;
+            
+            if (document.hidden) {
+                log('👁️ Página ficou oculta (usuário saiu da aba)', 'warning');
+            } else {
+                log('👁️ Página ficou visível (usuário voltou)', 'info');
+                // Verificar dashboard após voltar para a aba
+                setTimeout(() => {
+                    log('🔍 Verificando dashboard após retornar à aba...', 'info');
+                    checkDashboardContent();
+                }, 2000);
+            }
+        });
+
+        // Inicializar contadores
+        updateCounters();
+        
+        log('🔧 Teste carregado - clique "Iniciar Teste" para começar', 'info');
+    </script>
+</body>
+</html>

@@ -256,7 +256,7 @@ const instances = allInstances?.filter(instance =>
             log('❌ Resultado Esperado: 406 Error - Not Acceptable', 'error');
             
             // Simular solução
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => //DISABLED setTimeout(resolve, 1000));
             
             log('🛠️ APLICANDO CORREÇÃO...', 'info');
             log('✅ Query simplificada: user_id=eq.123 apenas', 'success');
@@ -275,7 +275,7 @@ const instances = allInstances?.filter(instance =>
             log('⚠️ Resultado: Polling nunca parava', 'error');
             
             // Simular correção
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            await new Promise(resolve => //DISABLED setTimeout(resolve, 1500));
             
             log('🛠️ APLICANDO CORREÇÃO...', 'info');
             log('✅ Dependência connectionStatus removida', 'success');
@@ -300,11 +300,11 @@ const instances = allInstances?.filter(instance =>
             
             // Test 406 error fix
             await test406Error();
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => //DISABLED setTimeout(resolve, 1000));
             
             // Test infinite loop fix
             await testInfiniteLoop();
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => //DISABLED setTimeout(resolve, 1000));
             
             // Final validation
             log('🔍 VALIDAÇÃO FINAL...', 'info');

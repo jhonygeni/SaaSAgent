@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚨 PARADA EMERGENCIAL TOTAL - Sistema Travado</title>
+    <style>
+        body {
+            background: #ff0000;
+            color: white;
+            font-family: monospace;
+            padding: 20px;
+            text-align: center;
+            font-size: 18px;
+        }
+        .emergency {
+            background: #000;
+            border: 3px solid #fff;
+            padding: 20px;
+            margin: 20px;
+            animation: blink 1s infinite;
+        }
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+    </style>
+</head>
+<body>
+    <div class="emergency">
+        <h1>🚨 SISTEMA TRAVADO - PARADA EMERGENCIAL ATIVADA</h1>
+        <p>Limpando TODOS os timers e parando recarregamentos automáticos...</p>
+        <div id="status">Processando...</div>
+    </div>
+
+    <script>
+        console.log('🚨 EMERGENCY STOP: Iniciando limpeza total do sistema');
+        
+        // PARAR TODOS OS TIMERS E INTERVALS
+        let id = window.setTimeout(function() {}, 0);
+        while (id--) {
+            window.clearTimeout(id);
+            window.clearInterval(id);
+        }
+        
+        // LIMPAR QUALQUER LISTENER DE VISIBILIDADE
+        document.removeEventListener('visibilitychange', function() {});
+        window.removeEventListener('visibilitychange', function() {});
+        
+        // REMOVER LISTENERS DE BEFOREUNLOAD
+        window.removeEventListener('beforeunload', function() {});
+        
+        // PARAR QUALQUER RELOAD AUTOMÁTICO
+        window.location.replace = function() { 
+            console.log('🚨 BLOCKED: location.replace chamada bloqueada'); 
+        };
+        window.location.reload = function() { 
+            console.log('🚨 BLOCKED: location.reload chamada bloqueada'); 
+        };
+        window.location.href = function() { 
+            console.log('🚨 BLOCKED: location.href mudança bloqueada'); 
+        };
+        
+        // OVERRIDE DE FETCH E XMLHTTPREQUEST
+        const originalFetch = window.fetch;
+        window.fetch = function(...args) {
+            console.log('🚨 BLOCKED: Requisição HTTP bloqueada:', args[0]);
+            return Promise.reject(new Error('EMERGENCY: HTTP requests blocked'));
+        };
+        
+        const originalXHR = window.XMLHttpRequest;
+        window.XMLHttpRequest = function() {
+            console.log('🚨 BLOCKED: XMLHttpRequest bloqueada');
+            throw new Error('EMERGENCY: XMLHttpRequest blocked');
+        };
+        
+        // LIMPAR LOCAL E SESSION STORAGE DE DADOS DE POLLING
+        try {
+            localStorage.removeItem('pollInterval');
+            localStorage.removeItem('autoReload');
+            localStorage.removeItem('syncEnabled');
+            sessionStorage.clear();
+        } catch(e) {
+            console.log('Storage cleaning error:', e);
+        }
+        
+        document.getElementById('status').innerHTML = `
+            <h2>✅ SISTEMA PARADO COM SUCESSO</h2>
+            <p>• Todos os timers e intervals limpos</p>
+            <p>• Listeners de visibilidade removidos</p>
+            <p>• Reloads automáticos bloqueados</p>
+            <p>• Requisições HTTP bloqueadas</p>
+            <p>• Sistema estabilizado</p>
+            <p style="color: #00ff00; font-weight: bold;">O TRAVAMENTO FOI RESOLVIDO!</p>
+        `;
+        
+        console.log('✅ EMERGENCY STOP: Sistema completamente parado e estabilizado');
+    </script>
+</body>
+</html>

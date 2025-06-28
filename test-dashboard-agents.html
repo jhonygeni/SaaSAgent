@@ -346,7 +346,7 @@
                 `);
 
                 // Recheck agents
-                setTimeout(() => checkDatabaseAgents(), 1000);
+                //DISABLED setTimeout(() => checkDatabaseAgents(), 1000);
             } catch (error) {
                 log(`❌ Exceção: ${error.message}`, 'error');
             }
@@ -373,7 +373,7 @@
                 updateResults('<div class="success"><h4>✅ Dados de teste removidos</h4></div>');
                 
                 // Recheck agents
-                setTimeout(() => checkDatabaseAgents(), 1000);
+                //DISABLED setTimeout(() => checkDatabaseAgents(), 1000);
             } catch (error) {
                 log(`❌ Exceção: ${error.message}`, 'error');
             }

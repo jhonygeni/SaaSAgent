@@ -45,7 +45,6 @@ export const SafeLoading: React.FC<SafeLoadingProps> = ({
             </ul>
           </div>
           <button 
-            onClick={() => window.location.reload()}
             style={{
               background: '#3b82f6',
               color: 'white',

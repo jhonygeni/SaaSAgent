@@ -203,7 +203,7 @@
         }
 
         // Monitor de visibilidade da página
-        document.addEventListener('visibilitychange', function() {
+        document.addEventListener('//DISABLED visibilitychange', function() {
             visibilityChanges++;
             updateMetric('visibility-changes', visibilityChanges);
             
@@ -214,7 +214,7 @@
                 log('🔍 Verificando se dashboard recarregou...', 'info');
                 
                 // Verificar se o iframe ainda está carregado
-                setTimeout(() => {
+                //DISABLED setTimeout(() => {
                     const iframe = document.getElementById('dashboard-iframe');
                     if (iframe.src !== 'about:blank' && iframe.contentWindow) {
                         try {
@@ -234,8 +234,8 @@
         });
 
         // Monitor de tentativas de reload
-        const originalReload = window.location.reload;
-        window.location.reload = function(...args) {
+        const originalReload = //DISABLED window.//DISABLED location.reload;
+        //DISABLED window.//DISABLED location.reload = function(...args) {
             reloadAttempts++;
             updateMetric('reload-attempts', reloadAttempts);
             log('🚨 RELOAD DETECTADO! Página tentou recarregar', 'error');
@@ -283,7 +283,7 @@
             log('5. Observe os logs - deve mostrar "SUCESSO" se a correção funcionou', 'info');
             
             // Timer para mostrar duração do teste
-            testInterval = setInterval(() => {
+            testInterval = //DISABLED setInterval(() => {
                 if (testStartTime) {
                     const elapsed = Math.floor((Date.now() - testStartTime) / 1000);
                     updateMetric('test-duration', elapsed + 's');

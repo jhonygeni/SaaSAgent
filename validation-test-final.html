@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>✅ VALIDATION TEST - Infinite Loop Fix</title>
+    <style>
+        body {
+            font-family: 'Monaco', 'Consolas', monospace;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: #ffffff;
+            padding: 20px;
+            margin: 0;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .test-card {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .test-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        .status-pending { background: #FFC107; }
+        .status-success { background: #4CAF50; }
+        .status-error { background: #f44336; }
+        .btn {
+            background: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+            transition: all 0.3s;
+        }
+        .btn:hover {
+            background: #45a049;
+            transform: translateY(-1px);
+        }
+        .btn.danger {
+            background: #f44336;
+        }
+        .btn.danger:hover {
+            background: #da190b;
+        }
+        .logs {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border-radius: 10px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            margin-top: 15px;
+        }
+        .log-entry {
+            margin: 3px 0;
+            padding: 2px 0;
+        }
+        .success { color: #4CAF50; }
+        .warning { color: #FFC107; }
+        .error { color: #f44336; }
+        .info { color: #2196F3; }
+        .critical { color: #ff006e; font-weight: bold; }
+        .metric {
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            margin: 10px 0;
+        }
+        .metric-label {
+            font-size: 12px;
+            color: #ccc;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>✅ INFINITE LOOP FIX VALIDATION</h1>
+            <p>Teste para validar se as correções pararam as 500+ requisições HTTP excessivas</p>
+            <div style="margin-top: 20px;">
+                <button class="btn" onclick="startValidation()">🚀 Iniciar Validação</button>
+                <button class="btn danger" onclick="emergencyStop()">🚨 Emergency Stop</button>
+                <button class="btn" onclick="openDashboard()">📊 Dashboard</button>
+            </div>
+        </div>
+
+        <div class="test-grid">
+            <div class="test-card">
+                <div class="test-title">
+                    <div class="status-indicator status-pending" id="status-requests"></div>
+                    HTTP Request Monitor
+                </div>
+                <div class="metric" id="metric-requests">0</div>
+                <div class="metric-label">Total Requests</div>
+                <div class="metric" id="metric-rps">0</div>
+                <div class="metric-label">Requests/segundo</div>
+                <button class="btn" onclick="testDashboardRequests()">Testar Dashboard</button>
+            </div>
+
+            <div class="test-card">
+                <div class="test-title">
+                    <div class="status-indicator status-pending" id="status-timers"></div>
+                    Timer Monitoring
+                </div>
+                <div class="metric" id="metric-timers">0</div>
+                <div class="metric-label">Timers Ativos</div>
+                <div class="metric" id="metric-intervals">0</div>
+                <div class="metric-label">Intervals Detectados</div>
+                <button class="btn" onclick="scanForActiveTimers()">Escanear Timers</button>
+            </div>
+
+            <div class="test-card">
+                <div class="test-title">
+                    <div class="status-indicator status-pending" id="status-memory"></div>
+                    Memory Usage
+                </div>
+                <div class="metric" id="metric-memory">-- MB</div>
+                <div class="metric-label">Heap Memory</div>
+                <div class="metric" id="metric-growth">--</div>
+                <div class="metric-label">Growth Rate</div>
+                <button class="btn" onclick="monitorMemory()">Monitor Memória</button>
+            </div>
+
+            <div class="test-card">
+                <div class="test-title">
+                    <div class="status-indicator status-pending" id="status-console"></div>
+                    Console Errors
+                </div>
+                <div class="metric" id="metric-errors">0</div>
+                <div class="metric-label">Total Errors</div>
+                <div class="metric" id="metric-404s">0</div>
+                <div class="metric-label">404 Errors</div>
+                <button class="btn" onclick="checkConsoleErrors()">Check Errors</button>
+            </div>
+        </div>
+
+        <div class="test-card">
+            <div class="test-title">📋 Validation Log</div>
+            <div class="logs" id="logContainer">
+                <div class="log-entry info">[SYSTEM] Validation tool carregado</div>
+                <div class="log-entry warning">[WARNING] Aguardando início da validação...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let monitoring = false;
+        let requestCount = 0;
+        let errorCount = 0;
+        let error404Count = 0;
+        let startTime = Date.now();
+        let memoryBaseline = null;
+        let originalFetch = null;
+        let originalConsoleError = null;
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logContainer = document.getElementById('logContainer');
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+
+            if (logContainer.children.length > 50) {
+                logContainer.removeChild(logContainer.firstChild);
+            }
+        }
+
+        function updateStatus(testId, status) {
+            const indicator = document.getElementById(`status-${testId}`);
+            indicator.className = `status-indicator status-${status}`;
+        }
+
+        function startValidation() {
+            log('🚀 INICIANDO VALIDAÇÃO COMPLETA...', 'critical');
+            log('📊 Teste 1: Monitorando requisições HTTP', 'info');
+            
+            monitoring = true;
+            startTime = Date.now();
+            requestCount = 0;
+            errorCount = 0;
+            error404Count = 0;
+
+            // Interceptar fetch
+            originalFetch = window.fetch;
+            window.fetch = function(...args) {
+                if (monitoring) {
+                    requestCount++;
+                    const url = args[0];
+                    const now = Date.now();
+                    const elapsed = now - startTime;
+                    
+                    log(`📡 Request #${requestCount}: ${url}`, 'info');
+                    
+                    document.getElementById('metric-requests').textContent = requestCount;
+                    document.getElementById('metric-rps').textContent = Math.round(requestCount / (elapsed / 1000));
+                    
+                    // Verificar se há muitas requisições
+                    if (requestCount > 20 && elapsed < 10000) {
+                        log(`🚨 EXCESSIVE REQUESTS DETECTED: ${requestCount} in ${elapsed}ms`, 'error');
+                        updateStatus('requests', 'error');
+                    } else if (requestCount > 10 && elapsed < 30000) {
+                        log(`⚠️ Moderate request activity: ${requestCount} in ${elapsed}ms`, 'warning');
+                        updateStatus('requests', 'warning');
+                    } else {
+                        updateStatus('requests', 'success');
+                    }
+                }
+                
+                return originalFetch.apply(this, arguments)
+                    .then(response => {
+                        if (response.status === 404) {
+                            error404Count++;
+                            document.getElementById('metric-404s').textContent = error404Count;
+                            log(`❌ 404 Error: ${args[0]}`, 'error');
+                        }
+                        return response;
+                    })
+                    .catch(error => {
+                        errorCount++;
+                        document.getElementById('metric-errors').textContent = errorCount;
+                        log(`❌ Fetch Error: ${error.message}`, 'error');
+                        throw error;
+                    });
+            };
+
+            // Interceptar console.error
+            originalConsoleError = console.error;
+            console.error = function(...args) {
+                errorCount++;
+                document.getElementById('metric-errors').textContent = errorCount;
+                log(`🐛 Console Error: ${args.join(' ')}`, 'error');
+                return originalConsoleError.apply(this, arguments);
+            };
+
+            // Inicializar monitoramento de memória
+            if (performance.memory) {
+                memoryBaseline = performance.memory.usedJSHeapSize;
+                monitorMemory();
+            }
+
+            log('✅ Validation monitoring iniciado', 'success');
+            
+            // Executar testes automáticos
+            //DISABLED setTimeout(() => testDashboardRequests(), 2000);
+            //DISABLED setTimeout(() => scanForActiveTimers(), 4000);
+            //DISABLED setTimeout(() => checkConsoleErrors(), 6000);
+        }
+
+        function testDashboardRequests() {
+            log('📊 Testando requisições do dashboard...', 'info');
+            
+            // Simular abertura do dashboard
+            const iframe = document.createElement('iframe');
+            iframe.src = 'http://localhost:8084';
+            iframe.style.width = '1px';
+            iframe.style.height = '1px';
+            iframe.style.visibility = 'hidden';
+            document.body.appendChild(iframe);
+            
+            // Remover depois de 10 segundos
+            //DISABLED setTimeout(() => {
+                document.body.removeChild(iframe);
+                log('📊 Teste do dashboard concluído', 'success');
+            }, 10000);
+        }
+
+        function scanForActiveTimers() {
+            log('🔍 Escaneando timers ativos...', 'info');
+            
+            let activeTimers = 0;
+            let activeIntervals = 0;
+            
+            // Verificar variáveis conhecidas
+            const timerVars = [
+                'iframeHealthChecker',
+                'testInterval', 
+                'memoryInterval',
+                'debugInterval',
+                'pollingInterval',
+                'statusInterval',
+                'dashboardInterval'
+            ];
+            
+            timerVars.forEach(varName => {
+                if (window[varName]) {
+                    activeTimers++;
+                    log(`⚠️ Timer ativo encontrado: ${varName}`, 'warning');
+                }
+            });
+            
+            document.getElementById('metric-timers').textContent = activeTimers;
+            document.getElementById('metric-intervals').textContent = activeIntervals;
+            
+            if (activeTimers > 0) {
+                updateStatus('timers', 'warning');
+                log(`⚠️ ${activeTimers} timers ativos detectados`, 'warning');
+            } else {
+                updateStatus('timers', 'success');
+                log('✅ Nenhum timer ativo detectado', 'success');
+            }
+        }
+
+        function monitorMemory() {
+            if (!performance.memory) {
+                log('⚠️ Memory monitoring não disponível neste navegador', 'warning');
+                return;
+            }
+            
+            const currentMemory = performance.memory.usedJSHeapSize;
+            const memoryMB = Math.round(currentMemory / 1024 / 1024);
+            
+            document.getElementById('metric-memory').textContent = memoryMB + ' MB';
+            
+            if (memoryBaseline) {
+                const growth = currentMemory - memoryBaseline;
+                const growthMB = Math.round(growth / 1024 / 1024);
+                document.getElementById('metric-growth').textContent = 
+                    (growthMB >= 0 ? '+' : '') + growthMB + ' MB';
+                
+                if (growthMB > 50) {
+                    updateStatus('memory', 'error');
+                    log(`🚨 Memory leak detectado: +${growthMB}MB`, 'error');
+                } else if (growthMB > 20) {
+                    updateStatus('memory', 'warning');
+                    log(`⚠️ Crescimento de memória: +${growthMB}MB`, 'warning');
+                } else {
+                    updateStatus('memory', 'success');
+                }
+            }
+            
+            log(`💾 Memory usage: ${memoryMB}MB`, 'info');
+        }
+
+        function checkConsoleErrors() {
+            log('🐛 Verificando erros do console...', 'info');
+            
+            if (errorCount === 0 && error404Count === 0) {
+                updateStatus('console', 'success');
+                log('✅ Nenhum erro detectado', 'success');
+            } else if (errorCount < 5 && error404Count < 3) {
+                updateStatus('console', 'warning');
+                log(`⚠️ Poucos erros: ${errorCount} errors, ${error404Count} 404s`, 'warning');
+            } else {
+                updateStatus('console', 'error');
+                log(`🚨 Muitos erros: ${errorCount} errors, ${error404Count} 404s`, 'error');
+            }
+        }
+
+        function emergencyStop() {
+            log('🚨 EXECUTANDO PARADA DE EMERGÊNCIA...', 'critical');
+            
+            monitoring = false;
+            
+            // Restaurar funções originais
+            if (originalFetch) {
+                window.fetch = originalFetch;
+            }
+            if (originalConsoleError) {
+                console.error = originalConsoleError;
+            }
+            
+            // Parar todos os timers
+            for (let i = 1; i <= 10000; i++) {
+                try {
+                    clearInterval(i);
+                    clearTimeout(i);
+                } catch (e) {}
+            }
+            
+            log('✅ Emergency stop concluído', 'success');
+        }
+
+        function openDashboard() {
+            log('📊 Abrindo dashboard em nova aba...', 'info');
+            window.open('http://localhost:8084', '_blank');
+        }
+
+        // Auto-monitorar memória a cada 5 segundos
+        //DISABLED setInterval(() => {
+            if (monitoring) {
+                monitorMemory();
+            }
+        }, 5000);
+
+        log('✅ Validation tool inicializado', 'success');
+        log('🔍 Clique em "Iniciar Validação" para começar os testes', 'info');
+    </script>
+</body>
+</html>

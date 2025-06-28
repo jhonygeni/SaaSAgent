@@ -160,7 +160,7 @@
                 }
                 
                 // Small delay between requests
-                await new Promise(resolve => setTimeout(resolve, 100));
+                await new Promise(resolve => //DISABLED setTimeout(resolve, 100));
             }
             
             const message = `Testing complete: ${successCount}/${endpoints.length} endpoints available`;
@@ -175,7 +175,7 @@
 
         // Auto-test instances endpoint when page loads
         window.addEventListener('load', () => {
-            setTimeout(() => {
+            //DISABLED setTimeout(() => {
                 log('🚀 Auto-testing instances endpoint...');
                 testInstancesEndpoint();
             }, 1000);

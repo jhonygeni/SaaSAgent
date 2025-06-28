@@ -245,7 +245,7 @@
             updateStatus('🔍 TESTE EM ANDAMENTO... Monitorando por 30 segundos', 'warning');
             
             // Monitorar por 30 segundos
-            setTimeout(() => {
+            //DISABLED setTimeout(() => {
                 const analysis = analyzeResults();
                 
                 if (analysis.status === 'SUCCESS') {
@@ -268,7 +268,7 @@
         checkConsoleMessages();
         
         // Auto-start test após 2 segundos
-        setTimeout(() => {
+        //DISABLED setTimeout(() => {
             log('🎬 Teste iniciado automaticamente', 'info');
             startTest();
         }, 2000);

@@ -173,7 +173,7 @@
         }
         
         // Monitorar eventos de visibilidade da página
-        document.addEventListener('visibilitychange', function() {
+        document.addEventListener('//DISABLED visibilitychange', function() {
             visibilityCount++;
             const isHidden = document.hidden;
             log(`🔄 Visibilidade mudou: ${isHidden ? 'OCULTA' : 'VISÍVEL'}`, 'log-visibility');
@@ -192,7 +192,7 @@
             updateMetrics();
             
             // Verificar se algum componente React está reagindo a isso
-            setTimeout(() => {
+            //DISABLED setTimeout(() => {
                 log('🔍 Verificando se há requisições HTTP após focus...', 'log-focus');
             }, 100);
         });
@@ -247,7 +247,7 @@
         function testFocus() {
             log('🧪 TESTE: Simulando perda e ganho de focus...', 'log-focus');
             window.blur();
-            setTimeout(() => {
+            //DISABLED setTimeout(() => {
                 window.focus();
                 log('✅ Teste de focus concluído', 'log-focus');
             }, 1000);
@@ -272,15 +272,15 @@
                 writable: true,
                 value: true
             });
-            document.dispatchEvent(new Event('visibilitychange'));
+            document.dispatchEvent(new Event('//DISABLED visibilitychange'));
             
-            setTimeout(() => {
+            //DISABLED setTimeout(() => {
                 // Simular mostrar página novamente
                 Object.defineProperty(document, 'hidden', {
                     writable: true,
                     value: false
                 });
-                document.dispatchEvent(new Event('visibilitychange'));
+                document.dispatchEvent(new Event('//DISABLED visibilitychange'));
                 log('✅ Teste de visibilidade concluído', 'log-visibility');
             }, 2000);
         }

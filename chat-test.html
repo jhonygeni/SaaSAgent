@@ -187,9 +187,9 @@
             updateStatus('Running tests...', 'warning');
             
             await testMainApp();
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => //DISABLED setTimeout(resolve, 1000));
             await testWebhook();
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => //DISABLED setTimeout(resolve, 1000));
             await testChat();
             
             updateStatus('Tests completed. Check logs below.', 'success');

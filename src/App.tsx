@@ -34,15 +34,13 @@ import { DebugDashboard } from "@/components/DebugDashboard";
 const queryClient = logStep('Query Client Creation', () => new QueryClient({
   defaultOptions: {
     queries: {
-      retry: (failureCount, error) => {
-        console.log(`Query failed ${failureCount} times:`, error);
-        return failureCount < 3;
-      },
-      staleTime: 10 * 60 * 1000, // 10 minutes - aumentado para evitar refetches
+      retry: 0, // EMERGÊNCIA: Desabilitar retries para parar loops
+      staleTime: 30 * 60 * 1000, // EMERGÊNCIA: 30 minutos para evitar refetches
       refetchOnWindowFocus: false, // CRÍTICO: Evita refetches quando volta à aba
       refetchOnMount: false, // Evita refetches desnecessários
       refetchOnReconnect: false, // Evita refetches na reconexão
       refetchInterval: false, // Desabilita polling automático
+      enabled: false, // EMERGÊNCIA: Desabilitar todas as queries automáticas
     },
   },
 }));

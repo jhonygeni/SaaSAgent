@@ -144,7 +144,7 @@
                 log('✅ Status atualizado no banco de dados');
                 
                 // Simular chamada da API
-                await new Promise(resolve => setTimeout(resolve, 1000)); // Simular delay da API
+                await new Promise(resolve => //DISABLED setTimeout(resolve, 1000)); // Simular delay da API
                 
                 if (newStatus === "ativo") {
                     log('🔗 Chamando whatsappService.enableWebhook() com evento MESSAGES_UPSERT');

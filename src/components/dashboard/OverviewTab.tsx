@@ -1,4 +1,3 @@
-
 import { StatsOverview } from "@/components/charts/StatsOverview";
 import { LineChart } from "@/components/charts/LineChart";
 import { MessageUsageCard } from "@/components/charts/MessageUsageCard";
@@ -103,7 +102,6 @@ export function OverviewTab({
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={() => window.location.reload()}
                     className={`${
                       error.includes('demonstração') 
                         ? 'text-orange-700 border-orange-300 hover:bg-orange-50' 

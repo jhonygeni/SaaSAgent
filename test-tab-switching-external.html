@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Teste Específico - Troca de Abas Externa</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        
+        .alert {
+            background: rgba(255,0,0,0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 5px solid #ff4444;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        
+        .success {
+            background: rgba(0,255,0,0.8);
+            border-left-color: #44ff44;
+        }
+        
+        .warning {
+            background: rgba(255,165,0,0.8);
+            border-left-color: #ffaa44;
+        }
+        
+        .info {
+            background: rgba(0,123,255,0.8);
+            border-left-color: #4488ff;
+        }
+        
+        .test-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        button {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+        
+        button.primary {
+            background: linear-gradient(45deg, #4facfe, #00f2fe);
+        }
+        
+        button.success {
+            background: linear-gradient(45deg, #56ab2f, #a8e6cf);
+        }
+        
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .metric {
+            background: rgba(255,255,255,0.2);
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+        
+        .metric-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #ffeb3b;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .metric-label {
+            font-size: 14px;
+            margin-top: 8px;
+            opacity: 0.9;
+        }
+        
+        .dashboard-frame {
+            width: 100%;
+            height: 600px;
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            background: white;
+        }
+        
+        .log-container {
+            background: rgba(0,0,0,0.8);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .log-entry {
+            margin: 5px 0;
+            padding: 8px 12px;
+            border-radius: 5px;
+            background: rgba(255,255,255,0.1);
+        }
+        
+        .log-critical {
+            background: rgba(255,0,0,0.3);
+            border-left: 4px solid #ff4444;
+        }
+        
+        .log-warning {
+            background: rgba(255,165,0,0.3);
+            border-left: 4px solid #ffaa44;
+        }
+        
+        .log-success {
+            background: rgba(0,255,0,0.3);
+            border-left: 4px solid #44ff44;
+        }
+        
+        .log-info {
+            background: rgba(0,123,255,0.3);
+            border-left: 4px solid #4488ff;
+        }
+        
+        .instructions {
+            background: rgba(255,255,255,0.15);
+            border-radius: 15px;
+            padding: 25px;
+            margin: 20px 0;
+            border-left: 5px solid #ffeb3b;
+        }
+        
+        .step {
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+        }
+        
+        .step-number {
+            background: #ffeb3b;
+            color: #333;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste Específico - Problema de Recarregamento ao Trocar de Aba</h1>
+        
+        <div class="alert info">
+            <strong>🎯 OBJETIVO:</strong> Este teste replica exatamente o problema relatado: 
+            recarregamento do dashboard quando você sai da aba e volta a entrar.
+        </div>
+        
+        <div class="instructions">
+            <h3>📋 Instruções do Teste:</h3>
+            
+            <div class="step">
+                <span class="step-number">1</span>
+                <strong>Carregue o dashboard</strong> clicando no botão "🚀 Carregar Dashboard"
+            </div>
+            
+            <div class="step">
+                <span class="step-number">2</span>
+                <strong>Aguarde o dashboard carregar completamente</strong> (você verá a tela de login ou dashboard)
+            </div>
+            
+            <div class="step">
+                <span class="step-number">3</span>
+                <strong>Abra uma nova aba ou mude para outra aba</strong> e permaneça lá por alguns segundos
+            </div>
+            
+            <div class="step">
+                <span class="step-number">4</span>
+                <strong>Volte para esta aba</strong> e observe se o dashboard foi recarregado
+            </div>
+            
+            <div class="step">
+                <span class="step-number">5</span>
+                <strong>Observe os logs</strong> para identificar exatamente o que está causando o problema
+            </div>
+        </div>
+        
+        <div class="metrics">
+            <div class="metric">
+                <div class="metric-value" id="reload-count">0</div>
+                <div class="metric-label">Recarregamentos Detectados</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" id="visibility-changes">0</div>
+                <div class="metric-label">Mudanças de Visibilidade</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" id="fetch-requests">0</div>
+                <div class="metric-label">Requisições HTTP</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" id="memory-usage">--</div>
+                <div class="metric-label">Uso de Memória (MB)</div>
+            </div>
+        </div>
+        
+        <div class="test-controls">
+            <button class="primary" onclick="loadDashboard()">🚀 Carregar Dashboard</button>
+            <button onclick="simulateTabSwitch()">🔄 Simular Troca de Aba</button>
+            <button onclick="checkDashboardStatus()">🔍 Verificar Status</button>
+            <button class="success" onclick="clearLogs()">🧹 Limpar Logs</button>
+        </div>
+        
+        <div class="log-container" id="log-container">
+            <div class="log-entry log-info">🚀 Sistema de monitoramento iniciado. Esperando ações do usuário...</div>
+        </div>
+        
+        <h3>🖥️ Dashboard em Teste:</h3>
+        <iframe id="dashboard-frame" class="dashboard-frame" src="about:blank"></iframe>
+    </div>
+
+    <script>
+        let reloadCount = 0;
+        let visibilityChanges = 0;
+        let fetchRequests = 0;
+        let isMonitoring = false;
+        let dashboardLoaded = false;
+        let lastVisibilityTime = Date.now();
+        
+        function log(message, type = 'info') {
+            const container = document.getElementById('log-container');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.innerHTML = `<strong>[${new Date().toLocaleTimeString()}]</strong> ${message}`;
+            container.appendChild(entry);
+            container.scrollTop = container.scrollHeight;
+            
+            // Log no console também para debug
+            console.log(`[TAB_SWITCH_TEST] ${message}`);
+        }
+        
+        function updateMetric(id, value) {
+            document.getElementById(id).textContent = value;
+        }
+        
+        function updateMemoryUsage() {
+            if (performance.memory) {
+                const usedMB = Math.round(performance.memory.usedJSHeapSize / 1024 / 1024);
+                updateMetric('memory-usage', usedMB);
+            }
+        }
+        
+        function loadDashboard() {
+            log('🔄 Carregando dashboard no iframe...', 'info');
+            
+            const iframe = document.getElementById('dashboard-frame');
+            iframe.src = 'http://localhost:8081';
+            
+            iframe.onload = function() {
+                log('✅ Dashboard carregado com sucesso!', 'success');
+                dashboardLoaded = true;
+                
+                if (!isMonitoring) {
+                    startMonitoring();
+                }
+                
+                // Verificar se há elementos do React carregados
+                //DISABLED setTimeout(() => {
+                    try {
+                        if (iframe.contentWindow) {
+                            log('🔍 Dashboard ativo e responsivo', 'success');
+                        }
+                    } catch (e) {
+                        log('⚠️ Não foi possível acessar conteúdo do iframe (normal para domínios diferentes)', 'warning');
+                    }
+                }, 1000);
+            };
+            
+            iframe.onerror = function() {
+                log('❌ Erro ao carregar o dashboard', 'critical');
+                dashboardLoaded = false;
+            };
+        }
+        
+        function startMonitoring() {
+            if (isMonitoring) return;
+            isMonitoring = true;
+            
+            log('🛡️ Iniciando monitoramento de eventos...', 'info');
+            
+            // MONITOR: Mudanças de visibilidade da página
+            document.addEventListener('//DISABLED visibilitychange', function() {
+                const now = Date.now();
+                const timeSinceLastChange = now - lastVisibilityTime;
+                lastVisibilityTime = now;
+                
+                visibilityChanges++;
+                updateMetric('visibility-changes', visibilityChanges);
+                
+                if (document.hidden) {
+                    log('👁️ Página ficou OCULTA (usuário mudou de aba)', 'warning');
+                } else {
+                    log('👁️ Página ficou VISÍVEL (usuário voltou à aba)', 'info');
+                    
+                    // AQUI É ONDE O PROBLEMA PODE ACONTECER!
+                    //DISABLED setTimeout(() => {
+                        checkForReload(timeSinceLastChange);
+                    }, 500);
+                }
+            });
+            
+            // MONITOR: Focus/Blur da janela
+            window.addEventListener('focus', function() {
+                log('🎯 Janela recebeu FOCUS', 'info');
+                //DISABLED setTimeout(checkDashboardStatus, 300);
+            });
+            
+            window.addEventListener('blur', function() {
+                log('😴 Janela perdeu FOCUS', 'warning');
+            });
+            
+            // MONITOR: Interceptar fetch requests do iframe
+            monitorNetworkRequests();
+            
+            // MONITOR: Memória a cada 5 segundos
+            //DISABLED setInterval(updateMemoryUsage, 5000);
+        }
+        
+        function checkForReload(timeSinceLastChange) {
+            const iframe = document.getElementById('dashboard-frame');
+            
+            if (!dashboardLoaded || !iframe.src || iframe.src === 'about:blank') {
+                return;
+            }
+            
+            // Verificar se o iframe foi recarregado
+            try {
+                // Se conseguimos acessar, provavelmente não recarregou
+                const currentSrc = iframe.src;
+                log(`🔍 Verificando status do dashboard: ${currentSrc}`, 'info');
+                
+                // Verificar sinais de recarregamento
+                if (timeSinceLastChange < 100) {
+                    reloadCount++;
+                    updateMetric('reload-count', reloadCount);
+                    log('🚨 RECARREGAMENTO DETECTADO! Dashboard foi recarregado após voltar à aba', 'critical');
+                    
+                    // Logs detalhados para debug
+                    log(`⏱️ Tempo desde última mudança: ${timeSinceLastChange}ms`, 'critical');
+                    log('🔍 Verificando possíveis causas...', 'critical');
+                    
+                    // Verificar console errors
+                    //DISABLED setTimeout(() => {
+                        log('📊 Para mais detalhes, abra DevTools > Console e procure por erros', 'info');
+                    }, 1000);
+                }
+                
+            } catch (e) {
+                log(`⚠️ Erro ao verificar iframe: ${e.message}`, 'warning');
+            }
+        }
+        
+        function monitorNetworkRequests() {
+            // Interceptar fetch do iframe seria ideal, mas por limitações de CORS,
+            // vamos monitorar pelo Performance API
+            const observer = new PerformanceObserver((list) => {
+                for (const entry of list.getEntries()) {
+                    if (entry.name.includes('localhost:8081')) {
+                        fetchRequests++;
+                        updateMetric('fetch-requests', fetchRequests);
+                        log(`📡 Requisição detectada: ${entry.name}`, 'info');
+                    }
+                }
+            });
+            
+            try {
+                observer.observe({entryTypes: ['resource']});
+            } catch (e) {
+                log('⚠️ Performance Observer não suportado completamente', 'warning');
+            }
+        }
+        
+        function simulateTabSwitch() {
+            log('🧪 SIMULANDO troca de aba...', 'warning');
+            
+            // Simular perda de foco
+            window.dispatchEvent(new Event('blur'));
+            
+            // Simular mudança de visibilidade
+            Object.defineProperty(document, 'hidden', {
+                writable: true,
+                value: true
+            });
+            document.dispatchEvent(new Event('//DISABLED visibilitychange'));
+            
+            //DISABLED setTimeout(() => {
+                // Simular volta do foco
+                Object.defineProperty(document, 'hidden', {
+                    writable: true,
+                    value: false
+                });
+                document.dispatchEvent(new Event('//DISABLED visibilitychange'));
+                window.dispatchEvent(new Event('focus'));
+                
+                log('✅ Simulação de troca de aba concluída', 'success');
+            }, 3000);
+        }
+        
+        function checkDashboardStatus() {
+            const iframe = document.getElementById('dashboard-frame');
+            
+            if (!iframe.src || iframe.src === 'about:blank') {
+                log('⚠️ Dashboard não carregado', 'warning');
+                return;
+            }
+            
+            log(`🔍 Status do dashboard: ${iframe.src}`, 'info');
+            log(`📊 Tamanho do iframe: ${iframe.offsetWidth}x${iframe.offsetHeight}`, 'info');
+            
+            try {
+                if (iframe.contentWindow) {
+                    log('✅ Iframe ativo e responsivo', 'success');
+                }
+            } catch (e) {
+                log('🔒 Acesso ao conteúdo do iframe bloqueado (normal)', 'info');
+            }
+            
+            updateMemoryUsage();
+        }
+        
+        function clearLogs() {
+            document.getElementById('log-container').innerHTML = 
+                '<div class="log-entry log-info">🧹 Logs limpos. Continuando monitoramento...</div>';
+        }
+        
+        // Inicialização
+        log('🚀 Teste de troca de abas iniciado', 'success');
+        log('📋 Siga as instruções acima para reproduzir o problema', 'info');
+        
+        // Verificar se servidor está rodando
+        fetch('http://localhost:8081')
+            .then(() => {
+                log('✅ Servidor de desenvolvimento detectado na porta 8081', 'success');
+            })
+            .catch(() => {
+                log('❌ Servidor não encontrado. Execute "npm run dev" primeiro!', 'critical');
+            });
+    </script>
+</body>
+</html>

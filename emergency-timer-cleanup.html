@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚨 EMERGENCY TIMER CLEANUP</title>
+    <style>
+        body {
+            font-family: 'Monaco', 'Consolas', monospace;
+            background: #000;
+            color: #0f0;
+            padding: 20px;
+            margin: 0;
+        }
+        .emergency {
+            background: #ff0000;
+            color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: bold;
+            text-align: center;
+            font-size: 18px;
+        }
+        .console {
+            background: #111;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #333;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .log-line {
+            margin: 5px 0;
+            font-family: monospace;
+        }
+        .success { color: #0f0; }
+        .warning { color: #ff0; }
+        .error { color: #f00; }
+        .info { color: #0ff; }
+        .button {
+            background: #ff0000;
+            color: #fff;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 10px;
+        }
+        .button:hover {
+            background: #cc0000;
+        }
+    </style>
+</head>
+<body>
+    <div class="emergency">
+        🚨 EMERGENCY TIMER CLEANUP TOOL 🚨<br>
+        Para resolver problema de 500+ requisições HTTP infinitas
+    </div>
+
+    <button class="button" onclick="emergencyStopAllTimers()">🛑 PARAR TODOS OS TIMERS</button>
+    <button class="button" onclick="monitorNewTimers()">🔍 MONITORAR NOVOS TIMERS</button>
+    <button class="button" onclick="clearLogs()">🧹 LIMPAR LOGS</button>
+
+    <div class="console" id="console">
+        <div class="log-line info">[SYSTEM] Emergency Timer Cleanup Tool carregado</div>
+        <div class="log-line warning">[WARNING] Use este script para parar todos os intervals/timeouts ativos</div>
+        <div class="log-line info">[INFO] Pressione "PARAR TODOS OS TIMERS" para resolver loops infinitos</div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const console = document.getElementById('console');
+            const logLine = document.createElement('div');
+            logLine.className = `log-line ${type}`;
+            logLine.textContent = `[${timestamp}] ${message}`;
+            console.appendChild(logLine);
+            console.scrollTop = console.scrollHeight;
+        }
+
+        // 🚨 EMERGENCY SCRIPT - STOP ALL TIMERS AND INTERVALS
+        function emergencyStopAllTimers() {
+            log('🚨 EMERGENCY: Iniciando limpeza de timers...', 'error');
+            
+            let clearedCount = 0;
+            
+            try {
+                // Parar todos os //DISABLED setInterval (IDs de 1 a 10000)
+                for (let i = 1; i <= 10000; i++) {
+                    try {
+                        clearInterval(i);
+                        clearedCount++;
+                    } catch (e) {
+                        // Ignore
+                    }
+                }
+                
+                // Parar todos os //DISABLED setTimeout (IDs de 1 a 10000)
+                for (let i = 1; i <= 10000; i++) {
+                    try {
+                        clearTimeout(i);
+                        clearedCount++;
+                    } catch (e) {
+                        // Ignore
+                    }
+                }
+                
+                log(`🛑 EMERGENCY: Cleared ${clearedCount} potential timers`, 'success');
+                
+                // Parar variáveis globais conhecidas dos arquivos de teste
+                const timerVariables = [
+                    'iframeHealthChecker',
+                    'testInterval',
+                    'memoryInterval',
+                    'debugInterval',
+                    'monitoringInterval',
+                    'statusInterval',
+                    'dashboardInterval',
+                    'pollingInterval',
+                    'connectionInterval'
+                ];
+                
+                let variablesCleared = 0;
+                timerVariables.forEach(varName => {
+                    try {
+                        if (window[varName]) {
+                            clearInterval(window[varName]);
+                            clearTimeout(window[varName]);
+                            window[varName] = null;
+                            variablesCleared++;
+                            log(`🛑 Cleared timer variable: ${varName}`, 'success');
+                        }
+                    } catch (e) {
+                        log(`⚠️ Could not clear ${varName}: ${e.message}`, 'warning');
+                    }
+                });
+                
+                log(`✅ EMERGENCY: Timer cleanup completed`, 'success');
+                log(`📊 STATISTICS: ${clearedCount} IDs cleared, ${variablesCleared} variables cleared`, 'info');
+                
+                // Verificar memória
+                if (performance.memory) {
+                    const memoryMB = Math.round(performance.memory.usedJSHeapSize / 1024 / 1024);
+                    log(`💾 Memory usage: ${memoryMB}MB`, 'info');
+                }
+                
+            } catch (error) {
+                log(`❌ Error during cleanup: ${error.message}`, 'error');
+            }
+        }
+
+        // Função para monitorar se novos timers são criados
+        function monitorNewTimers() {
+            log('🔍 EMERGENCY: Ativando monitoramento de novos timers...', 'warning');
+            
+            if (window._timerMonitorInstalled) {
+                log('⚠️ Monitor de timers já está ativo', 'warning');
+                return;
+            }
+            
+            const originalSetInterval = window.//DISABLED setInterval;
+            const originalSetTimeout = window.//DISABLED setTimeout;
+            
+            window.//DISABLED setInterval = function(...args) {
+                log(`🚨 WARNING: New //DISABLED setInterval detected! ${args[1]}ms interval`, 'error');
+                log(`📍 Stack trace: ${new Error().stack.split('\n')[2]}`, 'info');
+                return originalSetInterval.apply(this, args);
+            };
+            
+            window.//DISABLED setTimeout = function(...args) {
+                log(`🚨 WARNING: New //DISABLED setTimeout detected! ${args[1]}ms timeout`, 'error');
+                log(`📍 Stack trace: ${new Error().stack.split('\n')[2]}`, 'info');
+                return originalSetTimeout.apply(this, args);
+            };
+            
+            window._timerMonitorInstalled = true;
+            log('✅ EMERGENCY: Timer monitoring activated - any new timers will be logged', 'success');
+        }
+
+        function clearLogs() {
+            const console = document.getElementById('console');
+            console.innerHTML = '<div class="log-line info">[SYSTEM] Logs cleared</div>';
+        }
+
+        // Auto-executar em 3 segundos
+        //DISABLED setTimeout(() => {
+            log('🎯 Auto-executing emergency cleanup in 10 seconds...', 'warning');
+            log('⚠️ Cancel auto-execution by clicking the button manually', 'info');
+            
+            //DISABLED setTimeout(() => {
+                log('🚨 AUTO-EXECUTING EMERGENCY CLEANUP!', 'error');
+                emergencyStopAllTimers();
+                monitorNewTimers();
+            }, 10000);
+        }, 3000);
+
+        // Interceptar todos os fetch para monitorar requisições
+        const originalFetch = window.fetch;
+        let requestCount = 0;
+        const startTime = Date.now();
+
+        window.fetch = function(...args) {
+            requestCount++;
+            const url = args[0];
+            const elapsed = Date.now() - startTime;
+            
+            if (requestCount > 10 && elapsed < 10000) {
+                log(`🚨 EXCESSIVE REQUESTS DETECTED: ${requestCount} requests in ${elapsed}ms`, 'error');
+                log(`🔗 Last URL: ${url}`, 'warning');
+            }
+            
+            if (requestCount % 10 === 0) {
+                log(`📊 Total requests: ${requestCount} in ${Math.round(elapsed/1000)}s`, 'info');
+            }
+            
+            return originalFetch.apply(this, args);
+        };
+
+        log('✅ Emergency monitor initialized and watching for infinite loops', 'success');
+    </script>
+</body>
+</html>

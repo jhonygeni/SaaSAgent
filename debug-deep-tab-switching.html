@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Debug Profundo - Recarregamento em Navegador Externo</title>
+    <style>
+        body {
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        
+        .alert {
+            background: rgba(255,107,107,0.9);
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0;
+            border-left: 5px solid #ff4757;
+        }
+        
+        .alert.success {
+            background: rgba(46,213,115,0.9);
+            border-left-color: #2ed573;
+        }
+        
+        .alert.warning {
+            background: rgba(255,165,2,0.9);
+            border-left-color: #ffa502;
+        }
+        
+        .alert.info {
+            background: rgba(52,152,219,0.9);
+            border-left-color: #3498db;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .card {
+            background: rgba(255,255,255,0.2);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        
+        .metric {
+            text-align: center;
+            padding: 15px;
+        }
+        
+        .metric-value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #f1c40f;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .metric-label {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+        
+        button {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 5px;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+        }
+        
+        button.primary {
+            background: linear-gradient(45deg, #4facfe, #00f2fe);
+        }
+        
+        button.success {
+            background: linear-gradient(45deg, #56ab2f, #a8e6cf);
+        }
+        
+        .monitor {
+            background: rgba(0,0,0,0.8);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .log-entry {
+            margin: 3px 0;
+            padding: 5px 10px;
+            border-radius: 5px;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        .log-critical {
+            background: rgba(255,0,0,0.3);
+            border-left: 3px solid #ff4757;
+            color: #ffcccc;
+        }
+        
+        .log-warning {
+            background: rgba(255,165,0,0.3);
+            border-left: 3px solid #ffa502;
+            color: #ffe0cc;
+        }
+        
+        .log-success {
+            background: rgba(0,255,0,0.3);
+            border-left: 3px solid #2ed573;
+            color: #ccffcc;
+        }
+        
+        .log-info {
+            background: rgba(0,123,255,0.3);
+            border-left: 3px solid #3498db;
+            color: #cce7ff;
+        }
+        
+        .log-debug {
+            background: rgba(128,128,128,0.3);
+            border-left: 3px solid #95a5a6;
+            color: #e0e0e0;
+            font-size: 11px;
+        }
+        
+        .dashboard-frame {
+            width: 100%;
+            height: 500px;
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            background: white;
+        }
+        
+        .instructions {
+            background: rgba(255,255,255,0.15);
+            border-radius: 15px;
+            padding: 25px;
+            margin: 20px 0;
+            border-left: 5px solid #f1c40f;
+        }
+        
+        .step {
+            background: rgba(255,255,255,0.1);
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 3px solid #3498db;
+        }
+        
+        .step-number {
+            background: #f1c40f;
+            color: #2c3e50;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        
+        .technical-details {
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-online { background: #2ed573; }
+        .status-offline { background: #ff4757; }
+        .status-warning { background: #ffa502; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Debug Profundo - Recarregamento em Navegador Externo</h1>
+        
+        <div class="alert info">
+            <h3>🎯 Objetivo Específico</h3>
+            <p><strong>Problema:</strong> Dashboard recarrega quando você sai da aba e volta (APENAS no navegador externo, não no VS Code)</p>
+            <p><strong>Meta:</strong> Identificar exatamente qual código/evento está causando esse comportamento</p>
+        </div>
+        
+        <div class="instructions">
+            <h3>📋 Procedimento de Teste</h3>
+            
+            <div class="step">
+                <span class="step-number">1</span>
+                <div>
+                    <strong>Carregue o Dashboard:</strong><br>
+                    Clique em "🚀 Carregar Dashboard" e aguarde carregar completamente
+                </div>
+            </div>
+            
+            <div class="step">
+                <span class="step-number">2</span>
+                <div>
+                    <strong>Ative o Monitoramento:</strong><br>
+                    O sistema irá interceptar TODOS os eventos, requisições HTTP e mudanças de estado
+                </div>
+            </div>
+            
+            <div class="step">
+                <span class="step-number">3</span>
+                <div>
+                    <strong>Execute o Teste:</strong><br>
+                    Abra uma nova aba (Cmd+T), navegue para qualquer site, aguarde 10 segundos, e volte para esta aba
+                </div>
+            </div>
+            
+            <div class="step">
+                <span class="step-number">4</span>
+                <div>
+                    <strong>Analise os Logs:</strong><br>
+                    Observe EXATAMENTE o que acontece quando você volta à aba - cada evento será registrado
+                </div>
+            </div>
+        </div>
+        
+        <div class="grid">
+            <div class="card metric">
+                <div class="metric-value" id="reload-count">0</div>
+                <div class="metric-label">Recarregamentos Detectados</div>
+            </div>
+            <div class="card metric">
+                <div class="metric-value" id="visibility-count">0</div>
+                <div class="metric-label">Mudanças de Visibilidade</div>
+            </div>
+            <div class="card metric">
+                <div class="metric-value" id="http-requests">0</div>
+                <div class="metric-label">Requisições HTTP</div>
+            </div>
+            <div class="card metric">
+                <div class="metric-value" id="event-count">0</div>
+                <div class="metric-label">Eventos Capturados</div>
+            </div>
+        </div>
+        
+        <div class="grid">
+            <button class="primary" onclick="loadDashboard()">🚀 Carregar Dashboard</button>
+            <button onclick="startDeepMonitoring()">🔍 Ativar Monitoramento Profundo</button>
+            <button onclick="simulateTabSwitch()">🧪 Simular Troca de Aba</button>
+            <button onclick="analyzeEvents()">📊 Analisar Eventos</button>
+            <button class="success" onclick="clearMonitor()">🧹 Limpar Monitor</button>
+        </div>
+        
+        <div class="technical-details">
+            <strong>Status do Sistema:</strong><br>
+            <span class="status-indicator status-offline" id="dashboard-status"></span> Dashboard: <span id="dashboard-text">Não carregado</span><br>
+            <span class="status-indicator status-offline" id="monitor-status"></span> Monitor: <span id="monitor-text">Inativo</span><br>
+            <span class="status-indicator status-offline" id="server-status"></span> Servidor: <span id="server-text">Verificando...</span>
+        </div>
+        
+        <div class="monitor" id="monitor">
+            <div class="log-entry log-info">🚀 Sistema de monitoramento profundo iniciado</div>
+            <div class="log-entry log-info">📋 Aguardando carregamento do dashboard...</div>
+        </div>
+        
+        <h3>🖥️ Dashboard em Teste:</h3>
+        <iframe id="dashboard-frame" class="dashboard-frame" src="about:blank"></iframe>
+    </div>
+
+    <script>
+        // Estado global do sistema
+        let systemState = {
+            reloadCount: 0,
+            visibilityCount: 0,
+            httpRequests: 0,
+            eventCount: 0,
+            dashboardLoaded: false,
+            monitoringActive: false,
+            lastVisibilityTime: Date.now(),
+            capturedEvents: [],
+            networkRequests: []
+        };
+
+        // Logging avançado
+        function log(message, type = 'info', includeStackTrace = false) {
+            const timestamp = new Date().toLocaleTimeString();
+            const monitor = document.getElementById('monitor');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            
+            let fullMessage = `[${timestamp}] ${message}`;
+            if (includeStackTrace) {
+                const stack = new Error().stack.split('\n').slice(2, 5).join('\n    ');
+                fullMessage += `\n    Stack: ${stack}`;
+            }
+            
+            entry.innerHTML = fullMessage.replace(/\n/g, '<br>    ');
+            monitor.appendChild(entry);
+            monitor.scrollTop = monitor.scrollHeight;
+            
+            // Log no console também
+            console.log(`[${type.toUpperCase()}] ${message}`);
+            
+            // Armazenar evento
+            systemState.eventCount++;
+            systemState.capturedEvents.push({
+                timestamp: Date.now(),
+                type,
+                message,
+                stack: includeStackTrace ? new Error().stack : null
+            });
+            
+            updateMetric('event-count', systemState.eventCount);
+        }
+
+        function updateMetric(id, value) {
+            document.getElementById(id).textContent = value;
+        }
+
+        function updateStatus(component, status) {
+            const statusEl = document.getElementById(`${component}-status`);
+            const textEl = document.getElementById(`${component}-text`);
+            
+            statusEl.className = `status-indicator status-${status}`;
+            
+            switch(component) {
+                case 'dashboard':
+                    textEl.textContent = status === 'online' ? 'Carregado' : 'Não carregado';
+                    break;
+                case 'monitor':
+                    textEl.textContent = status === 'online' ? 'Ativo' : 'Inativo';
+                    break;
+                case 'server':
+                    textEl.textContent = status === 'online' ? 'Online' : 'Offline';
+                    break;
+            }
+        }
+
+        function loadDashboard() {
+            log('🔄 Iniciando carregamento do dashboard...', 'info');
+            
+            const iframe = document.getElementById('dashboard-frame');
+            const dashboardUrl = 'http://localhost:8081';
+            
+            iframe.src = dashboardUrl;
+            
+            iframe.onload = function() {
+                systemState.dashboardLoaded = true;
+                updateStatus('dashboard', 'online');
+                log('✅ Dashboard carregado com sucesso!', 'success');
+                
+                // Iniciar monitoramento automaticamente
+                if (!systemState.monitoringActive) {
+                    startDeepMonitoring();
+                }
+                
+                // Verificar se há elementos React carregados
+                //DISABLED setTimeout(() => {
+                    try {
+                        if (iframe.contentWindow) {
+                            log('🔍 Dashboard ativo e responsivo', 'success');
+                            
+                            // Tentar acessar o conteúdo do iframe para monitoramento mais profundo
+                            try {
+                                const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                                if (iframeDoc) {
+                                    log('🎯 Acesso ao DOM do iframe obtido - monitoramento interno ativo', 'success');
+                                    monitorIframeInternally(iframe);
+                                }
+                            } catch (e) {
+                                log('🔒 Acesso ao DOM do iframe bloqueado por CORS (normal)', 'debug');
+                            }
+                        }
+                    } catch (e) {
+                        log(`⚠️ Erro ao verificar iframe: ${e.message}`, 'warning');
+                    }
+                }, 1000);
+            };
+            
+            iframe.onerror = function() {
+                log('❌ Erro ao carregar o dashboard', 'critical');
+                updateStatus('dashboard', 'offline');
+            };
+        }
+
+        function startDeepMonitoring() {
+            if (systemState.monitoringActive) {
+                log('⚠️ Monitoramento já está ativo', 'warning');
+                return;
+            }
+            
+            systemState.monitoringActive = true;
+            updateStatus('monitor', 'online');
+            log('🛡️ Iniciando monitoramento profundo de eventos...', 'info');
+            
+            // MONITOR 1: Eventos de visibilidade da página
+            document.addEventListener('//DISABLED visibilitychange', function() {
+                const now = Date.now();
+                const timeSinceLastChange = now - systemState.lastVisibilityTime;
+                systemState.lastVisibilityTime = now;
+                
+                systemState.visibilityCount++;
+                updateMetric('visibility-count', systemState.visibilityCount);
+                
+                if (document.hidden) {
+                    log('👁️ Página ficou OCULTA (usuário saiu da aba)', 'warning', true);
+                } else {
+                    log('👁️ Página ficou VISÍVEL (usuário voltou à aba)', 'info', true);
+                    log(`⏱️ Tempo desde última mudança: ${timeSinceLastChange}ms`, 'debug');
+                    
+                    // AQUI É ONDE O PROBLEMA PODE ESTAR ACONTECENDO!
+                    //DISABLED setTimeout(() => {
+                        checkForReloadAfterVisibility(timeSinceLastChange);
+                    }, 100);
+                }
+            });
+            
+            // MONITOR 2: Focus/Blur da janela
+            window.addEventListener('focus', function() {
+                log('🎯 Janela recebeu FOCUS', 'info', true);
+                //DISABLED setTimeout(() => checkDashboardHealth(), 200);
+            });
+            
+            window.addEventListener('blur', function() {
+                log('😴 Janela perdeu FOCUS', 'warning');
+            });
+            
+            // MONITOR 3: Interceptar TODAS as requisições HTTP
+            interceptAllNetworkRequests();
+            
+            // MONITOR 4: Interceptar navegação/reloads
+            interceptNavigationEvents();
+            
+            // MONITOR 5: Monitor de performance e memória
+            startPerformanceMonitoring();
+            
+            // MONITOR 6: Interceptar erros
+            interceptErrors();
+            
+            log('✅ Monitoramento profundo ativado com 6 camadas de detecção', 'success');
+        }
+
+        function interceptAllNetworkRequests() {
+            // Interceptar fetch
+            const originalFetch = window.fetch;
+            window.fetch = function(...args) {
+                systemState.httpRequests++;
+                updateMetric('http-requests', systemState.httpRequests);
+                
+                const url = args[0];
+                const options = args[1] || {};
+                
+                log(`📡 HTTP Request: ${url}`, 'debug');
+                systemState.networkRequests.push({
+                    timestamp: Date.now(),
+                    url,
+                    method: options.method || 'GET'
+                });
+                
+                return originalFetch.apply(this, args);
+            };
+            
+            // Interceptar XMLHttpRequest
+            const originalOpen = XMLHttpRequest.prototype.open;
+            XMLHttpRequest.prototype.open = function(method, url) {
+                systemState.httpRequests++;
+                updateMetric('http-requests', systemState.httpRequests);
+                
+                log(`📡 XMLHttpRequest: ${method} ${url}`, 'debug');
+                systemState.networkRequests.push({
+                    timestamp: Date.now(),
+                    url,
+                    method
+                });
+                
+                return originalOpen.apply(this, arguments);
+            };
+        }
+
+        function interceptNavigationEvents() {
+            // Interceptar //DISABLED window.//DISABLED location.reload
+            const originalReload = //DISABLED window.//DISABLED location.reload;
+            //DISABLED window.//DISABLED location.reload = function(...args) {
+                systemState.reloadCount++;
+                updateMetric('reload-count', systemState.reloadCount);
+                
+                log('🔄 //DISABLED window.//DISABLED location.reload() CHAMADO!', 'critical', true);
+                
+                return originalReload.apply(this, args);
+            };
+            
+            // Interceptar beforeunload
+            window.addEventListener('beforeunload', function(e) {
+                log('🚪 Página sendo descarregada (beforeunload)', 'critical');
+            });
+            
+            // Interceptar unload
+            window.addEventListener('unload', function() {
+                log('🚪 Página descarregada (unload)', 'critical');
+            });
+            
+            // Interceptar popstate
+            window.addEventListener('popstate', function(e) {
+                log('📍 Evento popstate (navegação no histórico)', 'warning');
+            });
+        }
+
+        function startPerformanceMonitoring() {
+            // Monitor de memória a cada 5 segundos
+            //DISABLED setInterval(() => {
+                if (performance.memory) {
+                    const usedMB = Math.round(performance.memory.usedJSHeapSize / 1024 / 1024);
+                    log(`💾 Memória: ${usedMB}MB`, 'debug');
+                }
+            }, 5000);
+            
+            // Performance Observer
+            try {
+                const observer = new PerformanceObserver((list) => {
+                    for (const entry of list.getEntries()) {
+                        if (entry.name.includes('localhost:8081')) {
+                            log(`⚡ Performance: ${entry.name} (${entry.duration}ms)`, 'debug');
+                        }
+                    }
+                });
+                observer.observe({entryTypes: ['resource', 'navigation']});
+            } catch (e) {
+                log('⚠️ Performance Observer não suportado', 'debug');
+            }
+        }
+
+        function interceptErrors() {
+            window.addEventListener('error', function(e) {
+                log(`💥 Erro JavaScript: ${e.message} (${e.filename}:${e.lineno})`, 'critical');
+            });
+            
+            window.addEventListener('unhandledrejection', function(e) {
+                log(`💥 Promise rejeitada: ${e.reason}`, 'critical');
+            });
+        }
+
+        function checkForReloadAfterVisibility(timeSinceLastChange) {
+            const iframe = document.getElementById('dashboard-frame');
+            
+            if (!systemState.dashboardLoaded || !iframe.src || iframe.src === 'about:blank') {
+                return;
+            }
+            
+            log('🔍 Verificando se houve recarregamento após mudança de visibilidade...', 'info');
+            
+            // Verificar sinais de recarregamento
+            try {
+                const currentSrc = iframe.src;
+                log(`📊 URL atual do iframe: ${currentSrc}`, 'debug');
+                
+                // Se o tempo de mudança foi muito rápido, pode indicar recarregamento
+                if (timeSinceLastChange < 50) {
+                    systemState.reloadCount++;
+                    updateMetric('reload-count', systemState.reloadCount);
+                    log('🚨 RECARREGAMENTO DETECTADO! Mudança de visibilidade muito rápida', 'critical');
+                }
+                
+                // Verificar se há novos elementos sendo carregados
+                //DISABLED setTimeout(() => {
+                    checkDashboardHealth();
+                }, 500);
+                
+            } catch (e) {
+                log(`⚠️ Erro ao verificar iframe: ${e.message}`, 'warning');
+            }
+        }
+
+        function monitorIframeInternally(iframe) {
+            try {
+                const iframeWindow = iframe.contentWindow;
+                
+                // Interceptar eventos dentro do iframe
+                iframeWindow.addEventListener('beforeunload', function() {
+                    systemState.reloadCount++;
+                    updateMetric('reload-count', systemState.reloadCount);
+                    log('🔄 IFRAME SENDO RECARREGADO!', 'critical');
+                });
+                
+                // Interceptar console.log do iframe
+                const originalLog = iframeWindow.console.log;
+                iframeWindow.console.log = function(...args) {
+                    log(`[IFRAME] ${args.join(' ')}`, 'debug');
+                    return originalLog.apply(this, args);
+                };
+                
+            } catch (e) {
+                log('🔒 Não foi possível monitorar iframe internamente', 'debug');
+            }
+        }
+
+        function checkDashboardHealth() {
+            const iframe = document.getElementById('dashboard-frame');
+            
+            if (!iframe.src || iframe.src === 'about:blank') {
+                log('⚠️ Dashboard não carregado', 'warning');
+                return;
+            }
+            
+            log(`🔍 Verificação de saúde do dashboard: ${iframe.src}`, 'debug');
+            
+            try {
+                if (iframe.contentWindow) {
+                    log('✅ Iframe responsivo', 'debug');
+                } else {
+                    log('❌ Iframe não responsivo', 'warning');
+                }
+            } catch (e) {
+                log(`⚠️ Erro na verificação de saúde: ${e.message}`, 'warning');
+            }
+        }
+
+        function simulateTabSwitch() {
+            log('🧪 SIMULANDO troca de aba...', 'warning');
+            
+            // Simular perda de foco
+            window.dispatchEvent(new Event('blur'));
+            
+            // Simular mudança de visibilidade
+            Object.defineProperty(document, 'hidden', {
+                writable: true,
+                value: true
+            });
+            document.dispatchEvent(new Event('//DISABLED visibilitychange'));
+            
+            //DISABLED setTimeout(() => {
+                // Simular volta do foco
+                Object.defineProperty(document, 'hidden', {
+                    writable: true,
+                    value: false
+                });
+                document.dispatchEvent(new Event('//DISABLED visibilitychange'));
+                window.dispatchEvent(new Event('focus'));
+                
+                log('✅ Simulação de troca de aba concluída', 'success');
+            }, 3000);
+        }
+
+        function analyzeEvents() {
+            log('📊 ANÁLISE DE EVENTOS:', 'info');
+            log(`Total de eventos capturados: ${systemState.capturedEvents.length}`, 'info');
+            log(`Recarregamentos detectados: ${systemState.reloadCount}`, systemState.reloadCount > 0 ? 'critical' : 'success');
+            log(`Mudanças de visibilidade: ${systemState.visibilityCount}`, 'info');
+            log(`Requisições HTTP: ${systemState.httpRequests}`, 'info');
+            
+            // Analisar padrões
+            const criticalEvents = systemState.capturedEvents.filter(e => e.type === 'critical');
+            if (criticalEvents.length > 0) {
+                log(`⚠️ ${criticalEvents.length} eventos críticos encontrados:`, 'warning');
+                criticalEvents.forEach(event => {
+                    log(`  - ${event.message}`, 'warning');
+                });
+            }
+        }
+
+        function clearMonitor() {
+            document.getElementById('monitor').innerHTML = 
+                '<div class="log-entry log-info">🧹 Monitor limpo. Continuando captura de eventos...</div>';
+        }
+
+        // Inicialização
+        log('🚀 Sistema de debug profundo inicializado', 'success');
+        log('📋 Carregue o dashboard e execute o teste de troca de abas', 'info');
+        
+        // Verificar servidor
+        fetch('http://localhost:8081')
+            .then(() => {
+                updateStatus('server', 'online');
+                log('✅ Servidor de desenvolvimento detectado', 'success');
+            })
+            .catch(() => {
+                updateStatus('server', 'offline');
+                log('❌ Servidor não encontrado. Execute "npm run dev" primeiro!', 'critical');
+            });
+    </script>
+</body>
+</html>

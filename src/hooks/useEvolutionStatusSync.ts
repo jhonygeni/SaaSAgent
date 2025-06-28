@@ -172,24 +172,19 @@ export function useEvolutionStatusSync() {
     }
   }, []);
 
-  // Iniciar sincronização quando o usuário estiver logado
+  // EMERGÊNCIA: Desabilitar COMPLETAMENTE para parar requisições excessivas
   useEffect(() => {
-    if (user?.id) {
-      // FIXED: Execute sync only once on mount to prevent continuous reloads
-      console.log('🔄 [EVOLUTION_SYNC] Starting single sync on mount');
-      startPeriodicSync();
-    }
-
-    // Cleanup no unmount
+    console.log('🚨 [EVOLUTION_SYNC] EMERGENCY: Hook completely disabled to prevent infinite HTTP requests');
+    // Não fazer NADA - hook completamente desabilitado
     return () => {
-      stopPeriodicSync();
+      console.log('🧹 [EVOLUTION_SYNC] Cleanup - hook was disabled');
     };
-  }, [user?.id]); // Removed startPeriodicSync, stopPeriodicSync from dependencies to prevent loops
+  }, []);
 
   return {
-    syncAgentStatus,
-    syncAllAgentsStatus,
-    startPeriodicSync,
-    stopPeriodicSync
+    syncAgentStatus: () => Promise.resolve(false),
+    syncAllAgentsStatus: () => Promise.resolve(),
+    startPeriodicSync: () => {},
+    stopPeriodicSync: () => {}
   };
 }

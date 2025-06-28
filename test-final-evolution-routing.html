@@ -260,7 +260,7 @@
                         logNetwork(`🌐 Request to: ${functionUrl}`, 'supabase');
                         
                         // Simular chamada real (sem fazer request real para não depender de auth)
-                        await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
+                        await new Promise(resolve => //DISABLED setTimeout(resolve, 1000 + Math.random() * 2000));
                         
                         // Simular resposta bem-sucedida
                         const mockResponse = {
@@ -314,7 +314,7 @@
             async callEvolutionAPIViaVercel(endpoint, method, data) {
                 // Simular roteamento Vercel
                 logNetwork(`🌐 Mapping to Vercel API Route`, 'evolution');
-                await new Promise(resolve => setTimeout(resolve, 500));
+                await new Promise(resolve => //DISABLED setTimeout(resolve, 500));
                 return { status: 'success', message: 'Vercel route simulation' };
             },
 

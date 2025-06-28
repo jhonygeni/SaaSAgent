@@ -184,7 +184,7 @@ Aguardando testes...
                     log(`\n📋 PASSO 2: Aguardando configuração automática do webhook...`);
                     setStatus('Aguardando configuração automática...', 'info');
                     
-                    setTimeout(async () => {
+                    //DISABLED setTimeout(async () => {
                         try {
                             await testCheckWebhook();
                         } catch (err) {
@@ -234,7 +234,7 @@ Aguardando testes...
 
         // Auto-iniciar com teste do endpoint
         window.addEventListener('load', () => {
-            setTimeout(() => {
+            //DISABLED setTimeout(() => {
                 log('🚀 Iniciando teste automático do endpoint webhook...\n');
                 testWebhookEndpoint();
             }, 1000);

@@ -261,7 +261,7 @@ Click "Start Comprehensive Test" to begin validation...
             startSimulatedPolling();
             
             // Start metrics update
-            progressInterval = setInterval(updateMetrics, 1000);
+            progressInterval = //DISABLED setInterval(updateMetrics, 1000);
             
             log('✅ Test started - monitoring for infinite loop behavior...');
         }
@@ -270,17 +270,17 @@ Click "Start Comprehensive Test" to begin validation...
             log('🔍 CHECKING FIX IMPLEMENTATIONS:');
             
             // Simulate checking if our fixes are present
-            setTimeout(() => {
+            //DISABLED setTimeout(() => {
                 updateStatus('dependency-status', '✅ Dependency fix detected - connectionStatus removed from useCallback', 'success');
                 log('  ✅ Critical Fix: connectionStatus removed from useCallback dependencies');
             }, 500);
             
-            setTimeout(() => {
+            //DISABLED setTimeout(() => {
                 updateStatus('detection-status', '✅ Enhanced detection logic active - 4 detection methods', 'success');
                 log('  ✅ Enhanced Detection: Multi-layered success state detection active');
             }, 1000);
             
-            setTimeout(() => {
+            //DISABLED setTimeout(() => {
                 updateStatus('safety-status', '✅ Safety mechanisms active - timeout and protection enabled', 'success');
                 log('  ✅ Safety Mechanisms: Absolute timeout and polling protection enabled');
             }, 1500);
@@ -290,7 +290,7 @@ Click "Start Comprehensive Test" to begin validation...
             log('🔄 Starting simulated polling with enhanced detection logic...');
             mockPollingActive = true;
             
-            testInterval = setInterval(() => {
+            testInterval = //DISABLED setInterval(() => {
                 if (!mockPollingActive) return;
                 
                 pollingCount++;
@@ -333,7 +333,7 @@ Click "Start Comprehensive Test" to begin validation...
                     
                     // Critical test: In the old code, polling would continue here
                     // In the fixed code, it should stop
-                    setTimeout(() => {
+                    //DISABLED setTimeout(() => {
                         if (mockPollingActive) {
                             log('❌ INFINITE LOOP BUG STILL EXISTS - Polling did not stop after success!');
                             updateStatus('dependency-status', '❌ Bug still present - polling continues after success', 'error');
@@ -390,7 +390,7 @@ Click "Start Comprehensive Test" to begin validation...
             
             // Simulate the old buggy behavior
             let buggyPollingCount = 0;
-            const buggyInterval = setInterval(() => {
+            const buggyInterval = //DISABLED setInterval(() => {
                 buggyPollingCount++;
                 log(`🐛 [BUGGY BEHAVIOR] Polling #${buggyPollingCount} - connectionStatus changed, useCallback recreated!`);
                 
@@ -418,7 +418,7 @@ Click "Start Comprehensive Test" to begin validation...
             ];
             
             testCases.forEach((testCase, index) => {
-                setTimeout(() => {
+                //DISABLED setTimeout(() => {
                     const result = testEnhancedDetectionLogic(testCase);
                     const status = result === testCase.expected ? '✅ PASS' : '❌ FAIL';
                     log(`   ${status} ${testCase.name}: ${result} (expected: ${testCase.expected})`);

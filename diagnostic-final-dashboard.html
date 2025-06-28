@@ -307,7 +307,7 @@
                 alert(`✅ Agente de teste criado com sucesso!\n\nAgora:\n1. Vá para o dashboard (http://localhost:5173/dashboard)\n2. Recarregue a página\n3. Verifique se o agente "Agente Dashboard Test" aparece\n\nSe aparecer, o problema estava na falta de dados.\nSe não aparecer, o problema é no código do dashboard.`);
 
                 // Auto-recheck database
-                setTimeout(() => checkDatabase(), 1000);
+                //DISABLED setTimeout(() => checkDatabase(), 1000);
             } catch (error) {
                 log(`❌ Exceção ao criar agente: ${error.message}`, 'error');
                 addDiagnosis('Criação de Teste', 'error', 'Exceção na criação');
@@ -325,7 +325,7 @@
                         <li>Abra o DevTools (F12)</li>
                         <li>Vá para a aba Console</li>
                         <li>Execute este comando:
-                            <pre>window.location.reload(true)</pre>
+                            <pre>//DISABLED window.//DISABLED location.reload(true)</pre>
                         </li>
                         <li>Ou use Ctrl+Shift+R (hard refresh)</li>
                     </ol>
@@ -359,7 +359,7 @@
                 log('✅ Dados de teste removidos', 'success');
                 addDiagnosis('Limpeza', 'success', 'Dados de teste removidos');
                 
-                setTimeout(() => checkDatabase(), 1000);
+                //DISABLED setTimeout(() => checkDatabase(), 1000);
             } catch (error) {
                 log(`❌ Exceção na limpeza: ${error.message}`, 'error');
             }

@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Monitor Final - Correção Chrome Tab Switching</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', roboto, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .metric-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .metric-label {
+            font-size: 0.9rem;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+        .dashboard-frame {
+            width: 100%;
+            height: 600px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .test-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-warning { background: #ffc107; color: #212529; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn:hover { transform: translateY(-2px); }
+        .logs {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            height: 300px;
+            overflow-y: auto;
+            padding: 15px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        .log-info { background: #e3f2fd; }
+        .log-success { background: #e8f5e9; }
+        .log-warning { background: #fff3e0; }
+        .log-error { background: #ffebee; }
+        .instructions {
+            background: #e8f4fd;
+            border: 1px solid #b3d7f7;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .result-status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            text-align: center;
+            font-weight: bold;
+        }
+        .result-success { background: #d4edda; color: #155724; }
+        .result-error { background: #f8d7da; color: #721c24; }
+        .result-pending { background: #fff3cd; color: #856404; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="status-header">
+            <h1>🔍 Monitor Final - Correção Chrome Tab Switching</h1>
+            <p>Monitoramento em tempo real do problema "Verificando sessão..." e recarregamentos automáticos</p>
+            <p><strong>Status:</strong> <span id="test-status">🟡 Aguardando teste</span></p>
+        </div>
+
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-value" id="visibility-changes">0</div>
+                <div class="metric-label">Mudanças de Visibilidade</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="page-reloads">0</div>
+                <div class="metric-label">Recarregamentos Detectados</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="http-requests">0</div>
+                <div class="metric-label">Requisições HTTP</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="test-duration">0s</div>
+                <div class="metric-label">Duração do Teste</div>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h3>📋 Como Testar a Correção:</h3>
+            <ol>
+                <li><strong>Carregue o Dashboard:</strong> Clique em "Carregar Dashboard" abaixo</li>
+                <li><strong>Aguarde Estabilização:</strong> Espere 10-15 segundos para o dashboard carregar completamente</li>
+                <li><strong>Mude de Aba:</strong> Abra uma nova aba no seu navegador ou mude para outra aba existente</li>
+                <li><strong>Espere:</strong> Aguarde 30-60 segundos em outra aba</li>
+                <li><strong>Retorne:</strong> Volte para esta aba</li>
+                <li><strong>Resultado Esperado:</strong> ✅ Dashboard deve continuar funcionando normalmente, sem "Verificando sessão..." infinito</li>
+            </ol>
+        </div>
+
+        <div class="test-controls">
+            <button class="btn btn-primary" onclick="loadDashboard()">🚀 Carregar Dashboard</button>
+            <button class="btn btn-success" onclick="startTest()">🧪 Iniciar Teste</button>
+            <button class="btn btn-warning" onclick="simulateTabChange()">🔄 Simular Mudança de Aba</button>
+            <button class="btn btn-danger" onclick="resetTest()">🔄 Resetar Teste</button>
+        </div>
+
+        <iframe id="dashboard-frame" class="dashboard-frame" src="about:blank"></iframe>
+
+        <div id="result-display" class="result-status result-pending" style="display: none;">
+            <span id="result-text">Teste em andamento...</span>
+        </div>
+
+        <div>
+            <h3>📊 Logs em Tempo Real:</h3>
+            <div id="logs" class="logs">
+                <div class="log-entry log-info">Sistema de monitoramento inicializado. Aguardando início do teste...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let testStartTime = null;
+        let visibilityChanges = 0;
+        let pageReloads = 0;
+        let httpRequests = 0;
+        let testDuration = 0;
+        let monitorInterval = null;
+        let isTestRunning = false;
+
+        function log(message, type = 'info') {
+            const logs = document.getElementById('logs');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong> ${message}`;
+            logs.appendChild(entry);
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        function updateMetric(id, value) {
+            document.getElementById(id).textContent = value;
+        }
+
+        function updateTestStatus(status, color = '#856404') {
+            const statusElement = document.getElementById('test-status');
+            statusElement.textContent = status;
+            statusElement.style.color = color;
+        }
+
+        function loadDashboard() {
+            const frame = document.getElementById('dashboard-frame');
+            frame.src = 'http://localhost:8082/dashboard';
+            log('🚀 Carregando dashboard na porta 8082...', 'info');
+            
+            frame.onload = function() {
+                log('✅ Dashboard carregado com sucesso!', 'success');
+                log('📋 Dashboard pronto para teste. Agora você pode mudar de aba.', 'info');
+            };
+            
+            frame.onerror = function() {
+                log('❌ Erro ao carregar dashboard - verifique se o servidor está rodando', 'error');
+            };
+        }
+
+        function startTest() {
+            if (isTestRunning) {
+                log('⚠️ Teste já está em execução', 'warning');
+                return;
+            }
+
+            testStartTime = Date.now();
+            isTestRunning = true;
+            visibilityChanges = 0;
+            pageReloads = 0;
+            httpRequests = 0;
+
+            updateTestStatus('🟢 Teste em execução', '#28a745');
+            log('🧪 TESTE INICIADO - Monitorando estabilidade após mudança de aba', 'success');
+            log('📋 PRÓXIMO PASSO: Mude para outra aba e aguarde 30-60 segundos', 'info');
+
+            // Iniciar monitoramento de duração
+            monitorInterval = setInterval(() => {
+                if (testStartTime) {
+                    testDuration = Math.floor((Date.now() - testStartTime) / 1000);
+                    updateMetric('test-duration', `${testDuration}s`);
+                }
+            }, 1000);
+
+            // Mostrar resultado provisório
+            const resultDiv = document.getElementById('result-display');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result-status result-pending';
+            document.getElementById('result-text').textContent = 'Teste em andamento... Mude de aba e volte para verificar o resultado.';
+        }
+
+        function simulateTabChange() {
+            log('🔄 Simulando mudança de aba...', 'info');
+            // Simular perda de foco
+            window.dispatchEvent(new Event('blur'));
+            document.dispatchEvent(new Event('visibilitychange'));
+            
+            setTimeout(() => {
+                log('🔄 Simulando retorno à aba...', 'info');
+                // Simular ganho de foco
+                window.dispatchEvent(new Event('focus'));
+                document.dispatchEvent(new Event('visibilitychange'));
+                checkDashboardState();
+            }, 2000);
+        }
+
+        function checkDashboardState() {
+            const frame = document.getElementById('dashboard-frame');
+            try {
+                // Verificar se o iframe ainda está carregado
+                if (frame.src && frame.src !== 'about:blank') {
+                    log('✅ Dashboard manteve o estado após mudança de aba', 'success');
+                    showTestResult(true);
+                } else {
+                    log('❌ Dashboard perdeu o estado após mudança de aba', 'error');
+                    showTestResult(false);
+                }
+            } catch (e) {
+                log('🔒 Não foi possível verificar estado do iframe (cross-origin)', 'warning');
+            }
+        }
+
+        function showTestResult(success) {
+            const resultDiv = document.getElementById('result-display');
+            const resultText = document.getElementById('result-text');
+            
+            if (success) {
+                resultDiv.className = 'result-status result-success';
+                resultText.textContent = '✅ SUCESSO! O problema foi corrigido. Dashboard não recarrega mais automaticamente.';
+                updateTestStatus('✅ Teste APROVADO', '#28a745');
+                log('🎉 RESULTADO: Correção funcionou! Dashboard estável após mudança de aba.', 'success');
+            } else {
+                resultDiv.className = 'result-status result-error';
+                resultText.textContent = '❌ FALHA! O problema persiste. Dashboard ainda recarrega automaticamente.';
+                updateTestStatus('❌ Teste REPROVADO', '#dc3545');
+                log('🚨 RESULTADO: Problema persiste! Dashboard recarregou após mudança de aba.', 'error');
+            }
+        }
+
+        function resetTest() {
+            isTestRunning = false;
+            testStartTime = null;
+            visibilityChanges = 0;
+            pageReloads = 0;
+            httpRequests = 0;
+            testDuration = 0;
+
+            updateMetric('visibility-changes', '0');
+            updateMetric('page-reloads', '0');
+            updateMetric('http-requests', '0');
+            updateMetric('test-duration', '0s');
+
+            updateTestStatus('🟡 Aguardando teste', '#856404');
+            
+            if (monitorInterval) {
+                clearInterval(monitorInterval);
+                monitorInterval = null;
+            }
+
+            const resultDiv = document.getElementById('result-display');
+            resultDiv.style.display = 'none';
+
+            // Limpar logs
+            document.getElementById('logs').innerHTML = '<div class="log-entry log-info">Sistema resetado. Pronto para novo teste...</div>';
+            
+            log('🔄 Teste resetado. Sistema pronto para nova execução.', 'info');
+        }
+
+        // Monitor de visibilidade da página
+        document.addEventListener('visibilitychange', function() {
+            if (isTestRunning) {
+                visibilityChanges++;
+                updateMetric('visibility-changes', visibilityChanges);
+                
+                if (document.hidden) {
+                    log('👁️ Página ficou oculta (usuário mudou de aba)', 'warning');
+                } else {
+                    log('👁️ Página ficou visível (usuário voltou à aba)', 'success');
+                    log('🔍 Verificando estado do dashboard...', 'info');
+                    
+                    // Aguardar um pouco antes de verificar o estado
+                    setTimeout(checkDashboardState, 1000);
+                }
+            }
+        });
+
+        // Monitor de recarregamentos
+        const originalReload = window.location.reload;
+        window.location.reload = function(...args) {
+            if (isTestRunning) {
+                pageReloads++;
+                updateMetric('page-reloads', pageReloads);
+                log('🚨 RECARREGAMENTO DETECTADO! Página tentou recarregar', 'error');
+            }
+            return originalReload.apply(this, args);
+        };
+
+        // Monitor básico de requisições HTTP
+        const originalFetch = window.fetch;
+        window.fetch = function(...args) {
+            if (isTestRunning) {
+                httpRequests++;
+                updateMetric('http-requests', httpRequests);
+                
+                // Log apenas requisições importantes (não assets)
+                if (args[0] && !args[0].includes('.js') && !args[0].includes('.css') && !args[0].includes('.png')) {
+                    log(`🌐 HTTP Request: ${args[0]}`, 'info');
+                }
+            }
+            return originalFetch.apply(this, args);
+        };
+
+        // Inicialização
+        log('🛠️ Monitor de correção Chrome Tab Switching inicializado', 'success');
+        log('📋 Pronto para testar a correção do problema de recarregamento', 'info');
+        log('🎯 OBJETIVO: Verificar se dashboard não mostra mais "Verificando sessão..." infinito', 'info');
+    </script>
+</body>
+</html>

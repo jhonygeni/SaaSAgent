@@ -144,7 +144,7 @@
         window.addEventListener('hashchange', () => {
             updateCurrentUrl();
             log('🔄 URL alterada, reanalizing...', 'info');
-            setTimeout(analisarParametros, 100);
+            //DISABLED setTimeout(analisarParametros, 100);
         });
 
         // Interceptar erros do console
@@ -179,7 +179,7 @@
         
         // Auto-analisar se há parâmetros
         if (window.location.search) {
-            setTimeout(analisarParametros, 500);
+            //DISABLED setTimeout(analisarParametros, 500);
         }
     </script>
 </body>

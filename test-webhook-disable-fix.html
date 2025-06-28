@@ -314,9 +314,9 @@
                 
                 // Simular sequência completa
                 await testEnableWebhook();
-                await new Promise(resolve => setTimeout(resolve, 1000)); // Aguardar 1s
+                await new Promise(resolve => //DISABLED setTimeout(resolve, 1000)); // Aguardar 1s
                 await testDisableWebhook();
-                await new Promise(resolve => setTimeout(resolve, 1000)); // Aguardar 1s
+                await new Promise(resolve => //DISABLED setTimeout(resolve, 1000)); // Aguardar 1s
                 await testEnableWebhook();
                 
                 log(`✅ Teste de toggle completo!`, 'success');

@@ -227,13 +227,13 @@
             log('🚀 Simulando criação de agente...', 'info');
             
             // Simula o fluxo de criação
-            setTimeout(() => {
+            //DISABLED setTimeout(() => {
                 log('📝 Agente salvo no banco com status: "ativo"', 'info');
                 
-                setTimeout(() => {
+                //DISABLED setTimeout(() => {
                     log('📱 Iniciando criação da instância WhatsApp...', 'info');
                     
-                    setTimeout(() => {
+                    //DISABLED setTimeout(() => {
                         log('⏱️ Webhook timeout (8000ms) - mas agente já foi salvo!', 'warning');
                         log('✅ RESULTADO: Agente permanece visível no dashboard com status "ativo"', 'success');
                         log('🎉 PROBLEMA RESOLVIDO: Agente não desaparece mais!', 'success');
@@ -245,7 +245,7 @@
         function simulateWhatsAppFailure() {
             log('💥 Simulando falha de conexão WhatsApp...', 'warning');
             
-            setTimeout(() => {
+            //DISABLED setTimeout(() => {
                 log('❌ Instância WhatsApp falhou ao conectar', 'error');
                 log('✅ CORREÇÃO: Status do agente permanece inalterado', 'success');
                 log('📊 Agente continua visível no dashboard', 'success');

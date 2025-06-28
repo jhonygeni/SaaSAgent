@@ -269,10 +269,10 @@
             log('✅ Interceptores de HTTP e erros ativados');
             
             // Atualizar métricas a cada segundo
-            monitorInterval = setInterval(updateMetrics, 1000);
+            monitorInterval = //DISABLED setInterval(updateMetrics, 1000);
             
             // Análise periódica
-            setTimeout(() => {
+            //DISABLED setTimeout(() => {
                 analyzeResults();
             }, 30000); // Analisar após 30 segundos
             
@@ -337,7 +337,7 @@
         updateMetrics();
         
         // Atualizar uptime a cada segundo
-        setInterval(() => {
+        //DISABLED setInterval(() => {
             if (!monitoringActive) {
                 const elapsed = Math.floor((Date.now() - startTime) / 1000);
                 document.getElementById('uptime').textContent = elapsed + 's';

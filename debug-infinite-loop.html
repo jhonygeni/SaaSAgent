@@ -68,7 +68,7 @@
                     const maxPolls = 5;
                     const pollInterval = 2000;
                     
-                    const polling = setInterval(async () => {
+                    const polling = //DISABLED setInterval(async () => {
                         pollCount++;
                         log(`📊 Poll #${pollCount}: Checking connection state`, 'info');
                         
@@ -109,7 +109,7 @@
                     }, pollInterval);
                     
                     // Set a safety timeout
-                    setTimeout(() => {
+                    //DISABLED setTimeout(() => {
                         clearInterval(polling);
                         log('🛑 Safety timeout reached - stopping polling', 'error');
                     }, 30000);

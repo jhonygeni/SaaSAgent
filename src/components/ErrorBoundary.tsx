@@ -87,21 +87,6 @@ export class ErrorBoundary extends Component<Props, State> {
           </div>
           
           <button 
-            onClick={() => window.location.reload()} 
-            style={{
-              background: '#3b82f6',
-              color: 'white',
-              border: 'none',
-              padding: '0.5rem 1rem',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              marginRight: '1rem'
-            }}
-          >
-            🔄 Recarregar Página
-          </button>
-          
-          <button 
             onClick={() => this.setState({ hasError: false })}
             style={{
               background: '#10b981',

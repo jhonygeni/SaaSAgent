@@ -133,7 +133,7 @@
             
             window.open(urlLocal, '_blank');
             
-            setTimeout(() => {
+            //DISABLED setTimeout(() => {
                 addResult('ℹ️ Verifique a nova aba para ver como a página trata o erro', 'info');
                 addResult('✅ A página deve mostrar: "O link de confirmação expirou ou é inválido"', 'success');
             }, 1000);
@@ -149,14 +149,14 @@
             
             window.open(urlProducao, '_blank');
             
-            setTimeout(() => {
+            //DISABLED setTimeout(() => {
                 addResult('ℹ️ Verifique se a página em produção trata o erro corretamente', 'info');
                 addResult('📝 Compare o comportamento com o ambiente local', 'info');
             }, 1000);
         }
 
         // Executar análise automática ao carregar
-        setTimeout(() => {
+        //DISABLED setTimeout(() => {
             analisarParametros();
         }, 500);
     </script>

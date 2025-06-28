@@ -137,7 +137,7 @@
                     setStatus('✅ Webhook N8N configurado com sucesso!', 'success');
                     
                     // Verificar imediatamente
-                    setTimeout(checkCurrentWebhook, 2000);
+                    //DISABLED setTimeout(checkCurrentWebhook, 2000);
                 } else {
                     const errorText = await response.text();
                     log(`❌ Erro: ${errorText}`);
@@ -180,7 +180,7 @@
 
         // Auto-check on load
         window.addEventListener('load', () => {
-            setTimeout(() => {
+            //DISABLED setTimeout(() => {
                 log('🚀 Auto-verificando webhook atual...');
                 checkCurrentWebhook();
             }, 1000);

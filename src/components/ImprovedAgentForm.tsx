@@ -981,11 +981,6 @@ export function ImprovedAgentForm({ onAgentCreated }: ImprovedAgentFormProps) {
                   <h3 className="font-medium text-destructive">Erro de conexão:</h3>
                 </div>
                 <p className="text-sm text-destructive">{agentError}</p>
-                <div className="mt-3">
-                  <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
-                    Recarregar página
-                  </Button>
-                </div>
               </CardContent>
             </Card>
           </motion.div>

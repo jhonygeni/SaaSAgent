@@ -461,7 +461,7 @@
                 return originalFetch.apply(this, args);
             };
             
-            setTimeout(() => {
+            //DISABLED setTimeout(() => {
                 window.fetch = originalFetch;
                 log(`Monitoring stopped. Total requests in last 30s: ${requestCount}`, 'INFO');
             }, 30000);
@@ -477,8 +477,8 @@
             }
             
             // Clear any module-level intervals
-            if (window.setInterval.active) {
-                window.setInterval.active.forEach(id => clearInterval(id));
+            if (window.//DISABLED setInterval.active) {
+                window.//DISABLED setInterval.active.forEach(id => clearInterval(id));
             }
             
             log('All intervals and timeouts cleared!', 'SUCCESS');
@@ -497,7 +497,7 @@
             log('Diagnostic initialization complete', 'SUCCESS');
             
             // Start monitoring
-            diagnosticInterval = setInterval(async () => {
+            diagnosticInterval = //DISABLED setInterval(async () => {
                 await checkDataAvailability();
             }, 30000);
         }

@@ -94,20 +94,24 @@ const SidebarProvider = React.forwardRef<
         : setOpen((open) => !open)
     }, [isMobile, setOpen, setOpenMobile])
 
-    // Adds a keyboard shortcut to toggle the sidebar.
+    // EMERGENCY FIX: Keyboard shortcut listener disabled to prevent Chrome tab switching issues
+    // This listener was causing unexpected behavior when switching tabs
     React.useEffect(() => {
-      const handleKeyDown = (event: KeyboardEvent) => {
-        if (
-          event.key === SIDEBAR_KEYBOARD_SHORTCUT &&
-          (event.metaKey || event.ctrlKey)
-        ) {
-          event.preventDefault()
-          toggleSidebar()
-        }
-      }
+      console.log('🚨 EMERGENCY: sidebar keydown listener DISABLED to prevent Chrome tab switching issues');
+      
+      // DISABLED: Adds a keyboard shortcut to toggle the sidebar
+      // const handleKeyDown = (event: KeyboardEvent) => {
+      //   if (
+      //     event.key === SIDEBAR_KEYBOARD_SHORTCUT &&
+      //     (event.metaKey || event.ctrlKey)
+      //   ) {
+      //     event.preventDefault()
+      //     toggleSidebar()
+      //   }
+      // }
 
-      window.addEventListener("keydown", handleKeyDown)
-      return () => window.removeEventListener("keydown", handleKeyDown)
+      // window.addEventListener("keydown", handleKeyDown)
+      // return () => window.removeEventListener("keydown", handleKeyDown)
     }, [toggleSidebar])
 
     // We add a state so that we can do data-state="expanded" or "collapsed".

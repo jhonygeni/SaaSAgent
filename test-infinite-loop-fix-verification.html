@@ -232,7 +232,7 @@
             
             // Simulate API call with random delay
             return new Promise((resolve) => {
-                setTimeout(() => {
+                //DISABLED setTimeout(() => {
                     const endTime = performance.now();
                     const responseTime = endTime - startTime;
                     responseTimeSum += responseTime;
@@ -263,7 +263,7 @@
 
             // Simulate rapid consecutive calls (like the old infinite loop)
             let rapidCallCount = 0;
-            testInterval = setInterval(async () => {
+            testInterval = //DISABLED setInterval(async () => {
                 rapidCallCount++;
                 
                 // Simulate the problematic scenario
@@ -279,7 +279,7 @@
             }, 50); // Very fast interval to simulate loop
 
             // Start memory monitoring
-            memoryInterval = setInterval(updateMemoryUsage, 1000);
+            memoryInterval = //DISABLED setInterval(updateMemoryUsage, 1000);
         }
 
         function testNormalFlow() {
@@ -295,7 +295,7 @@
             document.getElementById('currentStatus').textContent = 'Fluxo Normal';
 
             let callCount = 0;
-            testInterval = setInterval(async () => {
+            testInterval = //DISABLED setInterval(async () => {
                 callCount++;
                 
                 log(`Normal API call #${callCount}`, 'info');
@@ -310,7 +310,7 @@
             }, 2000); // Normal 2-second interval
 
             // Start memory monitoring
-            memoryInterval = setInterval(updateMemoryUsage, 1000);
+            memoryInterval = //DISABLED setInterval(updateMemoryUsage, 1000);
         }
 
         function stopAllTests() {
@@ -343,7 +343,7 @@
         }
 
         // Initialize metrics update
-        setInterval(updateMetrics, 1000);
+        //DISABLED setInterval(updateMetrics, 1000);
         updateMemoryUsage();
 
         // Log initial state

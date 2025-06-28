@@ -220,7 +220,7 @@
             monitorPageVisibility();
             
             // Timer de métricas
-            testInterval = setInterval(updateMetrics, 1000);
+            testInterval = //DISABLED setInterval(updateMetrics, 1000);
             
             log('📡 Monitoramento de requisições HTTP ativo', 'INFO');
             log('👁️ Monitoramento de visibilidade da página ativo', 'INFO');
@@ -279,7 +279,7 @@
         function monitorPageVisibility() {
             let lastVisibilityChange = Date.now();
             
-            document.addEventListener('visibilitychange', () => {
+            document.addEventListener('//DISABLED visibilitychange', () => {
                 const now = Date.now();
                 const timeSinceLastChange = now - lastVisibilityChange;
                 lastVisibilityChange = now;
@@ -292,7 +292,7 @@
                     // Verificar se houve recarregamento
                     if (timeSinceLastChange > 5000) { // Mais de 5 segundos
                         // Aguardar um pouco e verificar se dashboard ainda está carregado
-                        setTimeout(() => {
+                        //DISABLED setTimeout(() => {
                             const frame = document.getElementById('dashboardFrame');
                             if (frame.src === 'about:blank' || !frame.contentWindow) {
                                 pageReloadCount++;

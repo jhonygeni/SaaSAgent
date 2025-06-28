@@ -149,27 +149,28 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   }, [createUserWithDefaultPlan]);
   
+  // Função para resetar loading explicitamente (apenas logout/login)
+  const forceLoading = useCallback(() => {
+    if (isMounted.current) setIsLoading(true);
+  }, []);
+  
   // Listen for auth state changes - SEM DEPENDÊNCIAS PROBLEMÁTICAS
   useEffect(() => {
     console.log('🔐 UserContext: Configurando listener de autenticação');
-    setIsLoading(true);
-    
+    // Nunca setar isLoading=true aqui!
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log(`🔐 UserContext: Evento de auth: ${event}`, session ? 'com sessão' : 'sem sessão');
-        
         if (event === 'SIGNED_IN' && session?.user) {
           const supabaseUser = session.user;
           const newUser = createUserWithDefaultPlan(supabaseUser);
-          
           logger.sensitive('✅ UserContext: Usuário logado, criando contexto', { email: newUser.email });
           setUser(newUser);
-          
           // Verificar subscription após delay controlado
           if (checkTimeoutRef.current) {
             clearTimeout(checkTimeoutRef.current);
           }
-          
           checkTimeoutRef.current = setTimeout(() => {
             if (isMounted.current) {
               checkSubscriptionStatus();
@@ -180,14 +181,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
         if (event === 'SIGNED_OUT') {
           console.log('👋 UserContext: Usuário deslogado');
           setUser(null);
-          
           if (checkTimeoutRef.current) {
             clearTimeout(checkTimeoutRef.current);
             checkTimeoutRef.current = null;
           }
+          forceLoading(); // Só aqui pode voltar para true
         }
-        
-        setIsLoading(false);
+        // Nunca setar isLoading=true em outros casos
+        if (isMounted.current) {
+          setIsLoading(false);
+        }
       }
     );
     
@@ -219,10 +222,29 @@ export function UserProvider({ children }: { children: ReactNode }) {
         console.error('🚨 UserContext: Erro ao verificar sessão inicial:', err);
       }
       
-      setIsLoading(false);
+      // CORREÇÃO CRÍTICA: Sempre definir isLoading = false após verificação inicial
+      if (isMounted.current) {
+        setIsLoading(false);
+      }
     };
     
     checkInitialSession();
+    
+    // CORREÇÃO CRÍTICA: Timeout de segurança para garantir que isLoading seja false
+    const safetyTimeout = setTimeout(() => {
+      if (isMounted.current) {
+        console.log('🛡️ UserContext: Timeout de segurança - forçando isLoading = false');
+        setIsLoading(false);
+      }
+    }, 5000); // 5 segundos máximo
+    
+    // Timeout de segurança para garantir que isLoading nunca trave
+    const hardSafetyTimeout = setTimeout(() => {
+      if (isMounted.current && isLoading) {
+        console.error('🛑 [UserContext] Timeout de segurança: forçando isLoading = false após 5s');
+        setIsLoading(false);
+      }
+    }, 5000);
     
     return () => {
       console.log('🧹 UserContext: Removendo listener de autenticação');
@@ -232,6 +254,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
         clearTimeout(checkTimeoutRef.current);
         checkTimeoutRef.current = null;
       }
+      
+      if (safetyTimeout) {
+        clearTimeout(safetyTimeout);
+      }
+      
+      if (hardSafetyTimeout) clearTimeout(hardSafetyTimeout);
     };
   }, []); // IMPORTANTE: Array vazio - sem dependências
 
@@ -242,7 +270,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  // No login manual, forçar loading
   const login = useCallback(async (email: string, name: string) => {
+    forceLoading();
     const newUser: User = {
       id: `user-${Date.now()}`,
       email,
@@ -265,7 +295,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         checkSubscriptionStatus();
       }
     }, 3000);
-  }, [checkSubscriptionStatus]);
+  }, [checkSubscriptionStatus, forceLoading]);
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut();

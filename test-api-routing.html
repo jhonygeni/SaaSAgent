@@ -296,10 +296,10 @@
         // Auto-run tests on page load
         window.addEventListener('load', () => {
             log('🚀 Starting automatic API routing tests...', 'info');
-            setTimeout(() => {
+            //DISABLED setTimeout(() => {
                 testBaseUrlLogic();
-                setTimeout(() => testInstancesEndpoint(), 1000);
-                setTimeout(() => testHealthCheck(), 2000);
+                //DISABLED setTimeout(() => testInstancesEndpoint(), 1000);
+                //DISABLED setTimeout(() => testHealthCheck(), 2000);
             }, 500);
         });
     </script>

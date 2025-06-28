@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 TESTE VALIDAÇÃO - Chrome vs VS Code</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        .status-box {
+            background: rgba(255,255,255,0.2);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+            border-left: 5px solid #4CAF50;
+        }
+        .error-box {
+            background: rgba(255,0,0,0.2);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+            border-left: 5px solid #f44336;
+        }
+        .test-results {
+            background: rgba(0,0,0,0.3);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+            transition: all 0.3s;
+        }
+        button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+        .counter {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        .warning {
+            color: #ff9800;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 TESTE DE VALIDAÇÃO - Correção Chrome/VS Code</h1>
+        
+        <div class="status-box">
+            <h3>✅ Status da Correção</h3>
+            <p><strong>anti-reload-monitor.ts:</strong> Listener de visibilitychange DESABILITADO</p>
+            <p><strong>useEvolutionStatusSync:</strong> DESABILITADO completamente</p>
+            <p><strong>React Query:</strong> Autorefresh DESABILITADO</p>
+            <p><strong>Arquivos HTML:</strong> Timers DESABILITADOS em massa</p>
+        </div>
+
+        <div class="test-results">
+            <h3>📊 Monitoramento em Tempo Real</h3>
+            <p><strong>Requests HTTP:</strong> <span id="requestCount" class="counter">0</span></p>
+            <p><strong>Trocas de Aba:</strong> <span id="visibilityCount" class="counter">0</span></p>
+            <p><strong>Timers Ativos:</strong> <span id="timerCount" class="counter">0</span></p>
+            <p><strong>Tempo Ativo:</strong> <span id="uptime" class="counter">0s</span></p>
+            <p><strong>Status:</strong> <span id="status">Aguardando...</span></p>
+        </div>
+
+        <div class="status-box">
+            <h3>🧪 Como Testar</h3>
+            <ol>
+                <li>Abra esta página no <strong>Chrome</strong></li>
+                <li>Abra o dashboard em <strong>localhost:8080</strong> em outra aba</li>
+                <li>Alterne entre as abas várias vezes</li>
+                <li>Observe se os contadores aqui aumentam excessivamente</li>
+                <li>Compare com o comportamento no VS Code</li>
+            </ol>
+        </div>
+
+        <button onclick="testDashboard()">🚀 Abrir Dashboard</button>
+        <button onclick="clearCounters()">🔄 Limpar Contadores</button>
+        <button onclick="showDetailedLog()">📋 Log Detalhado</button>
+
+        <div id="detailedLog" class="test-results" style="display: none;">
+            <h4>📋 Log Detalhado</h4>
+            <div id="logContent"></div>
+        </div>
+    </div>
+
+    <script>
+        let requestCount = 0;
+        let visibilityCount = 0;
+        let timerCount = 0;
+        let startTime = Date.now();
+        let logs = [];
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            logs.push(logEntry);
+            console.log(logEntry);
+            
+            if (logs.length > 50) {
+                logs = logs.slice(-50); // Manter apenas os últimos 50 logs
+            }
+        }
+
+        // Monitorar requisições HTTP
+        const originalFetch = window.fetch;
+        window.fetch = function(...args) {
+            requestCount++;
+            log(`🌐 HTTP Request #${requestCount}: ${args[0]}`);
+            updateCounters();
+            return originalFetch.apply(this, args);
+        };
+
+        // Monitorar XMLHttpRequest
+        const originalXHROpen = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function(...args) {
+            requestCount++;
+            log(`🌐 XHR Request #${requestCount}: ${args[1]}`);
+            updateCounters();
+            return originalXHROpen.apply(this, args);
+        };
+
+        // Monitorar visibilitychange (para verificar se ainda está ativo)
+        document.addEventListener('visibilitychange', function() {
+            visibilityCount++;
+            const state = document.hidden ? 'OCULTA' : 'VISÍVEL';
+            log(`👁️ Visibilidade #${visibilityCount}: ${state}`);
+            updateCounters();
+        });
+
+        // Monitorar timers
+        const originalSetInterval = window.setInterval;
+        const originalSetTimeout = window.setTimeout;
+        
+        window.setInterval = function(...args) {
+            timerCount++;
+            log(`⏰ setInterval #${timerCount} criado`);
+            updateCounters();
+            return originalSetInterval.apply(this, args);
+        };
+
+        window.setTimeout = function(...args) {
+            timerCount++;
+            log(`⏰ setTimeout #${timerCount} criado`);
+            updateCounters();
+            return originalSetTimeout.apply(this, args);
+        };
+
+        function updateCounters() {
+            document.getElementById('requestCount').textContent = requestCount;
+            document.getElementById('visibilityCount').textContent = visibilityCount;
+            document.getElementById('timerCount').textContent = timerCount;
+            
+            const uptime = Math.floor((Date.now() - startTime) / 1000);
+            document.getElementById('uptime').textContent = uptime + 's';
+            
+            // Determinar status
+            let status = '';
+            if (requestCount > 100) {
+                status = '<span style="color: #f44336;">🚨 MUITAS REQUISIÇÕES!</span>';
+            } else if (requestCount > 50) {
+                status = '<span style="color: #ff9800;">⚠️ Requisições aumentando</span>';
+            } else if (requestCount > 10) {
+                status = '<span style="color: #4CAF50;">✅ Normal</span>';
+            } else {
+                status = '<span style="color: #2196F3;">😴 Muito baixo</span>';
+            }
+            
+            document.getElementById('status').innerHTML = status;
+        }
+
+        function testDashboard() {
+            window.open('http://localhost:8080', '_blank');
+            log('🚀 Dashboard aberto em nova aba');
+        }
+
+        function clearCounters() {
+            requestCount = 0;
+            visibilityCount = 0;
+            timerCount = 0;
+            startTime = Date.now();
+            logs = [];
+            updateCounters();
+            log('🔄 Contadores limpos');
+        }
+
+        function showDetailedLog() {
+            const logDiv = document.getElementById('detailedLog');
+            const logContent = document.getElementById('logContent');
+            
+            if (logDiv.style.display === 'none') {
+                logContent.innerHTML = logs.map(log => `<div>${log}</div>`).join('');
+                logDiv.style.display = 'block';
+            } else {
+                logDiv.style.display = 'none';
+            }
+        }
+
+        // Atualizar uptime a cada segundo
+        setInterval(() => {
+            const uptime = Math.floor((Date.now() - startTime) / 1000);
+            document.getElementById('uptime').textContent = uptime + 's';
+        }, 1000);
+
+        log('🔍 Monitor de validação iniciado');
+        updateCounters();
+    </script>
+</body>
+</html>

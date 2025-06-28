@@ -32,11 +32,13 @@ export function Dashboard() {
   const [searchParams] = useSearchParams();
   const isMounted = useRef(true);
   const loadTimeoutRef = useRef<NodeJS.Timeout>();
+  const hasLoadedOnce = useRef(false); // NOVO: controla se já carregou uma vez
 
+  // 🚨 EMERGENCY FIX: Evolution API sync disabled to prevent infinite loops
   // 🔄 SINCRONIZAÇÃO AUTOMÁTICA DO STATUS DA EVOLUTION API
   // Este hook sincroniza automaticamente o status das instâncias WhatsApp
   // da Evolution API com o campo 'connected' dos agentes no banco de dados
-  useEvolutionStatusSync();
+  // useEvolutionStatusSync(); // DISABLED - causing infinite HTTP requests
 
   // Debug: Log agents count
   console.log("Dashboard - Current agents count:", agents?.length || 0);
@@ -70,13 +72,18 @@ export function Dashboard() {
   useEffect(() => {
     if (!isMounted.current || isUserLoading) return;
 
+    // Se já carregou uma vez, nunca volta para loading
+    if (hasLoadedOnce.current) {
+      setIsLoading(false);
+      return;
+    }
+
     const loadDashboard = async () => {
       try {
         if (!user) {
           navigate("/entrar", { replace: true });
           return;
         }
-
         setIsLoading(true);
         setLoadError(null);
 
@@ -91,6 +98,7 @@ export function Dashboard() {
         // Verifica se componente ainda está montado antes de atualizar estado
         if (isMounted.current) {
           setIsLoading(false);
+          hasLoadedOnce.current = true; // Marca que já carregou
         }
       } catch (error) {
         console.error("Erro ao carregar dashboard:", error);
@@ -123,7 +131,7 @@ export function Dashboard() {
   }, [user, isUserLoading, navigate, loadAgentsFromSupabase]); // CORREÇÃO: Adicionar dependências necessárias
 
   // Loading state
-  if (isUserLoading || isLoading) {
+  if ((isUserLoading && !hasLoadedOnce.current) || isLoading) {
     return (
       <div className="container mx-auto p-4 md:py-8 flex justify-center items-center">
         <div className="flex flex-col items-center gap-4">

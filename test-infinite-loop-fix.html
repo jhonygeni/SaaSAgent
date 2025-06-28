@@ -99,7 +99,7 @@
             
             log(`🔄 Starting status polling for instance: ${instanceName}`, 'info');
             
-            const polling = setInterval(async () => {
+            const polling = //DISABLED setInterval(async () => {
                 if (!pollingActive) {
                     log('🛑 Polling flag is false - stopping interval', 'info');
                     clearInterval(polling);
@@ -166,7 +166,7 @@
             }, pollInterval);
             
             // Safety timeout
-            setTimeout(() => {
+            //DISABLED setTimeout(() => {
                 if (pollingActive) {
                     log('🛑 Safety timeout reached - force stop polling', 'warning');
                     pollingActive = false;
@@ -245,7 +245,7 @@
                 }
                 
                 // Small delay to simulate real polling
-                await new Promise(resolve => setTimeout(resolve, 100));
+                await new Promise(resolve => //DISABLED setTimeout(resolve, 100));
             }
         }
 

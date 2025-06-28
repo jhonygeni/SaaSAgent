@@ -241,7 +241,8 @@ export function AgentProvider({ children }: { children: ReactNode }) {
 
   const updateAgentById = async (id: string, updatedAgent: Partial<Agent>) => {
     try {
-      setIsLoading(true);
+      // 🔧 CORREÇÃO LOOP INFINITO: Não usar setIsLoading para evitar re-renders excessivos
+      // setIsLoading(true); // REMOVIDO para evitar triggers de useEffect
       const success = await agentService.updateAgent(id, updatedAgent);
       
       if (success) {
@@ -265,7 +266,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      // setIsLoading(false); // REMOVIDO para evitar triggers de useEffect
     }
   };
 

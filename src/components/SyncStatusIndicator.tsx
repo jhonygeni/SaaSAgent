@@ -10,7 +10,8 @@ import { useEvolutionStatusSync } from '@/hooks/useEvolutionStatusSync';
 export function SyncStatusIndicator() {
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
-  const { syncAllAgentsStatus } = useEvolutionStatusSync();
+  // 🚨 EMERGENCY FIX: Evolution sync disabled to prevent infinite loops
+  // const { syncAllAgentsStatus } = useEvolutionStatusSync(); // DISABLED
 
   // Atualizar o timestamp da última sincronização
   useEffect(() => {

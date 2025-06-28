@@ -316,14 +316,14 @@
             addTimelineItem(`Started real polling test for instance: ${instanceName}`, 'success');
 
             // Set absolute timeout (same as real application: 2 minutes)
-            testTimeout = setTimeout(() => {
+            testTimeout = //DISABLED setTimeout(() => {
                 log('⏰ ABSOLUTE TIMEOUT REACHED - Force stopping test (2 minutes)', 'warning');
                 addTimelineItem('Absolute timeout reached - test force stopped', 'warning');
                 stopTest();
             }, 120000); // 2 minutes
 
             // Start polling every 3 seconds (same as real application)
-            pollingInterval = setInterval(async () => {
+            pollingInterval = //DISABLED setInterval(async () => {
                 if (!isPolling) return;
 
                 log(`📊 Polling attempt #${requestCount + 1}...`);
@@ -380,7 +380,7 @@
             }, 3000); // 3 seconds interval (same as real app)
 
             // Start metrics update loop
-            const metricsInterval = setInterval(() => {
+            const metricsInterval = //DISABLED setInterval(() => {
                 if (isPolling) {
                     updateMetrics();
                 } else {
@@ -431,7 +431,7 @@
         updateMetrics();
         
         // Performance monitoring
-        setInterval(() => {
+        //DISABLED setInterval(() => {
             if (isPolling && performance.memory) {
                 const memory = performance.memory.usedJSHeapSize;
                 if (memory > memoryBaseline + 50 * 1024 * 1024) { // 50MB increase

@@ -153,7 +153,7 @@
             };
 
             // Atualizar métricas a cada segundo
-            testInterval = setInterval(() => {
+            testInterval = //DISABLED setInterval(() => {
                 updateMetrics();
                 
                 // Análise em tempo real
@@ -172,7 +172,7 @@
             }, 1000);
 
             // Parar teste automaticamente após 30 segundos
-            setTimeout(() => {
+            //DISABLED setTimeout(() => {
                 stopTest();
                 analyzeResults();
             }, 30000);

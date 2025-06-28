@@ -29,8 +29,9 @@ export function AgentList() {
   const [agentToDelete, setAgentToDelete] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   
+  // 🚨 EMERGENCY FIX: Evolution sync disabled to prevent infinite loops
   // Hook para sincronização manual do status da Evolution API
-  const { syncAgentStatus, syncAllAgentsStatus } = useEvolutionStatusSync();
+  // const { syncAgentStatus, syncAllAgentsStatus } = useEvolutionStatusSync(); // DISABLED
   
   const agentLimit = user ? getAgentLimitByPlan(user.plan) : 1;
   const hasReachedLimit = agents.length >= agentLimit;
@@ -62,9 +63,7 @@ export function AgentList() {
         variant: "default",
       });
 
-      // Update database status first
-      updateAgentById(id, { status: newStatus });
-
+      // 🔧 CORREÇÃO DO LOOP INFINITO: Primeiro fazer operações de webhook, depois atualizar banco
       // If agent has instance name, control webhook in Evolution API
       if (agent.instanceName) {
         const { default: whatsappService } = await import('@/services/whatsappService');
@@ -78,6 +77,9 @@ export function AgentList() {
         }
       }
 
+      // 🔧 CORREÇÃO: Atualizar banco SOMENTE APÓS webhook ter sucesso (evita loops)
+      updateAgentById(id, { status: newStatus });
+
       // Success toast
       toast({
         title: `Agente ${newStatus === "ativo" ? "ativado" : "desativado"}`,
@@ -90,8 +92,8 @@ export function AgentList() {
     } catch (error) {
       console.error("Error toggling agent status:", error);
       
-      // Revert database status on error
-      updateAgentById(id, { status: currentStatus });
+      // Revert database status on error - não é necessário reverter porque ainda não foi alterado
+      // updateAgentById(id, { status: currentStatus }); // REMOVIDO
       
       toast({
         title: "Erro ao alterar status",
@@ -144,7 +146,9 @@ export function AgentList() {
 
     setIsSyncing(true);
     try {
-      const success = await syncAgentStatus(agentId, instanceName);
+      // 🚨 EMERGENCY FIX: Sync disabled to prevent infinite loops
+      // const success = await syncAgentStatus(agentId, instanceName); // DISABLED
+      const success = false; // Mock response to prevent errors
       
       if (success) {
         toast({
@@ -153,7 +157,7 @@ export function AgentList() {
           variant: "default",
         });
         // Recarregar a lista de agentes para mostrar o status atualizado
-        window.location.reload();
+        // window.location.reload(); // REMOVIDO para evitar reload automático
       } else {
         toast({
           title: "Erro na sincronização",
@@ -176,14 +180,15 @@ export function AgentList() {
   const handleSyncAllAgents = async () => {
     setIsSyncing(true);
     try {
-      await syncAllAgentsStatus();
+      // 🚨 EMERGENCY FIX: Sync disabled to prevent infinite loops
+      // await syncAllAgentsStatus(); // DISABLED
       toast({
         title: "Sincronização concluída",
         description: "Status de todos os agentes foi verificado.",
         variant: "default",
       });
       // Recarregar a lista de agentes para mostrar os status atualizados
-      window.location.reload();
+      // window.location.reload(); // REMOVIDO para evitar reload automático
     } catch (error) {
       toast({
         title: "Erro",

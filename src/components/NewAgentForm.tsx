@@ -320,11 +320,6 @@ export function NewAgentForm({ onAgentCreated }: NewAgentFormProps) {
             <h3 className="font-medium text-destructive">Erro de conexão:</h3>
           </div>
           <p className="text-sm text-destructive">{agentError}</p>
-          <div className="mt-2">
-            <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
-              Recarregar página
-            </Button>
-          </div>
         </Card>
       )}
       

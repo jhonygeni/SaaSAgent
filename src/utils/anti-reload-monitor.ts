@@ -43,19 +43,22 @@ window.location.replace = function(url) {
   return originalReplace.call(this, url);
 };
 
-// Monitorar eventos de visibilidade que podem triggear reloads
-document.addEventListener('visibilitychange', function() {
-  console.log(`👁️ Visibilidade: ${document.hidden ? 'OCULTA' : 'VISÍVEL'}`);
-  
-  if (!document.hidden) {
-    console.log('✅ Página ficou visível - CORREÇÃO APLICADA: hooks otimizados para evitar reloads');
-    
-    // Verificar se há timers ativos que podem causar problemas
-    setTimeout(() => {
-      console.log('🔍 Verificação pós-visibilidade concluída - dashboard estável');
-    }, 1000);
-  }
-});
+// EMERGÊNCIA: Listener de visibilidade desabilitado para parar atualizações ao trocar de aba
+// Este listener estava causando comportamento diferente entre VS Code e Chrome
+// document.addEventListener('visibilitychange', function() {
+//   console.log(`👁️ Visibilidade: ${document.hidden ? 'OCULTA' : 'VISÍVEL'}`);
+//   
+//   if (!document.hidden) {
+//     console.log('✅ Página ficou visível - CORREÇÃO APLICADA: hooks otimizados para evitar reloads');
+//     
+//     // Verificar se há timers ativos que podem causar problemas
+//     setTimeout(() => {
+//       console.log('🔍 Verificação pós-visibilidade concluída - dashboard estável');
+//     }, 1000);
+//   }
+// });
+
+console.log('🚨 EMERGENCY: visibilitychange listener DISABLED to prevent Chrome tab switching issues');
 
 // Interceptar History API
 const originalPushState = history.pushState;

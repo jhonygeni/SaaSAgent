@@ -185,7 +185,7 @@
         }
         
         // MONITOR PRINCIPAL: Eventos de visibilidade
-        document.addEventListener('visibilitychange', function() {
+        document.addEventListener('//DISABLED visibilitychange', function() {
             const now = Date.now();
             const isHidden = document.hidden;
             visibilityChanges++;
@@ -203,7 +203,7 @@
                 }
                 
                 // Verificar se a aplicação está recarregando
-                setTimeout(() => {
+                //DISABLED setTimeout(() => {
                     checkForAppReload();
                 }, 500);
             }
@@ -214,7 +214,7 @@
         // MONITOR: Focus/Blur da janela
         window.addEventListener('focus', function() {
             log('🎯 Janela recebeu FOCUS', 'info');
-            setTimeout(checkForAppReload, 300);
+            //DISABLED setTimeout(checkForAppReload, 300);
         });
         
         window.addEventListener('blur', function() {
@@ -282,15 +282,15 @@
                 value: true,
                 configurable: true
             });
-            document.dispatchEvent(new Event('visibilitychange'));
+            document.dispatchEvent(new Event('//DISABLED visibilitychange'));
             
-            setTimeout(() => {
+            //DISABLED setTimeout(() => {
                 log('📱 Simulando página ficando visível...', 'success');
                 Object.defineProperty(document, 'hidden', {
                     value: false,
                     configurable: true
                 });
-                document.dispatchEvent(new Event('visibilitychange'));
+                document.dispatchEvent(new Event('//DISABLED visibilitychange'));
                 
                 log('✅ Teste de API de visibilidade concluído', 'success');
             }, 2000);
@@ -327,12 +327,12 @@
             
             // Simular blur
             window.dispatchEvent(new Event('blur'));
-            document.dispatchEvent(new Event('visibilitychange'));
+            document.dispatchEvent(new Event('//DISABLED visibilitychange'));
             
-            setTimeout(() => {
+            //DISABLED setTimeout(() => {
                 // Simular focus
                 window.dispatchEvent(new Event('focus'));
-                document.dispatchEvent(new Event('visibilitychange'));
+                document.dispatchEvent(new Event('//DISABLED visibilitychange'));
                 
                 log('✅ Simulação de troca de aba concluída', 'success');
             }, 3000);
@@ -347,15 +347,15 @@
             log('⚡ INICIANDO TESTE DE STRESS...', 'warning');
             
             for (let i = 0; i < 10; i++) {
-                setTimeout(() => {
+                //DISABLED setTimeout(() => {
                     window.dispatchEvent(new Event('focus'));
-                    setTimeout(() => {
+                    //DISABLED setTimeout(() => {
                         window.dispatchEvent(new Event('blur'));
                     }, 100);
                 }, i * 200);
             }
             
-            setTimeout(() => {
+            //DISABLED setTimeout(() => {
                 log('✅ Teste de stress concluído', 'success');
             }, 3000);
         }

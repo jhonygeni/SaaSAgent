@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useConnection } from "@/context/ConnectionContext";
@@ -174,9 +173,7 @@ export function WhatsAppConnection() {
             <p className="text-muted-foreground mb-4">
               Não foi possível conectar ao WhatsApp. Por favor, tente novamente.
             </p>
-            <Button onClick={() => window.location.reload()}>
-              Tentar novamente
-            </Button>
+            {/* <Button onClick={() => window.location.reload()}> // REMOVIDO para evitar reload automático */}
           </div>
         </div>
       )}

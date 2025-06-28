@@ -344,10 +344,10 @@
             
             logRequest('SYSTEM', '', '🚀 VALIDAÇÃO INICIADA - Monitorando requisições HTTP...', 'success');
             
-            monitorInterval = setInterval(updateMetrics, 1000);
+            monitorInterval = //DISABLED setInterval(updateMetrics, 1000);
             
             // Simular navegação básica para ativar hooks
-            setTimeout(() => {
+            //DISABLED setTimeout(() => {
                 logRequest('TEST', '', '🔍 Iniciando testes básicos de navegação...', 'info');
                 
                 // Tentar acionar qualquer código que possa fazer requisições
@@ -392,7 +392,7 @@
             ];
             
             testUrls.forEach((url, index) => {
-                setTimeout(() => {
+                //DISABLED setTimeout(() => {
                     fetch(url)
                         .catch(error => {
                             logRequest('TEST', url, `Teste de requisição: ${error.message}`, 'warning');
@@ -402,12 +402,12 @@
         }
 
         // Auto-start monitoring when page loads
-        setTimeout(() => {
+        //DISABLED setTimeout(() => {
             document.querySelector('.btn-success').click();
         }, 1000);
 
         // Detectar se estamos em uma aplicação React
-        setTimeout(() => {
+        //DISABLED setTimeout(() => {
             if (window.React || document.querySelector('[data-reactroot]')) {
                 logRequest('DETECT', '', '⚛️ Aplicação React detectada - monitorando hooks...', 'info');
             }

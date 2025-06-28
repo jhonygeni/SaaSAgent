@@ -139,7 +139,7 @@
         let loopThreshold = 5; // Number of identical requests to consider a loop
 
         // Update uptime display
-        setInterval(() => {
+        //DISABLED setInterval(() => {
             const uptime = Math.floor((Date.now() - startTime) / 1000);
             document.getElementById('uptime').textContent = uptime + 's';
         }, 1000);

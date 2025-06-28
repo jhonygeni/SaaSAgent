@@ -247,12 +247,12 @@
                 
                 // Small delay between tests
                 if (i < endpoints.length - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 500));
+                    await new Promise(resolve => //DISABLED setTimeout(resolve, 500));
                 }
             }
 
             // Show summary after all tests
-            setTimeout(showSummary, 1000);
+            //DISABLED setTimeout(showSummary, 1000);
         }
 
         function showSummary() {

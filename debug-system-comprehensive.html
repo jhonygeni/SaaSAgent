@@ -421,7 +421,7 @@
                 log('🔄 Carregando estatísticas gerais...');
                 
                 // Simular carregamento (substituir por APIs reais)
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                await new Promise(resolve => //DISABLED setTimeout(resolve, 1000));
                 
                 document.getElementById('instanceCount').textContent = '3';
                 document.getElementById('requestCount').textContent = '12';
@@ -567,12 +567,12 @@
                 for (let i = 0; i < 50; i++) {
                     fetch(`/api/debug/request-monitor?action=track&endpoint=/api/test/excessive`);
                     if (i % 10 === 0) {
-                        await new Promise(resolve => setTimeout(resolve, 100));
+                        await new Promise(resolve => //DISABLED setTimeout(resolve, 100));
                     }
                 }
                 
                 // Verificar resultados após simulação
-                setTimeout(() => monitorRequests('analyze'), 2000);
+                //DISABLED setTimeout(() => monitorRequests('analyze'), 2000);
                 
                 log('⚠️ Requisições excessivas simuladas', 'error');
                 
@@ -633,7 +633,7 @@
             log('⚡ Iniciando monitoramento em tempo real...', 'success');
             document.getElementById('realtimeBtn').textContent = '⏸️ Pausar';
             
-            realtimeInterval = setInterval(async () => {
+            realtimeInterval = //DISABLED setInterval(async () => {
                 try {
                     // Simular coleta de dados em tempo real
                     const timestamp = new Date().toLocaleTimeString();

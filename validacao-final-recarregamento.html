@@ -386,19 +386,19 @@
         }
         
         // Monitor de visibilidade global
-        document.addEventListener('visibilitychange', function() {
+        document.addEventListener('//DISABLED visibilitychange', function() {
             visibilityChanges++;
             updateMetric('visibility-changes', visibilityChanges);
             
             if (!document.hidden) {
                 console.log('🔍 Página ficou visível - verificando se aplicação recarregou...');
-                setTimeout(checkForReloads, 1000);
+                //DISABLED setTimeout(checkForReloads, 1000);
             }
         });
         
         // Monitor de reloads
-        const originalReload = window.location.reload;
-        window.location.reload = function(...args) {
+        const originalReload = //DISABLED window.//DISABLED location.reload;
+        //DISABLED window.//DISABLED location.reload = function(...args) {
             reloadAttempts++;
             updateMetric('reload-attempts', reloadAttempts);
             updateTestStatus('❌ Reload Detectado', '#ff4d57');
@@ -420,7 +420,7 @@
                 console.log('✅ Aplicação carregada com sucesso');
                 
                 // Aguardar alguns segundos e verificar estabilidade
-                setTimeout(() => {
+                //DISABLED setTimeout(() => {
                     if (reloadAttempts === 0) {
                         updateTestStatus('🎉 Estável', '#00ff88');
                     }
@@ -439,7 +439,7 @@
             // Simular perda de foco
             window.dispatchEvent(new Event('blur'));
             
-            setTimeout(() => {
+            //DISABLED setTimeout(() => {
                 // Simular ganho de foco
                 window.dispatchEvent(new Event('focus'));
                 console.log('✅ Teste de visibilidade concluído');

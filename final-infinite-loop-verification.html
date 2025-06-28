@@ -291,7 +291,7 @@
                 }
                 
                 // Small delay between polls
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                await new Promise(resolve => //DISABLED setTimeout(resolve, 1000));
             }
             
             log(`✅ Real API test completed after ${pollCount} polls`, 'success');
@@ -319,7 +319,7 @@
                     break;
                 }
                 
-                await new Promise(resolve => setTimeout(resolve, 500));
+                await new Promise(resolve => //DISABLED setTimeout(resolve, 500));
             }
         }
 
