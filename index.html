@@ -24,6 +24,34 @@
       gtag('js', new Date());
       gtag('config', 'AW-17288297420');
     </script>
+    
+    <!-- Event snippet for Visualização de página conversion page -->
+    <script>
+      window.gtag_conversion_pageview = function() {
+        gtag('event', 'conversion', {
+            'send_to': 'AW-17288297420/32EgCPaE3eYaEMz32bNA',
+            'value': 1.0,
+            'currency': 'BRL'
+        });
+      };
+    </script>
+    <!-- Event snippet for clique/conversion -->
+    <script>
+      function gtag_report_conversion(url) {
+        var callback = function () {
+          if (typeof(url) != 'undefined') {
+            window.location = url;
+          }
+        };
+        gtag('event', 'conversion', {
+            'send_to': 'AW-17288297420/32EgCPaE3eYaEMz32bNA',
+            'value': 1.0,
+            'currency': 'BRL',
+            'event_callback': callback
+        });
+        return false;
+      }
+    </script>
   </head>
 
   <body>

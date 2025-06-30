@@ -1,4 +1,3 @@
-
 import { PricingPlans } from "@/components/PricingPlans";
 import { Header } from "@/components/Header";
 import { useEffect } from "react";
@@ -43,6 +42,13 @@ const PlansPage = () => {
     // Check subscription status on page load
     checkSubscriptionStatus();
   }, [searchParams, checkSubscriptionStatus, toast]);
+  
+  // Dispara o evento de conversão de visualização de página do Google Ads
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.gtag_conversion_pageview) {
+      window.gtag_conversion_pageview();
+    }
+  }, []);
   
   return (
     <div className="flex flex-col min-h-screen">
