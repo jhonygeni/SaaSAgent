@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import {
   Dialog,
@@ -38,6 +37,7 @@ import { Agent, FAQ } from "@/types";
 import { useAgent } from "@/context/AgentContext";
 import { useToast } from "@/hooks/use-toast";
 import { useAgentWebhook, usePromptWebhook } from "@/hooks/use-webhook";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 interface EditAgentDialogProps {
   open: boolean;
@@ -208,7 +208,6 @@ export function EditAgentDialog({ open, onOpenChange, agentId }: EditAgentDialog
             Atualize as informações do seu agente de IA.
           </DialogDescription>
         </DialogHeader>
-        
         {errors.length > 0 && (
           <Card className="mb-6 p-4 border-destructive/50 bg-destructive/10">
             <div className="flex gap-2 items-center mb-2">
@@ -224,7 +223,6 @@ export function EditAgentDialog({ open, onOpenChange, agentId }: EditAgentDialog
             </ul>
           </Card>
         )}
-        
         {agentError && (
           <Card className="mb-6 p-4 border-destructive/50 bg-destructive/10">
             <div className="flex gap-2 items-center mb-2">
@@ -234,219 +232,227 @@ export function EditAgentDialog({ open, onOpenChange, agentId }: EditAgentDialog
             <p className="text-sm text-destructive">{agentError}</p>
           </Card>
         )}
-        
         <form onSubmit={handleSubmit} className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
-          <div className="grid gap-6">
-            <FormItem>
-              <div className="flex items-center justify-between">
-                <FormLabel>Nome do Agente</FormLabel>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="h-4 w-4 text-muted-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="max-w-xs">Nome que identifica o seu agente.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+          <Tabs defaultValue="empresa" className="w-full">
+            <TabsList className="mb-4 w-full flex justify-center">
+              <TabsTrigger value="empresa">Empresa</TabsTrigger>
+              <TabsTrigger value="prompt">Prompt</TabsTrigger>
+              <TabsTrigger value="faq">FAQ</TabsTrigger>
+            </TabsList>
+            <TabsContent value="empresa">
+              <div className="grid gap-6">
+                <FormItem>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>Nome do Agente <span className="text-destructive">*</span></FormLabel>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="max-w-xs">Nome que identifica o seu agente.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <FormControl>
+                    <Input
+                      placeholder="Ex: Assistente Virtual"
+                      value={currentAgent.nome}
+                      onChange={(e) => setCurrentAgent({...currentAgent, nome: e.target.value})}
+                      required
+                    />
+                  </FormControl>
+                </FormItem>
+                <FormItem>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>Site da Empresa</FormLabel>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="max-w-xs">URL do site da sua empresa.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <FormControl>
+                    <Input
+                      placeholder="Ex: www.minhaempresa.com.br"
+                      value={currentAgent.site}
+                      onChange={(e) => setCurrentAgent({...currentAgent, site: e.target.value})}
+                    />
+                  </FormControl>
+                </FormItem>
+                <FormItem>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>Área de Atuação <span className="text-destructive">*</span></FormLabel>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="max-w-xs">Setor de mercado da sua empresa.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <Select
+                    value={currentAgent.areaDeAtuacao}
+                    onValueChange={(value) => setCurrentAgent({...currentAgent, areaDeAtuacao: value as any})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a área de atuação" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {AREAS_DE_ATUACAO.map((area) => (
+                        <SelectItem key={area} value={area}>
+                          {area}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+                <FormItem>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>Informações da Empresa <span className="text-destructive">*</span></FormLabel>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="max-w-xs">Descreva detalhes sobre sua empresa.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Descreva sua empresa, produtos/serviços, missão..."
+                      className="min-h-[100px]"
+                      value={currentAgent.informacoes}
+                      onChange={(e) => setCurrentAgent({...currentAgent, informacoes: e.target.value})}
+                      required
+                    />
+                  </FormControl>
+                </FormItem>
               </div>
-              <FormControl>
-                <Input
-                  placeholder="Ex: Assistente Virtual"
-                  value={currentAgent.nome}
-                  onChange={(e) => setCurrentAgent({...currentAgent, nome: e.target.value})}
-                />
-              </FormControl>
-            </FormItem>
-
-            <FormItem>
-              <div className="flex items-center justify-between">
-                <FormLabel>Site da Empresa</FormLabel>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="h-4 w-4 text-muted-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="max-w-xs">URL do site da sua empresa.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-              <FormControl>
-                <Input
-                  placeholder="Ex: www.minhaempresa.com.br"
-                  value={currentAgent.site}
-                  onChange={(e) => setCurrentAgent({...currentAgent, site: e.target.value})}
-                />
-              </FormControl>
-            </FormItem>
-
-            <FormItem>
-              <div className="flex items-center justify-between">
-                <FormLabel>Área de Atuação</FormLabel>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="h-4 w-4 text-muted-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="max-w-xs">Setor de mercado da sua empresa.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-              <Select
-                value={currentAgent.areaDeAtuacao}
-                onValueChange={(value) => setCurrentAgent({...currentAgent, areaDeAtuacao: value as any})}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a área de atuação" />
-                </SelectTrigger>
-                <SelectContent>
-                  {AREAS_DE_ATUACAO.map((area) => (
-                    <SelectItem key={area} value={area}>
-                      {area}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FormItem>
-
-            <FormItem>
-              <div className="flex items-center justify-between">
-                <FormLabel>Informações da Empresa</FormLabel>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="h-4 w-4 text-muted-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="max-w-xs">Descreva detalhes sobre sua empresa.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-              <FormControl>
-                <Textarea
-                  placeholder="Descreva sua empresa, produtos/serviços, missão..."
-                  className="min-h-[100px]"
-                  value={currentAgent.informacoes}
-                  onChange={(e) => setCurrentAgent({...currentAgent, informacoes: e.target.value})}
-                />
-              </FormControl>
-            </FormItem>
-            
-            <FormItem>
-              <div className="flex items-center justify-between">
-                <FormLabel>Prompt do Agente</FormLabel>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="h-4 w-4 text-muted-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="max-w-xs">Este prompt será usado para definir o comportamento do seu agente.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-              <div className="flex items-center gap-2">
-                <FormControl className="flex-1">
-                  <Textarea
-                    placeholder="Descreva como seu agente deve se comportar..."
-                    className="min-h-[100px]"
-                    value={currentAgent.prompt || ""}
-                    onChange={(e) => setCurrentAgent({...currentAgent, prompt: e.target.value})}
-                  />
-                </FormControl>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  className="h-10 whitespace-nowrap"
-                  onClick={handleGeneratePrompt}
-                  disabled={isGeneratingPrompt || !currentAgent.areaDeAtuacao || !currentAgent.informacoes}
-                  loading={isGeneratingPrompt}
-                >
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Aprimorar
-                </Button>
-              </div>
-            </FormItem>
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="font-medium">Perguntas Frequentes (FAQ)</h3>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addFAQ}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Adicionar
-                </Button>
-              </div>
-
-              {currentAgent.faqs.length === 0 ? (
-                <div className="text-center py-4 border rounded-md border-dashed">
-                  <p className="text-sm text-muted-foreground">
-                    Adicione perguntas frequentes para que seu agente possa responder automaticamente.
-                  </p>
+            </TabsContent>
+            <TabsContent value="prompt">
+              <FormItem>
+                <div className="flex items-center justify-between">
+                  <FormLabel>Prompt do Agente <span className="text-destructive">*</span></FormLabel>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs">Este prompt será usado para definir o comportamento do seu agente.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
-              ) : (
-                <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
-                  {currentAgent.faqs.map((faq, index) => (
-                    <Card key={index} className="p-4 space-y-4">
-                      <div className="flex justify-between items-center">
-                        <h4 className="font-medium text-sm">Pergunta {index + 1}</h4>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeFAQ(index)}
-                        >
-                          <Trash className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                      <FormItem>
-                        <FormLabel className="text-sm">Pergunta</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="Ex: Qual o horário de funcionamento?"
-                            value={faq.pergunta}
-                            onChange={(e) =>
-                              updateFAQ(index, {
-                                ...faq,
-                                pergunta: e.target.value,
-                              })
-                            }
-                          />
-                        </FormControl>
-                      </FormItem>
-                      <FormItem>
-                        <FormLabel className="text-sm">Resposta</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Ex: Nosso horário de funcionamento é..."
-                            value={faq.resposta}
-                            onChange={(e) =>
-                              updateFAQ(index, {
-                                ...faq,
-                                resposta: e.target.value,
-                              })
-                            }
-                          />
-                        </FormControl>
-                      </FormItem>
-                    </Card>
-                  ))}
+                <div className="flex items-center gap-2 mt-2">
+                  <FormControl className="flex-1">
+                    <Textarea
+                      placeholder="Descreva como seu agente deve se comportar..."
+                      className="min-h-[120px]"
+                      value={currentAgent.prompt || ""}
+                      onChange={(e) => setCurrentAgent({...currentAgent, prompt: e.target.value})}
+                      required
+                    />
+                  </FormControl>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    className="h-10 whitespace-nowrap"
+                    onClick={handleGeneratePrompt}
+                    disabled={isGeneratingPrompt || !currentAgent.areaDeAtuacao || !currentAgent.informacoes}
+                    loading={isGeneratingPrompt}
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Aprimorar
+                  </Button>
                 </div>
-              )}
-            </div>
-          </div>
-          
+              </FormItem>
+            </TabsContent>
+            <TabsContent value="faq">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-medium">Perguntas Frequentes (FAQ)</h3>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addFAQ}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Adicionar
+                  </Button>
+                </div>
+                {currentAgent.faqs.length === 0 ? (
+                  <div className="text-center py-4 border rounded-md border-dashed">
+                    <p className="text-sm text-muted-foreground">
+                      Adicione perguntas frequentes para que seu agente possa responder automaticamente.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
+                    {currentAgent.faqs.map((faq, index) => (
+                      <Card key={index} className="p-4 space-y-4 animate-fade-in">
+                        <div className="flex justify-between items-center">
+                          <h4 className="font-medium text-sm">Pergunta {index + 1}</h4>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeFAQ(index)}
+                          >
+                            <Trash className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                        <FormItem>
+                          <FormLabel className="text-sm">Pergunta</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="Ex: Qual o horário de funcionamento?"
+                              value={faq.pergunta}
+                              onChange={(e) =>
+                                updateFAQ(index, {
+                                  ...faq,
+                                  pergunta: e.target.value,
+                                })
+                              }
+                            />
+                          </FormControl>
+                        </FormItem>
+                        <FormItem>
+                          <FormLabel className="text-sm">Resposta</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Ex: Nosso horário de funcionamento é..."
+                              value={faq.resposta}
+                              onChange={(e) =>
+                                updateFAQ(index, {
+                                  ...faq,
+                                  resposta: e.target.value,
+                                })
+                              }
+                            />
+                          </FormControl>
+                        </FormItem>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
           <DialogFooter>
             <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>
               Cancelar
